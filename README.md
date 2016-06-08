@@ -1,10 +1,10 @@
 genthat - test case generation for R
 =====
 
-[![Build Status](https://travis-ci.org/allr/testr.svg?branch=master)](https://travis-ci.org/allr/testr) 
-[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/allr/testr?branch=master&svg=true)](https://ci.appveyor.com/project/allr/testr)
-[![Coverage Status](http://codecov.io/github/allr/testr/coverage.svg?branch=master)](http://codecov.io/github/allr/testr?branch=master) 
-[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/testr)](http://cran.r-project.org/package=testr)
+[![Build Status](https://travis-ci.org/reactorlabs/genthat.svg?branch=master)](https://travis-ci.org/reactorlabs/genthat) 
+[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/reactorlabs/genthat?branch=master&svg=true)](https://ci.appveyor.com/project/reactorlabs/genthat)
+[![Coverage Status](http://codecov.io/github/reactorlabs/genthat/coverage.svg?branch=master)](http://codecov.io/github/reactorlabs/genthat?branch=master) 
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/genthat)](http://cran.r-project.org/package=genthat)
 
 *genthat* is a framework for unit tests generation from source code and for test execution, and filtering of test cases based on C code coverage using `gcov` and R code coverage using `covr`.
 
