@@ -146,6 +146,17 @@ extract_func_name <- function(filename, modify.characters = TRUE){
 #' @param ... Functions either as character vectors, or package:::function expressions.
 #' @return List of parsed package and function names as characters.
 parseFunctionNames <- function(...) {
+    recover <- function(e) {
+        a <- args[[i]]
+        if (is.name(a)) {
+            result[[i]] <<- c(name = as.character(a), package = NA)
+        } else if (is.language(a) && length(a) == 3 && as.character(a[[1]]) %in% c(":::", "::")) {
+            result[[i]] <<- c(name = as.character(a[[3]]), package = as.character(a[[2]]))
+        } else {
+            print("error")
+            stop(paste("Invalid argument index", i));
+        }
+    }
     args <- as.list(substitute(list(...)))[-1]
     i <- 1
     result <- list()
@@ -167,17 +178,7 @@ parseFunctionNames <- function(...) {
             } else {
                 stop("Use substitured value")
             }
-        }, error = function(e) {
-            a <- args[[i]]
-            if (is.name(a)) {
-                result[[i]] <<- c(name = as.character(a), package = NA)
-            } else if (is.language(a) && length(a) == 3 && a[[1]] %in% c(as.name(":::"), as.name("::"))) {
-                result[[i]] <<- c(name = as.character(a[[3]]), package = as.character(a[[2]]))
-            } else {
-                print("error")
-                stop(paste("Invalid argument index", i));
-            }
-        })
+        }, error = recover)
         i <- i + 1
     }
     result

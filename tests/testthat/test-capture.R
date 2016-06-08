@@ -1,11 +1,9 @@
 library(testr)
 library(testthat)
 
-context("Decoration")
+context("Capture")
 
-
-
-test_decoration <- function(functions) {
+test_capture_builtin <- function(functions) {
     testr_options("verbose", F)
     suppressWarnings(setup_capture(functions))
     check.dec <- sapply(functions, function(x) {
@@ -45,5 +43,22 @@ test_that('Can decorate functions (long)', {
 test_that('Can decorate functions', {
     # to get rid of randomness
     functions <- c("any", "alist", "double", "deparse", "is.logical", "isOpen", "log2", "mean.Date", "pmax", "sort", "sweep", "unsplit")
-    test_decoration(functions)
+    test_capture_builtin(functions)
+})
+
+test_that('Capture writes down all the calls for testthat:::comparison', {
+    capture_dir <- file.path("temp", "capture")
+    unlink(capture_dir, recursive = TRUE, force = TRUE)
+    dir.create(capture_dir, recursive = TRUE)
+    testr::testr_options("capture.folder", capture_dir)
+    trace("comparison", where = asNamespace("testthat"))
+    trace_example <- capture.output(suppressWarnings(example(compare)))
+    untrace("comparison", where = asNamespace("testthat"))
+    testr::start_capture(testthat:::comparison)
+    out <- capture.output(suppressWarnings(example(compare)))
+    testr::stop_capture_all()
+    lines <- readLines(file.path(capture_dir, "capture.0"))
+    expect_equal(length(grep(pattern = "Tracing comparison", trace_example)),
+                 length(grep(pattern = "func", lines)))
+    unlink(capture_dir, recursive = TRUE, force = TRUE)
 })

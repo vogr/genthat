@@ -1,6 +1,6 @@
 # this file is meant to replace main tracing function to properly update the imports environemnts
 # the appropriate patch already went in R 3.3.0, so this is needed only for previous versions
-
+# nocov start
 TraceWithMethods <- function (what, tracer = NULL, exit = NULL, at = numeric(), print = TRUE,
                                signature = NULL, where = .GlobalEnv, edit = FALSE, from = NULL,
                                untrace = FALSE, classMethod = FALSE)
@@ -309,4 +309,4 @@ refresh_decoration <- function(pkg) {
     sapply(need_redecoration, undecorate)
     sapply(need_redecoration, decorate)
 }
-
+# nocov end
