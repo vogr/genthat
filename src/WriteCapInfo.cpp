@@ -26,6 +26,13 @@ void printCapture(CharacterVector x, std::string prefix) {
     }
 }
 
+string serialize(SEXP value)
+{
+    Environment testr = Environment::namespace_env("testr");
+    Function Rfn("serialize");
+    return as<string>(Rfn(value));
+}
+
 int captureFileNumber = 0;
 
 // [[Rcpp::export]]
@@ -38,12 +45,13 @@ void WriteCapInfo_cpp (CharacterVector fname, SEXP args_env) {
         traceFile += "/";
         traceFile += as<string>(options("capture.file"));
         traceFile += ".";
-        char numstr[21];
-        sprintf(numstr, "%d", captureFileNumber);
-        traceFile += numstr;
+        traceFile += to_string(captureFileNumber);
         tracefile.open(traceFile.c_str(), std::ios::app);
         printCapture(fname, kFuncPrefix);
-        printCapture(deparse(GetArgs(args_env)), kArgsPrefix);
+
+        //printCapture(deparse(GetArgs(args_env)), kArgsPrefix);
+        printCapture(serialize(GetArgs(args_env)), kArgsPrefix);
+
         tracefile << std::endl;
         tracefile.close();
         // get file size
