@@ -11,7 +11,11 @@ test_capture_builtin <- function(functions) {
             return(TRUE)
         obj <- get(x, envir = getNamespace('base'))
         if (is.function(obj)) {
-            class(obj) == "functionWithTrace" || !testr:::eligible_capture(x) || testr:::is_s3_generic(x)
+            if (class(obj) == "functionWithTrace")
+                return(TRUE)
+            if (!testr:::eligible_capture(x))
+                return(TRUE)
+            testr:::is_s3_generic(x)
         } else {
             TRUE
         }
@@ -32,13 +36,17 @@ test_capture_builtin <- function(functions) {
     expect_false(any(check.dec))
 }
 
+test_that('unknown error', {
+    setup_capture("any")
+    testr:::is_s3_generic('sort')
+})
+
 test_that('Can decorate functions (long)', {
     skip_on_cran()
     # TODO reenable!!
     #functions <- builtins()
     #test_decoration(functions)
 })
-
 
 test_that('Can decorate functions', {
     # to get rid of randomness
@@ -62,3 +70,4 @@ test_that('Capture writes down all the calls for testthat:::comparison', {
                  length(grep(pattern = "func", lines)))
     unlink(capture_dir, recursive = TRUE, force = TRUE)
 })
+

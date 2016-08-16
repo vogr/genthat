@@ -1,0 +1,67 @@
+library(testr)
+library(testthat)
+library(datasets)
+
+context("Serialize")
+
+test_that('all.equal() passing', {
+    e1 <- as.environment(list(a = 3, c = 9))
+    e2 <- as.environment(list(a = 3, c = 9))
+    expect_true(isTRUE(all.equal(e1, e2)));
+})
+
+test_that('all.equal() not passing', {
+    e1 <- as.environment(list(a = 3, c = 9))
+    e2 <- as.environment(list(a = 4, c = 9))
+    expect_false(isTRUE(all.equal(e1, e2)));
+})
+
+test_that('testIsSyntacticName() reserved words', {
+    expect_false(testIsSyntacticName("if"));
+    expect_false(testIsSyntacticName("NaN"));
+})
+
+test_that('testIsSyntacticName() valid names', {
+    expect_true(testIsSyntacticName("my_ident"));
+    expect_true(testIsSyntacticName(".my_ident"));
+    expect_true(testIsSyntacticName("."));
+    expect_true(testIsSyntacticName("a"));
+})
+
+test_that('testIsSyntacticName() invalid names', {
+    expect_false(testIsSyntacticName("8abc"));
+    expect_false(testIsSyntacticName(".8abc"));
+    expect_false(testIsSyntacticName("_my_ident"));
+    expect_false(testIsSyntacticName("__GENTHAT_TYPE"));
+})
+
+test_that('Can serialize lists.', {
+    l1 <- list(a = 3, 4, c = 9)
+    s1 <- serialize(l1);
+    expect_true(is.character(s1))
+    l2 <- deserialize(s1);
+    expect_true(identical(l1, l2));
+})
+
+test_that('Can serialize environments.', {
+    e1 <- as.environment(list(a = 3, c = 9))
+    s1 <- serialize(e1);
+    expect_true(is.character(s1))
+    e2 <- deserialize(s1);
+    expect_true(isTRUE(all.equal(e1, e2)));
+})
+
+test_that('Big outputs should not be split into multiple strings.', {
+    x <- list(a = Seatbelts)
+    s <- serialize(x)
+    expect_type(s, "character")
+    expect_length(s, 1)
+})
+
+test_that('(deserialize . serialize) on big frame', {
+    x1 <- list(a = Seatbelts)
+    s <- serialize(x1)
+    x2 <- deserialize(s)
+    expect_equal(x1, x2)
+})
+

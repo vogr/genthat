@@ -9,6 +9,7 @@ is_s3_generic <- function(fname, env=.GlobalEnv) {
     if (is.null(body(f))) return(FALSE)
     uses <- codetools::findGlobals(f, merge = FALSE)$functions
     any(uses == "UseMethod")
+    #"UseMethod" %in% uses
 }
 
 #' @title Clean temporary directory

@@ -1,11 +1,34 @@
 
+e_msg <- function(x) TRUE 
+
+concat <- function(...) {
+    for (x in as.list(...)) {
+        stopifnot(length(x) == 1 && e_msg("Got vector argument to concat!"))
+    }
+    ret <- paste0(..., collapse="")
+    stopifnot(length(ret) == 1 && e_msg("Result of concat() is not single string!"))
+    ret
+}
+
+concatVec <- function(xs) {
+    ret <- paste(xs, collapse="")
+    stopifnot(length(ret) == 1 && e_msg("Result of concatVec() is not single string!"))
+    ret
+}
+
+#' @title Converts a value to a string
+#'
+#' @description TODO
+#'
+#' @param obj Value to serialize
+#' @export
 serialize <- function(obj) {
     if (is.environment(obj)) {
         serializeEnvironment(obj)
     } else if (is.list(obj)) {
         serializeList(obj)
     } else {
-        deparse(obj)
+        concatVec(deparse(obj))
     }
 }
 
@@ -27,7 +50,7 @@ escapeNonSyntacticName <- function(name) {
     if (isSyntacticName) {
         name
     } else {
-        paste('`', name, '`', sep="")
+        concat('`', name, '`')
     }
 }
 
@@ -38,7 +61,7 @@ serializeList <- function(lst) {
         if (length(keys) != 0 && keys[[i]] != "") {
             key <- keys[[i]]
             val <- lst[[key]]
-            pairs[key] <- paste(key, "=", serialize(val))
+            pairs[key] <- concat(key, "=", serialize(val))
         } else {
             key <- i
             val <- lst[[key]]

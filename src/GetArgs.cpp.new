@@ -1,0 +1,67 @@
+#include "testr.h"
+using namespace Rcpp;
+using namespace std;
+
+SEXP GetArgs(SEXP dotsE){
+  List args(0);
+
+  // docs: http://statr.me/rcpp-note/api/Environment.html
+  Environment dotsEnv(dotsE);
+  CharacterVector envNames = dotsEnv.ls(false);
+
+  for (int i=0; i < envNames.length(); i++)
+  {
+    string name = as<string>(envNames[i]);
+    SEXP nameSym = Rf_install(name.c_str());
+    SEXP unevaluatedArg = Rf_findVar(nameSym, dotsE);
+
+    if (!missing(nameSym, dotsE) &&
+        unevaluatedArg != R_UnboundValue &&
+        TYPEOF(unevaluatedArg) == PROMSXP) {
+      SEXP prcode = PRCODE(unevaluatedArg);
+      SEXP evalEnv = !Rf_isNull(PRENV(unevaluatedArg)) ? PRENV(unevaluatedArg) : dotsE;
+      int err = 0;
+      SEXP res = R_tryEvalSilent(unevaluatedArg, evalEnv, &err);
+      if(err){
+        args[name] = prcode;
+      } else {
+        args[name] = res;
+      }
+    } else {
+      // TODO shouldn't we at least print a warning? 
+      args[name] = R_NilValue; 
+      continue;
+    }
+  }
+
+  if (dotsEnv.exists("...")){
+    SEXP dots = dotsEnv.get("...");
+    vector<SEXP> promises;
+    int dArgs = 0;
+    if (dots != R_MissingArg) { 
+      for (; dots != R_NilValue; dots = CDR(dots))
+      {
+        promises.push_back(CAR(dots));
+        dArgs++;
+      }
+    }
+
+    for(int i = 0; i < dArgs; i++)
+    {
+      SEXP unevaluatedArg = promises[i];
+      if (unevaluatedArg != R_UnboundValue && TYPEOF(unevaluatedArg) == PROMSXP) {
+        SEXP prcode = PRCODE(unevaluatedArg);
+        SEXP evalEnv = !Rf_isNull(PRENV(unevaluatedArg)) ? PRENV(unevaluatedArg) : dotsE;
+        int err = 0;
+        SEXP res = R_tryEvalSilent(unevaluatedArg, evalEnv, &err);
+        if (err) {
+          args.push_back(prcode);
+        } else {
+          args.push_back(res);
+        }
+      }
+    }
+  }
+
+  return args;
+}

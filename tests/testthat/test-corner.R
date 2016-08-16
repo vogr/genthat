@@ -32,10 +32,12 @@ test_that('list_functions', {
 test_that('Missing argument corner case is fixed', {
   # was failing before 5fe109579d670a0ebf094215398410ca08c3749b
   suppressMessages(start_capture('qr.X'))
-  p <- ncol(x <- LifeCycleSavings[,-1]) # not the `sr'
-  qrstr <- qr(x)   # dim(x) == c(n,p)
-  X <- qr.X(qrstr) # X == x
-  dim(Xc <- qr.X(qrstr, complete=TRUE)) # square: nrow(x) ^ 2
+  x <- LifeCycleSavings[,-1]
+  p <- ncol(x)      # not the `sr'
+  qrstr <- qr(x)    # dim(x) == c(n,p)
+  X <- qr.X(qrstr)  # X == x
+  Xc <- qr.X(qrstr, complete=TRUE)
+  dim(Xc) # square: nrow(x) ^ 2
   dimnames(X) <- NULL
   testr::stop_capture_all()
   expect_true(all.equal(Xc[,1:p], X))

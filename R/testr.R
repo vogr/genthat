@@ -112,16 +112,16 @@ gen_from_package <- function(package.dir = ".", include.tests = FALSE, timed = F
         # vignettes are not expected to be runnable, silence errors
         invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
         # run package examples
-        manPath <- file.path(package.dir, "man")
-        examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
-        if (length(examples) != 0) {
-            if (verbose)
-                cat(paste("Running examples (", length(examples), "man files)\n"))
-            for (f in examples) {
-                code <- example_code(file.path(manPath, f))
-                tryCatch(eval(parse(text = code)), error=function(x) print(x))
-            }
-        }
+        #manPath <- file.path(package.dir, "man")
+        #examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
+        #if (length(examples) != 0) {
+        #    if (verbose)
+        #        cat(paste("Running examples (", length(examples), "man files)\n"))
+        #    for (f in examples) {
+        #        code <- example_code(file.path(manPath, f))
+        #        tryCatch(eval(parse(text = code)), error=function(x) print(x))
+        #    }
+        #}
         # run tests
         if (include.tests) {
             if (verbose)
