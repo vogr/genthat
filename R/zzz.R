@@ -11,6 +11,7 @@ kSymbPrefix <- "symb: "
 kValSPrefix <- "vsym: "
 kFuncPrefix <- "func: "
 kArgsPrefix <- "argv: "
+kRetvPrefix <- "retv: "
 
 blacklist <- c(".GlobalEnv", ".Internal", ".Primitive", "substitute",
                ".Machine", "on.exit",
@@ -98,11 +99,11 @@ testr_options <- function(o, value) {
         # if we are beginning to capture arguments, make sure the selected capture directory exists
         if (o == "capture.arguments" && value) {
             if (!file.exists(res[["capture.folder"]])) {
-                dir.create(res[["capture.folder"]])
+                dir.create(res[["capture.folder"]])     # TODO - why do we create a folder (not even recursively)
             } else if (!file.info(res[["capture.folder"]])$isdir) {
-                stop("Capture folder cannot be created")
+                stop("Capture folder cannot be created, file already exists!")
             }
-            cache$trace_path <- file.path(getwd(), res[["capture.folder"]])
+            cache$trace_path <- file.path(getwd(), res[["capture.folder"]]) # TODO - why prepending cwd ?
         }
         options("testr" = res)
     }

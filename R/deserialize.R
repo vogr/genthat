@@ -1,4 +1,11 @@
 
+
+#' @title Converts a string to a value
+#'
+#' @description TODO
+#'
+#' @param str string to parse
+#' @export
 deserialize <- function(str) {
     x <- eval(parse(text=str))
     traverse(x)

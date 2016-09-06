@@ -7,13 +7,14 @@
 using namespace Rcpp;
 
 // WriteCapInfo_cpp
-void WriteCapInfo_cpp(CharacterVector fname, SEXP args_env);
-RcppExport SEXP testr_WriteCapInfo_cpp(SEXP fnameSEXP, SEXP args_envSEXP) {
+void WriteCapInfo_cpp(CharacterVector fname, SEXP args_env, SEXP retv_env);
+RcppExport SEXP testr_WriteCapInfo_cpp(SEXP fnameSEXP, SEXP args_envSEXP, SEXP retv_envSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< CharacterVector >::type fname(fnameSEXP);
     Rcpp::traits::input_parameter< SEXP >::type args_env(args_envSEXP);
-    WriteCapInfo_cpp(fname, args_env);
+    Rcpp::traits::input_parameter< SEXP >::type retv_env(retv_envSEXP);
+    WriteCapInfo_cpp(fname, args_env, retv_env);
     return R_NilValue;
 END_RCPP
 }

@@ -228,3 +228,55 @@ example_code <- function(fromFile) {
         result = c(result, extract_example(cc))
     result
 }
+
+e_msg <- function(x) { TRUE }
+
+#' @title Expects string arguments and returns the concatenation of all of them.
+#'
+#' @description Every argument must me a single string.
+#'
+#' @param sep optional separator
+#' @return character scalar
+concat <- function(..., sep="") {
+    for (x in as.list(...)) {
+        stopifnot(length(x) == 1 && e_msg("Got vector argument to concat!"))
+    }
+    ret <- paste0(..., sep=sep, collapse="")
+    stopifnot(length(ret) == 1 && e_msg("Result of concat() is not single string!"))
+    ret
+}
+
+#' @title Expects exactly one character vector argument and returns all the elements concatenated together.
+#'
+#' @description Every argument must me a single string.
+#'
+#' @param sep optional separator
+#' @return character scalar
+concatVec <- function(xs, sep="") {
+    ret <- paste(xs, collapse=sep)
+    stopifnot(length(ret) == 1 && e_msg("Result of concatVec() is not single string!"))
+    ret
+}
+
+# https://stat.ethz.ch/R-manual/R-devel/library/base/html/Quotes.html
+testIsSyntacticName <- function(name) {
+    syntacticNameRegex <- '^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$'
+    reservedWords <- c(
+        'if', 'else', 'repeat', 'while', 'function', 'for', 'in', 'next',
+        'break', 'TRUE', 'FALSE', 'NULL', 'Inf', 'NaN', 'NA', 'NA_integer_',
+        'NA_real_', 'NA_complex_', 'NA_character_'
+    )
+    isReservedWord <- is.element(name, reservedWords)
+    matchesRegex <- length(grep(syntacticNameRegex, name, perl=TRUE))
+    !isReservedWord && matchesRegex
+}
+
+escapeNonSyntacticName <- function(name) {
+    isSyntacticName <- testIsSyntacticName(name)
+    if (isSyntacticName) {
+        name
+    } else {
+        concat('`', name, '`')
+    }
+}
+

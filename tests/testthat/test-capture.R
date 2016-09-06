@@ -71,3 +71,31 @@ test_that('Capture writes down all the calls for testthat:::comparison', {
     unlink(capture_dir, recursive = TRUE, force = TRUE)
 })
 
+withDir <- function(dir_name = tempdir(), code) {
+    if (!file.exists(dir_name)) {
+        dir.create(dir_name, recursive = TRUE)
+    }
+    tryCatch(
+        code()
+        #, finally = unlink(dir_name, recursive = TRUE, force = TRUE)
+    );
+}
+
+fn1 <- function(n) { n + 1 }
+envFn1 <- function(env1) { env1$a + env1$c }
+
+test_that('Can capture arguments of type environment', {
+    withDir("environment_capture2", function(dirname) {
+        stop_capture_all()
+        testr::testr_options("capture.folder", dirname)
+        testr::testr_options("capture.arguments", TRUE)
+
+        testr::decorate("get", 'base', verbose = TRUE)
+        e1 <- as.environment(list(a = 3, c = 9))
+        x <- get("a", envir=e1)
+        stop_capture_all()
+        generate("env_trace", verbose = TRUE)
+
+        testr::testr_options("capture.folder", "capture")
+    })
+})

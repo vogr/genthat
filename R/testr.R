@@ -33,7 +33,6 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
     install.packages(package.path, repos = NULL, quiet = T, type = "source")
     # get list of all functions
     package = devtools::as.package(package.dir)
-    # TODO I don't thing this line is needed anymore
     l <- library
     l(package = package$package, character.only = T)
     if (verbose)
@@ -67,6 +66,7 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
             output = file.path(package$path, "tests")
         }
     }
+    return()
     if (verbose)
         cat(paste("Generating tests to", output, "\n"))
     generate(output, verbose = verbose)
@@ -100,17 +100,17 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
 gen_from_package <- function(package.dir = ".", include.tests = FALSE, timed = FALSE, filter = TRUE, build = TRUE, output, verbose = testr_options("verbose")) {
     package = devtools::as.package(package.dir)
     devtools::document(package.dir)
-    detach(paste("package", package$package, sep=":"), unload = T, character.only = T)
+    detach(concat("package", ":", package$package), unload = T, character.only = T)
     f <- function() {
         # run package vignettes
-        info <- tools::getVignetteInfo(package = package$package)
-        vdir <- info[,2]
-        vfiles <- info[,6]
-        p <- file.path(vdir, "doc", vfiles)
-        if (verbose)
-            cat(paste("Running vignettes (", length(vfiles), "files)\n"))
+        #info <- tools::getVignetteInfo(package = package$package)
+        #vdir <- info[,2]
+        #vfiles <- info[,6]
+        #p <- file.path(vdir, "doc", vfiles)
+        #if (verbose)
+        #    cat(paste("Running vignettes (", length(vfiles), "files)\n"))
         # vignettes are not expected to be runnable, silence errors
-        invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
+        #invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
         # run package examples
         #manPath <- file.path(package.dir, "man")
         #examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
@@ -123,10 +123,17 @@ gen_from_package <- function(package.dir = ".", include.tests = FALSE, timed = F
         #    }
         #}
         # run tests
+
+        test_pkg_env <- function(package) {
+          list2env(as.list(getNamespace(package), all.names = TRUE),
+            parent = parent.env(getNamespace(package)))
+        }
+
         if (include.tests) {
             if (verbose)
                 cat("Running package tests\n")
-            testthat::test_dir(file.path(package.dir, "tests", "testthat"), filter = NULL)
+            test_path <- file.path(package.dir, "tests", "testthat")
+            testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
         }
     }
     if (missing(output))

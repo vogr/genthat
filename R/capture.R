@@ -45,21 +45,28 @@ decorate <- function(func, package, verbose) {
         warning("Not decorating S3 generic")
         return(invisible())
     }
-    write.call <- call("write_capture", if (is.na(package)) func else paste(package, func, sep=":::"), quote(sys.frame(-4))) #nolint
+    write.call <- call(
+        "write_capture",
+        if (is.na(package)) func else paste(package, if (testIsSyntacticName(func)) func else escapeNonSyntacticName(func), sep=":::"),
+        quote(sys.frame(-4)),
+        quote(returnValue())
+    ) #nolint
     tc <- call("trace",
                func,
-               quote(write.call),
+                quote(write.call),
                print = testr_options("verbose"))
     hidden <- FALSE
     if (!func %in% ls(as.environment(if (is.na(package)) .GlobalEnv else paste("package", package, sep=":")))) {
         tc[["where"]] <- call("getNamespace", package)
         hidden <- TRUE
     }
+
     if (verbose) {
         eval(tc)
     } else {
         suppressMessages(eval(tc))
     }
+
     .decorated[[func]] <- list(func=func, package=package, hidden=hidden)
 }
 
@@ -104,10 +111,10 @@ undecorate <- function(func, verbose) {
 #' @importFrom Rcpp evalCpp
 #' @export
 #'
-write_capture <- function(fname, args.env){
+write_capture <- function(fname, args.env, retv){
     if (!testr_options("capture.arguments"))
         return(NULL)
-    .Call("testr_WriteCapInfo_cpp", PACKAGE = "testr", fname, args.env)
+    .Call("testr_WriteCapInfo_cpp", PACKAGE = "testr", fname, args.env, retv)
 }
 
 #' @title Setup information capturing for list of function

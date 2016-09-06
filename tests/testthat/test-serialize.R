@@ -43,6 +43,14 @@ test_that('Can serialize lists.', {
     expect_true(identical(l1, l2));
 })
 
+test_that('Can serialize matrices', {
+    m1 <- matrix(1:4, nrow=2, ncol=2)
+    s1 <- serialize(m1);
+    expect_true(is.character(s1))
+    m2 <- deserialize(s1);
+    expect_true(identical(m1, m2));
+})
+
 test_that('Can serialize environments.', {
     e1 <- as.environment(list(a = 3, c = 9))
     s1 <- serialize(e1);
@@ -63,5 +71,14 @@ test_that('(deserialize . serialize) on big frame', {
     s <- serialize(x1)
     x2 <- deserialize(s)
     expect_equal(x1, x2)
+})
+
+test_that('Can serialize looped structures.', {
+    e1 <- as.environment(list(a = 3))
+    e2 <- as.environment(list(b = 4))
+    e1$child <- e2
+    e2$child <- e1
+    s1 <- tryCatch(serialize(e1), error = function(e) "<error>");
+    expect_true(!identical(s1, "<error>"));
 })
 
