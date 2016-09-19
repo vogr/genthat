@@ -17,39 +17,31 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
     cleanup = F
     # stop all ongoing captures
     stop_capture_all()
+    # prepare package
     if (build) {
-        if (verbose)
-            cat(paste("Building package", package.dir, "\n"))
+        if (verbose) message(paste("Building package", package.dir, "\n"))
         package.path = devtools::build(package.dir, quiet = ! verbose)
-        if (verbose)
-            cat(paste("  built into", package.dir, "\n"))
+        if (verbose) message(paste("  built into", package.dir, "\n"))
+        if (verbose) message(paste("Installing package", package.path, "\n"))
+        install.packages(package.path, repos = NULL, quiet = ! verbose, type = "source")
     } else {
         package.path = package.dir
     }
-    # install the package
-    if (verbose)
-        cat(paste("Installing package", package.path, "\n"))
-    #devtools:::install(package.name, quiet = T)
-    install.packages(package.path, repos = NULL, quiet = T, type = "source")
-    # get list of all functions
+    # load package
     package = devtools::as.package(package.dir)
-    l <- library
-    l(package = package$package, character.only = T)
-    if (verbose)
-        cat(paste("Package", package$package, "installed\n"))
-    # if function names were not specified,
+    # TODO (filippo) is this necessary ?
+    library(package = package$package, character.only = T, quiet = ! verbose)
+    if (verbose) message(paste("Package", package$package, "installed\n"))
     if (missing(functions)) {
         # get list of all functions defined in the package' R code
         functions <- list_functions(file.path(package$path, "R"))
-        if (verbose)
-            cat("All functions from package will be decorated\n")
+        if (verbose) message("All functions from package will be decorated\n")
     }
-    if (verbose)
-        cat(paste("Decorating",length(functions), "functions\n"))
-    # capture all functions in the package
+    if (verbose) message(paste("Decorating",length(functions), "functions\n"))
     for (f in functions) {
         decorate(f, package$package, verbose = verbose)
     }
+
     # start the capturing
     testr_options("capture.arguments", TRUE)
     # run the code
@@ -57,6 +49,7 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
     # stop capturing
     testr_options("capture.arguments", FALSE)
     stop_capture_all()
+
     # generate the tests to the output directory
     if (missing(output)) {
         if (filter) {
@@ -66,20 +59,22 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
             output = file.path(package$path, "tests")
         }
     }
-    return()
-    if (verbose)
-        cat(paste("Generating tests to", output, "\n"))
+    if (verbose) message(paste("Generating tests to", output, "\n"))
     generate(output, verbose = verbose)
+
     # filter, if enabled
     if (filter) {
         if (verbose)
             cat("Pruning tests - this may take some time...\n")
         filter_tests(output, file.path(package$path, "tests/testthat"), functions, package.dir, compact = T, verbose = verbose)
     }
+
     # clear the temp folder, if we used a temp folder implicitly
     if (cleanup)
         unlink(output, recursive = T)
-    detach(paste("package", package$package, sep=":"), unload = T, character.only = T)
+
+    # TODO (filippo) is this necessary ?
+    #detach(paste("package", package$package, sep=":"), unload = T, character.only = T)
 }
 
 
@@ -122,18 +117,10 @@ gen_from_package <- function(package.dir = ".", include.tests = FALSE, timed = F
         #        tryCatch(eval(parse(text = code)), error=function(x) print(x))
         #    }
         #}
-        # run tests
-
-        test_pkg_env <- function(package) {
-          list2env(as.list(getNamespace(package), all.names = TRUE),
-            parent = parent.env(getNamespace(package)))
-        }
 
         if (include.tests) {
-            if (verbose)
-                cat("Running package tests\n")
-            test_path <- file.path(package.dir, "tests", "testthat")
-            testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
+            if (verbose) message("Running package tests\n")
+            run_package_tests(package.dir)
         }
     }
     if (missing(output))
@@ -292,4 +279,23 @@ gen_from_source <- function(src.root, output_dir, ...) {
     invisible()
 }
 
+package_uses_testthat <- function(package.dir) {
+    test_path <- file.path(package.dir, "tests", "testthat")
+    file.exists(test_path)
+}
 
+test_pkg_env <- function(package) {
+  list2env(as.list(getNamespace(package), all.names = TRUE),
+    parent = parent.env(getNamespace(package)))
+}
+
+run_package_tests <- function(src.root, verbose) {
+    if (package_uses_testthat(src.root)) {
+        test_path <- file.path(src.root, "tests", "testthat")
+        testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
+    } else if (file.exists(file.path(src.root, "tests"))) {
+        run_R_tests(src.root, verbose = TRUE)
+    } else {
+        if (verbose) message("Package has no tests!")
+    }
+}

@@ -4,7 +4,7 @@
 \alias{generate_tc}
 \title{Generates a testcase for closure function}
 \usage{
-generate_tc(symb, vsym, func, argv)
+generate_tc(symb, vsym, func, argv, retv)
 }
 \arguments{
 \item{symb}{symbols to be initialized before the call}

@@ -4,7 +4,7 @@
 \alias{write_capture}
 \title{Write down capture information}
 \usage{
-write_capture(fname, args.env)
+write_capture(fname, args.env, retv)
 }
 \arguments{
 \item{fname}{function name}

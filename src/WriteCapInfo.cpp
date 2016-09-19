@@ -31,31 +31,25 @@ void printCapture(CharacterVector x, std::string prefix) {
     }
 }
 
+SEXP serialize_error = nullptr;
+
+// [[Rcpp::export]]
+SEXP serialize_error_handler(SEXP e)
+{
+    serialize_error = e;
+    return e;
+}
+
 string serialize(SEXP value)
 {
     Environment testr = Environment::namespace_env("testr");
     Function Rfn(testr.find("serialize"));
+    serialize_error = nullptr;
     SEXP res = Rfn(value);
-    cout << "computed value!" << endl;
-    SEXP resType = Rf_getAttrib(res, Rf_install("class"));
-    cout << "got res type:" << endl;
-    print(resType);
-    if (Rf_isNull(resType)) {
-        cout << "is null!" << endl;
-        print(res);
-        cout << "is list: " << Rf_isList(res) << endl;
-        string sres = as<string>(res);
-        cout << "converted to string!" << endl;
-        return sres;
+    if (serialize_error != nullptr) {
+        throw serialization_error(as<string>(serialize_error));
     } else {
-        if (as<string>(resType) == "GENTHAT_SERIALIZE_ERROR") {
-            cout << "is error" << endl;
-            SEXP errMsg = Rf_getAttrib(res, Rf_install("message"));
-            throw serialization_error(as<string>(errMsg));
-        } else {
-            cout << "is unknown" << endl;
-            throw serialization_error("unexpected return value from serialize()");
-        }
+        return as<string>(res);
     }
 }
 
@@ -73,9 +67,9 @@ void WriteCapInfo_cpp (CharacterVector fname, SEXP args_env, SEXP retv_env) {
     Environment testr = Environment::namespace_env("testr");
     Function options("testr_options");
     Environment cache = testr.get("cache");
+    SEXP originalErrMsg = Function("geterrmessage")();
     if (as<bool>(options("IO"))) {
 
-        cout << ("TRACE START!") << endl;
         string traceFile = as<string>(cache.get("trace_path"));
         traceFile += "/";
         traceFile += as<string>(options("capture.file"));
@@ -104,12 +98,13 @@ void WriteCapInfo_cpp (CharacterVector fname, SEXP args_env, SEXP retv_env) {
         tracefile << std::endl;
         tracefile.close();
 
-        cout << ("TRACE END!") << endl;
-
         if (get_file_size(traceFile) > MAX_FILE_SIZE)
             captureFileNumber++;
     } else {
         GetArgs(args_env);
     }
+
+    Function replaceError(testr.find("replaceError"));
+    replaceError(originalErrMsg);
 }
 
