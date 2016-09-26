@@ -94,17 +94,15 @@ ensure_file <- function(name) {
 process_capture <- function(cap_file){
   lines <- readLines(cap_file)
   cache$i <- 1
-  while (cache$i < length(lines)){
+  pkgName <- read_value(lines, kPkgPrefix)
+  while (cache$i < length(lines)) {
     # read test case information
-    symbol.values <- read_symbol_values(lines)
-    symb <- symbol.values[[1]]
-    vsym <- symbol.values[[2]]
     func <- read_value(lines, kFuncPrefix)
     args <- read_value(lines, kArgsPrefix)
     retv <- read_value(lines, kRetvPrefix)
 
     if (args != "<unserializable>") {
-        feedback <- generate_tc(symb, vsym, func, args, retv)
+        feedback <- generate_tc(pkgName, func, args, retv)
 
         #### see what we get
         if (feedback$type == "err") {
@@ -121,129 +119,96 @@ process_capture <- function(cap_file){
           stop("Unexpected generate_tc() return value!");
         }
     }
-
-    cache$i <- cache$i + 1
   }
-}
-
-
-read_symbol_values <- function(lines){
-  k_sym <- 1
-  k_value <- 1
-  symb <- vector()
-  vsym <- vector()
-  symb[k_sym] <- ""
-  vsym[k_value] <- ""
-  while (starts_with(kSymbPrefix, lines[cache$i])){
-    symb[k_sym] <- paste(symb[k_sym], substr_line(lines[cache$i]), sep = "")
-    cache$i <- cache$i + 1
-    k_sym <- k_sym + 1
-    symb[k_sym] <- ""
-    vsym[k_value] <- read_value(lines, kValSPrefix)
-    k_value <- k_value + 1
-    vsym[k_value] <- ""
-  }
-  length(symb) <- length(symb) - 1
-  length(vsym) <- length(vsym) - 1
-  return(list(symb, vsym))
 }
 
 read_value <- function(lines, prefix){
   value <- vector()
   j <- cache$i
-  while (starts_with(prefix, lines[j])){
-    value <- c(value, substr_line(lines[j]))
-    j <- j + 1
+  while (TRUE) {
+    if (identical(lines[j], "")) {
+      j <- j + 1
+      next
+    } else if (starts_with(prefix, lines[j])) {
+      value <- c(value, strip_prefix(prefix, lines[j]))
+      j <- j + 1
+    } else {
+      break
+    }
   }
   cache$i <- j
-  return(paste(value, collapse="\n", sep=""))
+  paste(value, collapse="\n", sep="")
 }
 
 #' @title Generates a testcase for closure function
 #'
 #' @description This function generates a test case for builtin function using supplied arguments. All elements should be given as text.
-#' @param symb symbols to be initialized before the call
-#' @param vsym values of the symbols
 #' @param func function name
 #' @param argv input arguments for a closure function call
 #' @seealso test_gen ProcessClosure
-generate_tc <- function(symb, vsym, func, argv, retv) {
-
-  # DOESN'T SEEM TO BE USED ANYMORE
-  # check validity of symbol values and construct part of the test
-  # invalid.symbols <- vector()
-  # variables <- ""
-  # if (length(symb) > 0 && symb[1] != ""){
-  #   for (i in 1:length(vsym)){
-  #     symbol <- paste(symb[i], "<-", vsym[i])
-  #     if (!parse_eval(symbol)){
-  #       invalid.symbols <- c(invalid.symbols, i)
-  #     } else {
-  #       variables <- paste(variables, symbol, "\n")
-  #     }
-  #   }
-  #   if (length(invalid.symbols) != 0){
-  #     symb <- symb[-invalid.symbols]
-  #     vsym <- vsym[-invalid.symbols]
-  #   }
-  # }
-
+generate_tc <- function(pkgName, func, argv, retv) {
   # check validity of arguments
   valid.argv <- tryCatch(deserialize(argv), error = function(e) "GENTHAT_UNPARSEABLE")
   valid.retv <- tryCatch(deserialize(retv), error = function(e) "GENTHAT_UNPARSEABLE")
 
-  # proper argument should always be packed in a list
+  # proper arguments should always be packed in a list
   if (identical(valid.argv, "GENTHAT_UNPARSEABLE") || identical(valid.retv, "GENTHAT_UNPARSEABLE")) {
       list(
           type = "err",
           err_type = "UNPARSEABLE",
-          msg = concat("func:", func, "\nargv:", argv, "\nretv:", retv, "\n")
+          msg = paste(
+            paste0("cause: ", "UNPARSEABLE"),
+            paste0("func: ", func),
+            paste0("argv: ", argv),
+            paste0("retv: ", retv),
+            "\n",
+            sep = "\n"
+          )
       )
   } else {
       cache$warns <- NULL
       cache$errs <- NULL
 
       fn <- eval(parse(text=func))
-      call <- as.call(append(fn, valid.argv))
-
-      #retv <- withCallingHandlers(
-      #    eval(call), 
-      #    error=function(e) {
-      #       cache$errs <- e$message
-      #    },
-      #    warning=function(w) {
-      #        cache$warns <- ifelse(is.null(cache$warns), w$message, paste(cache$warns, w$message, sep="; "))
-      #        invokeRestart("muffleWarning")
-      #    },
-      #    silent = TRUE
-      #)
+      call <- as.call(if (0 == length(valid.argv)) list(fn) else append(fn, valid.argv))
 
 	  new.retv <- withCallingHandlers(
                     tryCatch(
-                        eval(call, envir = getNamespace("ggplot2")),
-                        error=function(e) cache$errs <- e$message,
-                        silent = TRUE # what is this?
+                        eval(call, envir = getNamespace(pkgName)),
+                        error = function(e) cache$errs <- e$message
                     ),
                     warning=function(w) {
-                         cache$warns <- ifelse(is.null(cache$warns), w$message, paste(cache$warns, w$message, sep="; "))
-                         invokeRestart("muffleWarning")
+                        cache$warns <- ifelse(is.null(cache$warns), w$message, paste(cache$warns, w$message, sep="; "))
+                        invokeRestart("muffleWarning")
                     }
               )
 
-      if (!identical(valid.retv, new.retv)) {
+      if (is.null(cache$errs) && !identical(valid.retv, new.retv)) {
           print(valid.retv)
           print(new.retv)
           list(
               type = "err",
               err_type = "RETV_MISMATCH",
-              msg = concat("func:", func, "\nargv:", argv, "\nretv:", retv, "\ncomputed.retv:", serialize(new.retv), "\n")
+              msg = paste(
+                paste0("cause: ", "RETV_MISMATCH"),
+                paste0("func: ", func),
+                paste0("argv: ", argv),
+                paste0("retv: ", retv),
+                paste0("computed.retv: ", serialize(new.retv)),
+                "\n",
+                sep = "\n"
+             )
           )
       } else {
           argSources <- Map(function(arg) { concat("deserialize(", toStringLiteral(serialize(arg)), ")") }, valid.argv)
           callSource <- concat(func, "(", listToArgumentList(argSources), ")")
 
           if (!is.null(cache$errs)) {
-              test_body <- paste("expect_error({\n", callSource, "}\n,", deparse(cache$errs), ")\n")
+              test_body <- paste(
+                "\texpect_error({\n",
+                "\t", callSource, "}\n,",
+                "\t", deparse(cache$errs), ")\n"
+              )
           } else {
               test_body <- concat(
                   "\texpected <- deserialize(", toStringLiteral(serialize(quoter(new.retv))), ")\n",
@@ -251,7 +216,7 @@ generate_tc <- function(symb, vsym, func, argv, retv) {
               )
           }
 
-          warningChecks <- paste("\texpect_warning(", callSource, ", ", deparse(cache$warns), ")\n", sep="")
+          warningChecks <- if (!is.null(cache$warns) && length(cache$warns) > 0) paste("\texpect_warning(", callSource, ", ", deparse(cache$warns), ")\n", sep="") else ""
 
           src <- concat(
             "test_that(", deparse(func), ", {\n",

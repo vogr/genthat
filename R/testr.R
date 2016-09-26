@@ -13,7 +13,7 @@
 #' @param verbose Prints additional information.
 #' @export
 
-gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE, exclude_existing_tests = FALSE, build = TRUE, timed = FALSE, output, verbose = testr_options("verbose")) {
+gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE, exclude_existing_tests = FALSE, build = TRUE, timed = FALSE, output, verbose = testr_options("verbose"), clear_capture = TRUE) {
     cleanup = F
     # stop all ongoing captures
     stop_capture_all()
@@ -29,6 +29,7 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
     }
     # load package
     package = devtools::as.package(package.dir)
+    cache$pkg.name <- package$package
     # TODO (filippo) is this necessary ?
     library(package = package$package, character.only = T, quiet = ! verbose)
     if (verbose) message(paste("Package", package$package, "installed\n"))
@@ -60,7 +61,7 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
         }
     }
     if (verbose) message(paste("Generating tests to", output, "\n"))
-    generate(output, verbose = verbose)
+    generate(output, verbose = verbose, clear_capture = clear_capture)
 
     # filter, if enabled
     if (filter) {
@@ -92,41 +93,46 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
 #' @param verbose Prints additional information.
 #' @export
 #'
-gen_from_package <- function(package.dir = ".", include.tests = FALSE, timed = FALSE, filter = TRUE, build = TRUE, output, verbose = testr_options("verbose")) {
+gen_from_package <- function(package.dir = ".", include.tests = FALSE, include.vignettes = FALSE, include.manPages = FALSE, timed = FALSE, filter = TRUE, build = TRUE, output, verbose = testr_options("verbose"), clear_capture = TRUE) {
     package = devtools::as.package(package.dir)
     devtools::document(package.dir)
     detach(concat("package", ":", package$package), unload = T, character.only = T)
     f <- function() {
-        # run package vignettes
-        #info <- tools::getVignetteInfo(package = package$package)
-        #vdir <- info[,2]
-        #vfiles <- info[,6]
-        #p <- file.path(vdir, "doc", vfiles)
-        #if (verbose)
-        #    cat(paste("Running vignettes (", length(vfiles), "files)\n"))
-        # vignettes are not expected to be runnable, silence errors
-        #invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
-        # run package examples
-        #manPath <- file.path(package.dir, "man")
-        #examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
-        #if (length(examples) != 0) {
-        #    if (verbose)
-        #        cat(paste("Running examples (", length(examples), "man files)\n"))
-        #    for (f in examples) {
-        #        code <- example_code(file.path(manPath, f))
-        #        tryCatch(eval(parse(text = code)), error=function(x) print(x))
-        #    }
-        #}
-
-        if (include.tests) {
-            if (verbose) message("Running package tests\n")
-            run_package_tests(package.dir)
+        if (include.vignettes)
+        {
+            info <- tools::getVignetteInfo(package = package$package)
+            vdir <- info[,2]
+            vfiles <- info[,6]
+            p <- file.path(vdir, "doc", vfiles)
+            if (verbose) message(paste("Running vignettes (", length(vfiles), "files)\n"))
+            # vignettes are not expected to be runnable, silence errors
+            invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
         }
+        if (include.manPages)
+        {
+            # run package examples
+            manPath <- file.path(package.dir, "man")
+            examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
+            if (length(examples) != 0) {
+                if (verbose)
+                    cat(paste("Running examples (", length(examples), "man files)\n"))
+                for (f in examples) {
+                    code <- example_code(file.path(manPath, f))
+                    tryCatch(eval(parse(text = code)), error=function(x) print(x))
+                }
+            }
+        }
+        if (include.tests)
+        {
+            if (verbose) message("Running package tests\n")
+            run_package_tests(package.dir, verbose)
+        }
+
     }
     if (missing(output))
-        gen_from_function(package.dir, code = f , filter = filter, exclude_existing_tests = include.tests, build = build, timed = timed, verbose = verbose)
+        gen_from_function(package.dir, code = f , filter = filter, exclude_existing_tests = include.tests, build = build, timed = timed, verbose = verbose, clear_capture = clear_capture)
     else
-        gen_from_function(package.dir, code = f , filter = filter, exclude_existing_tests = include.tests, build = build, timed = timed, output, verbose = verbose)
+        gen_from_function(package.dir, code = f , filter = filter, exclude_existing_tests = include.tests, build = build, timed = timed, output = output, verbose = verbose, clear_capture = clear_capture)
 }
 
 #' @title Enables capturing of the specified functions.
@@ -193,6 +199,7 @@ stop_capture_all <- function(verbose = testr_options("verbose")) {
 #' @export
 generate <- function(output_dir, root = testr_options("capture.folder"),
                      timed = F, clear_capture = T, verbose = testr_options("verbose")) {
+    cat("GENERATING TESTS!!!\n")
     cache$output.dir <- output_dir
     test_gen(root, output_dir, timed, verbose = verbose);
     if (clear_capture) {
@@ -291,6 +298,7 @@ test_pkg_env <- function(package) {
 
 run_package_tests <- function(src.root, verbose) {
     if (package_uses_testthat(src.root)) {
+        package <- devtools::as.package(src.root)
         test_path <- file.path(src.root, "tests", "testthat")
         testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
     } else if (file.exists(file.path(src.root, "tests"))) {

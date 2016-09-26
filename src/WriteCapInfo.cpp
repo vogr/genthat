@@ -13,6 +13,7 @@ public:
     serialization_error(string msg) : msg(msg) {}
 };
 
+std::string kPkgPrefix  = "pkg: ";
 std::string kFuncPrefix = "func: ";
 std::string kArgsPrefix = "argv: ";
 std::string kRetvPrefix = "retv: ";
@@ -20,14 +21,12 @@ std::string kRetvPrefix = "retv: ";
 std::ofstream tracefile;
 
 void printCapture(CharacterVector x, std::string prefix) {
-    if (x[0] != "NULL"){
-        if (x.length() < 1000) {
-            for (int i = 0; i < x.length(); i++) {
-                tracefile << prefix << x[i] << std::endl;
-            }
-        } else {
-            tracefile << prefix << "<too long>" << std::endl;
+    if (x.length() < 1000) {
+        for (int i = 0; i < x.length(); i++) {
+            tracefile << prefix << x[i] << std::endl;
         }
+    } else {
+        tracefile << prefix << "<too long>" << std::endl;
     }
 }
 
@@ -76,6 +75,11 @@ void WriteCapInfo_cpp (CharacterVector fname, SEXP args_env, SEXP retv_env) {
         traceFile += ".";
         traceFile += to_string(captureFileNumber);
         tracefile.open(traceFile.c_str(), std::ios::app);
+
+        if (get_file_size(traceFile) == 0) {
+            string pkgName = as<string>(cache.get("pkg.name"));
+            tracefile << kPkgPrefix << pkgName << std::endl << std::endl;
+        }
 
         string args;
         try {

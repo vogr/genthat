@@ -52,17 +52,11 @@ quoter <- function(arg) {
 #' @title Removes prefixes and quote from line
 #'
 #' @description Used for processing capture file information. Deletes prefixes to get essential information
-#' @param l input line
+#' @param prefix prefix
+#' @param line input line
 #' @seealso ProcessClosure
-substr_line <- function(l){
-    if (grepl("^quote\\(", l)){
-        ret.line <- strsplit(l, "\\(")[[1]][2];
-        if (substr(ret.line, nchar(ret.line), nchar(ret.line)) == ")")
-            ret.line <- substr(ret.line, 0, nchar(ret.line) - 1)
-    } else {
-        ret.line <- substr(l, 7, nchar(l))
-    }
-    ret.line
+strip_prefix <- function(prefix, line){
+    substr(line, nchar(prefix) + 1, nchar(line))
 }
 
 #' @title Check line's starting prefix

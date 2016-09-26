@@ -55,7 +55,16 @@ replaceError <- function(errMsg) {
             deparse(obj)
         } else {
             serialized.elements <- sapply(obj, function(x) .serialize(x, visited))
-            concat("c(", concatVec(serialized.elements, sep=", "), ")")
+            vec <- concat("c(", concatVec(serialized.elements, sep=", "), ")")
+            if (is.null(attributes(obj))) {
+                vec
+            } else {
+                attr.assignments <- Map(function(att.name) {
+                    att.value <- .serialize(attr(obj, att.name), visited = visited)
+                    paste0(", ", att.name, " = ", att.value)
+                }, names(attributes(obj)))
+                paste0("structure(", vec, paste(attr.assignments, collapse=""), ")")
+            }
         }
     } else if (is.factor(obj)) {
         deparse(obj)
@@ -73,6 +82,7 @@ serializeList <- function(lst, visited) {
         val <- lst[[i]]
         serialized.val <- .serialize(val, visited)
         if (length(keys) != 0 && keys[[i]] != "") {
+            # TODO keys containing special chars must be quoted
             key <- keys[[i]]
             pairs[key] <- concat(key, "=", serialized.val)
         } else {

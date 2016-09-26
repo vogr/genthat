@@ -7,6 +7,7 @@ cache$output.dir <- NA
 cache$arguments <- list()
 .decorated <- new.env()
 
+kPkgPrefix  <- "pkg: "
 kSymbPrefix <- "symb: "
 kValSPrefix <- "vsym: "
 kFuncPrefix <- "func: "
