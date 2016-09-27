@@ -49,11 +49,11 @@ decorate <- function(func, package, verbose) {
         "write_capture",
         if (is.na(package)) func else paste(package, if (testIsSyntacticName(func)) func else escapeNonSyntacticName(func), sep=":::"),
         quote(sys.frame(-4)),
-        quote(returnValue(default = "<GENTHAT_NO_RET_VAL>"))
+        quote(1)
     ) #nolint
     tc <- call("trace",
                func,
-               exit = quote(write.call),
+               quote(write.call),
                print = testr_options("verbose"))
     hidden <- FALSE
     if (!func %in% ls(as.environment(if (is.na(package)) .GlobalEnv else paste("package", package, sep=":")))) {

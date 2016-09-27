@@ -25,6 +25,7 @@ mapList <- function(lst, fn) {
             ret.val[[key]] <- fn(val)
         }
     }
+    attributes(ret.val) <- attributes(lst)
     ret.val
 }
 

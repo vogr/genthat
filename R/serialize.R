@@ -61,7 +61,7 @@ replaceError <- function(errMsg) {
             } else {
                 attr.assignments <- Map(function(att.name) {
                     att.value <- .serialize(attr(obj, att.name), visited = visited)
-                    paste0(", ", att.name, " = ", att.value)
+                    paste0(", ", escapeNonSyntacticName(att.name), " = ", att.value)
                 }, names(attributes(obj)))
                 paste0("structure(", vec, paste(attr.assignments, collapse=""), ")")
             }
@@ -82,8 +82,7 @@ serializeList <- function(lst, visited) {
         val <- lst[[i]]
         serialized.val <- .serialize(val, visited)
         if (length(keys) != 0 && keys[[i]] != "") {
-            # TODO keys containing special chars must be quoted
-            key <- keys[[i]]
+            key <- escapeNonSyntacticName(keys[[i]])
             pairs[key] <- concat(key, "=", serialized.val)
         } else {
             key <- i

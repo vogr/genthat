@@ -27,8 +27,10 @@ SEXP GetArgs(SEXP dotsE)
   for (int i = 0; i < envNames.length(); i++)
   {
     string name = as<string>(envNames[i]);
-    SEXP unevaluatedArg = dotsEnv.get(name);
-    args[name] = unevaluatedArg; 
+    if (!missing(Rf_install(name.c_str()), dotsE)) {
+        SEXP unevaluatedArg = dotsEnv.get(name);
+        args[name] = unevaluatedArg; 
+    }
   }
 
   // dot arguments

@@ -183,7 +183,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
                     }
               )
 
-      if (is.null(cache$errs) && !identical(valid.retv, new.retv)) {
+      if (FALSE) {
           print(valid.retv)
           print(new.retv)
           list(
@@ -206,7 +206,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
           if (!is.null(cache$errs)) {
               test_body <- paste(
                 "\texpect_error({\n",
-                "\t", callSource, "}\n,",
+                "\t", callSource, "},\n",
                 "\t", deparse(cache$errs), ")\n"
               )
           } else {
