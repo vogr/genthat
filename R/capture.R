@@ -1,3 +1,43 @@
+
+call_id_counter <- new.env(parent = emptyenv())
+
+call_id_counter$value <- 0
+
+force_rebind <- function(what, value, env) {
+    sym <- as.name(what)
+    .Internal(unlockBinding(sym, env))
+    assign(what, value, env)
+    .Internal(lockBinding(sym, env))
+}
+
+overwrite_export <- function(name, val, package) {
+    pkg.namespace_env <- getNamespace(package)
+    pkg.package_env <- as.environment(paste0("package:", package))
+    force_rebind(name, val, pkg.namespace_env)
+    is.exported <- exists(name, envir = pkg.package_env, inherits = FALSE)
+    if (is.exported) {
+        force_rebind(name, val, pkg.package_env)
+        rev_dep.imports_envs <- tryCatch(getNamespaceUsers(package), error = function(e) c())
+        lapply(rev_dep.imports_envs, function(imports_env) force_rebind(name, val, imports_env))
+    }
+    invisible(NULL)
+}
+
+#' @title Decorates function to capture calls and return values
+#'
+#' @description More sane replacement of the base::trace function.
+#' @param func_name function name
+#' @param package package name
+#' @param tracer expression to insert at beginning of function body
+#' @export
+#'
+genthat_trace <- function(func_name, package, tracer) {
+    pkg_namespace <- getNamespace(package)
+    func <- pkg_namespace[[func_name]]
+    body(func) <- substitute({ tracer; original.body }, list(tracer = tracer, original.body = body(func)));
+    overwrite_export(func_name, func, package)
+}
+
 #' @title Decorates function to capture calls and return values
 #'
 #' @description This function is respinsible for writing down capture information for decorated function calls.
@@ -6,7 +46,6 @@
 #' @param package name of package to look for function
 #' @param verbose if to print additional output
 #' @export
-#' @seealso write_capture
 #'
 decorate <- function(func, package, verbose) {
     if (identical(class(library), "function") && getRversion() < '3.3.0') {
@@ -45,27 +84,36 @@ decorate <- function(func, package, verbose) {
         warning("Not decorating S3 generic")
         return(invisible())
     }
-    write.call <- call(
-        "write_capture",
-        if (is.na(package)) func else paste(package, if (testIsSyntacticName(func)) func else escapeNonSyntacticName(func), sep=":::"),
-        quote(sys.frame(-4)),
-        quote(1)
-    ) #nolint
-    tc <- call("trace",
-               func,
-               quote(write.call),
-               print = testr_options("verbose"))
-    hidden <- FALSE
-    if (!func %in% ls(as.environment(if (is.na(package)) .GlobalEnv else paste("package", package, sep=":")))) {
-        tc[["where"]] <- call("getNamespace", package)
-        hidden <- TRUE
-    }
+    tracer.expr <- substitute({
+        call_id <- call_id_counter$value
+        assign("value", call_id + 1, call_id_counter)
 
-    if (verbose) {
-        eval(tc)
-    } else {
-        suppressMessages(eval(tc))
-    }
+        #print(paste0("call to: ", fname))
+        args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
+        #print(paste0("resolved call to: ", fname))
+
+        testr:::enter_function(
+            fname,
+            args,
+            call_id
+        )
+
+        exit.expr <- substitute({
+            testr:::exit_function(c)
+        }, list(
+            c = call_id
+        ))
+
+        on.exit(eval(exit.expr))
+
+    }, as.environment(list(
+        fname = if (is.na(package)) func else paste(package, escapeNonSyntacticName(func), sep=":::"),
+        call_id_counter = call_id_counter
+    ))) #nolint
+
+    hidden <- !func %in% ls(as.environment(if (is.na(package)) .GlobalEnv else paste("package", package, sep=":")))
+
+    genthat_trace(func, package, tracer.expr)
 
     .decorated[[func]] <- list(func=func, package=package, hidden=hidden)
 }
@@ -76,9 +124,10 @@ decorate <- function(func, package, verbose) {
 #' @param func function name as a character string
 #' @param verbose if to print additional output
 #' @export
-#' @seealso write_capture Decorate
+#' @seealso Decorate
 #'
 undecorate <- function(func, verbose) {
+    return()
     if (class(func) == "character"){
         fname <- func
     } else {
@@ -101,6 +150,7 @@ undecorate <- function(func, verbose) {
     rm(list=c(func), envir=.decorated)
 }
 
+
 #' @title Write down capture information
 #'
 #' @description This function is respinsible for writing down capture information for decorated function calls.
@@ -111,10 +161,26 @@ undecorate <- function(func, verbose) {
 #' @importFrom Rcpp evalCpp
 #' @export
 #'
-write_capture <- function(fname, args.env, retv) {
+enter_function <- function(fname, args.env, call_id) {
     if (!testr_options("capture.arguments"))
         return(NULL)
-    .Call("testr_WriteCapInfo_cpp", PACKAGE = "testr", fname, args.env, retv)
+    .Call("testr_enterFunction_cpp", PACKAGE = "testr", fname, args.env, call_id)
+}
+
+#' @title Write down capture information
+#'
+#' @description This function is respinsible for writing down capture information for decorated function calls.
+#' @param fname function name
+#' @param args.env environment to read arguments to function call from
+#' @seealso Decorate
+#' @useDynLib testr
+#' @importFrom Rcpp evalCpp
+#' @export
+#'
+exit_function <- function(call_id) {
+    if (!testr_options("capture.arguments"))
+        return(NULL)
+    .Call("testr_exitFunction_cpp", PACKAGE = "testr", call_id, returnValue())
 }
 
 #' @title Setup information capturing for list of function

@@ -4,13 +4,9 @@
 \alias{generate_tc}
 \title{Generates a testcase for closure function}
 \usage{
-generate_tc(symb, vsym, func, argv, retv)
+generate_tc(pkgName, func, argv, retv)
 }
 \arguments{
-\item{symb}{symbols to be initialized before the call}
-
-\item{vsym}{values of the symbols}
-
 \item{func}{function name}
 
 \item{argv}{input arguments for a closure function call}

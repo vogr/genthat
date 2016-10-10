@@ -17,15 +17,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// WriteCapInfo_cpp
-void WriteCapInfo_cpp(CharacterVector fname, SEXP args_env, SEXP retv_env);
-RcppExport SEXP testr_WriteCapInfo_cpp(SEXP fnameSEXP, SEXP args_envSEXP, SEXP retv_envSEXP) {
+// enterFunction_cpp
+void enterFunction_cpp(CharacterVector fname, SEXP args_list, SEXP call_id);
+RcppExport SEXP testr_enterFunction_cpp(SEXP fnameSEXP, SEXP args_listSEXP, SEXP call_idSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< CharacterVector >::type fname(fnameSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type args_env(args_envSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type args_list(args_listSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type call_id(call_idSEXP);
+    enterFunction_cpp(fname, args_list, call_id);
+    return R_NilValue;
+END_RCPP
+}
+// exitFunction_cpp
+void exitFunction_cpp(SEXP call_id, SEXP retv_env);
+RcppExport SEXP testr_exitFunction_cpp(SEXP call_idSEXP, SEXP retv_envSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type call_id(call_idSEXP);
     Rcpp::traits::input_parameter< SEXP >::type retv_env(retv_envSEXP);
-    WriteCapInfo_cpp(fname, args_env, retv_env);
+    exitFunction_cpp(call_id, retv_env);
     return R_NilValue;
 END_RCPP
 }

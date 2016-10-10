@@ -5,7 +5,11 @@ serialize_error_handler <- function(e) {
     .Call('testr_serialize_error_handler', PACKAGE = 'testr', e)
 }
 
-WriteCapInfo_cpp <- function(fname, args_env, retv_env) {
-    invisible(.Call('testr_WriteCapInfo_cpp', PACKAGE = 'testr', fname, args_env, retv_env))
+enterFunction_cpp <- function(fname, args_list, call_id) {
+    invisible(.Call('testr_enterFunction_cpp', PACKAGE = 'testr', fname, args_list, call_id))
+}
+
+exitFunction_cpp <- function(call_id, retv_env) {
+    invisible(.Call('testr_exitFunction_cpp', PACKAGE = 'testr', call_id, retv_env))
 }
 

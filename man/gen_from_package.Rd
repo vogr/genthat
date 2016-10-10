@@ -4,8 +4,10 @@
 \alias{gen_from_package}
 \title{Generates tests for a package by running the code associated with it.}
 \usage{
-gen_from_package(package.dir = ".", include.tests = FALSE, timed = FALSE,
-  filter = TRUE, build = TRUE, output, verbose = testr_options("verbose"))
+gen_from_package(package.dir = ".", include.tests = FALSE,
+  include.vignettes = FALSE, include.manPages = FALSE, timed = FALSE,
+  filter = TRUE, build = TRUE, output, verbose = testr_options("verbose"),
+  clear_capture = TRUE)
 }
 \arguments{
 \item{package.dir}{Name/path to the package, uses devtools notation.}

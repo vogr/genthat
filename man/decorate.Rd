@@ -17,7 +17,4 @@ decorate(func, package, verbose)
 This function is respinsible for writing down capture information for decorated function calls.
 Replaces the function by decorated function in the global environment
 }
-\seealso{
-write_capture
-}
 

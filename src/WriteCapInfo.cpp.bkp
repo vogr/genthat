@@ -65,23 +65,23 @@ inline int get_file_size(std::string path)
 map<int,pair<string,string>> cached_args;
 
 // [[Rcpp::export]]
-void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
+void enterFunction_cpp (CharacterVector fname, SEXP args_env, SEXP call_id) {
     Environment testr = Environment::namespace_env("testr");
     Function options("testr_options");
     Environment cache = testr.get("cache");
     SEXP originalErrMsg = Function("geterrmessage")();
     if (as<bool>(options("IO"))) {
 
-        //print(args_list);
+        print(args_env);
         string args;
         try {
-            args = serialize(args_list);
+            args = serialize(GetArgs(args_env));
         } catch (serialization_error e) {
             args = "<unserializable " + e.msg + ">";
         }
 
-        //cout << "called :" << fname << "()" << endl;
-        //cout << "with args :" << args << endl;
+        cout << "called :" << fname << "()" << endl;
+        cout << "with args :" << args << endl;
         cached_args.emplace(as<int>(call_id), make_pair(as<string>(fname), args));
     }
     Function replaceError(testr.find("replaceError"));
@@ -90,50 +90,46 @@ void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
 
 // [[Rcpp::export]]
 void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
-    SEXP originalErrMsg = PROTECT(Function("geterrmessage")());
     Environment testr = Environment::namespace_env("testr");
     Function options("testr_options");
     Environment cache = testr.get("cache");
-
-    auto cached_call = cached_args.find(as<int>(call_id));
-    if (cached_call == cached_args.end()) {
-        cerr << "Terminated non-initialized call!" <<endl;
-        return;
-    }
-    auto call = cached_call->second;
-    string fname = call.first;
-    string args = call.second;
-    cached_args.erase(cached_call);
-
-    string retv;
-    try {
-        retv = serialize(retv_env);
-    } catch (serialization_error e) {
-        retv = "<unserializable " + e.msg + ">";
-    }
-
+    SEXP originalErrMsg = Function("geterrmessage")();
     if (as<bool>(options("IO"))) {
+
         string traceFile = as<string>(cache.get("trace_path"));
         traceFile += "/";
         traceFile += as<string>(options("capture.file"));
         traceFile += ".";
         traceFile += to_string(captureFileNumber);
         tracefile.open(traceFile.c_str(), std::ios::app);
+
         if (get_file_size(traceFile) == 0) {
             string pkgName = as<string>(cache.get("pkg.name"));
             tracefile << kPkgPrefix << pkgName << std::endl << std::endl;
         }
+
+        auto cached_call = cached_args.find(as<int>(call_id))->second;
+        string fname = cached_call.first;
+        string args = cached_call.second;
+
+        string retv;
+        try {
+            retv = serialize(retv_env);
+        } catch (serialization_error e) {
+            retv = "<unserializable " + e.msg + ">";
+        }
+
         printCapture(fname, kFuncPrefix);
         printCapture(args, kArgsPrefix);
         printCapture(retv, kRetvPrefix);
+
         tracefile << std::endl;
         tracefile.close();
+
         if (get_file_size(traceFile) > MAX_FILE_SIZE)
             captureFileNumber++;
     }
-
     Function replaceError(testr.find("replaceError"));
     replaceError(originalErrMsg);
-    UNPROTECT_PTR(originalErrMsg);
 }
 

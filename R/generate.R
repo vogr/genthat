@@ -183,9 +183,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
                     }
               )
 
-      if (FALSE) {
-          print(valid.retv)
-          print(new.retv)
+      if (!identical(new.retv, valid.retv)) {
           list(
               type = "err",
               err_type = "RETV_MISMATCH",

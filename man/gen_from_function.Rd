@@ -6,7 +6,7 @@
 \usage{
 gen_from_function(package.dir = ".", code, functions, filter = TRUE,
   exclude_existing_tests = FALSE, build = TRUE, timed = FALSE, output,
-  verbose = testr_options("verbose"))
+  verbose = testr_options("verbose"), clear_capture = TRUE)
 }
 \arguments{
 \item{package.dir}{Name/path to the package, uses devtools notation}
