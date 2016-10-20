@@ -1,2 +1,2 @@
-PKG_CPPFLAGS = -I../inst/include
+PKG_CPPFLAGS = -I../inst/include -lpcre
 PKG_CXXFLAGS = -std=c++11 -g -O0

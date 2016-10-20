@@ -1,6 +1,13 @@
 #include <Rcpp.h>
 
+#include <string>
+#include <pcre.h>
+#include <chrono>
+
+using namespace std;
+
 #ifdef HAHA
+
 
 typedef SEXP (*CCODE)(SEXP, SEXP, SEXP, SEXP);
 
@@ -80,4 +87,25 @@ SEXP pop_args();
 bool missing(SEXP, SEXP);
 SEXP GetArgs(SEXP);
 
+class serialization_error : public std::exception {
+public:
+    const string msg;
+    serialization_error(string msg) : msg(msg) {}
+    string to_string() { return "<SERIALIZATION_ERROR: " + msg + ">"; }
+};
 
+class sexp_not_implemented : public serialization_error {
+public:
+    const string sexp_type;
+    sexp_not_implemented(string sexp_type) : sexp_type(sexp_type), serialization_error("SEXP type " + sexp_type + " not implemented!") {}
+    string to_string() { return "serialization for SEXP type " + sexp_type + " not implemented!"; }
+};
+
+class cycle_in_structure : public serialization_error {
+public:
+    cycle_in_structure() : serialization_error("Serialized data structure contains cycle!") {}
+    string to_string() { return "Serialized data structure contains cycle!"; }
+};
+
+string StringFromReal(double x);
+string serialize_cpp(SEXP s);

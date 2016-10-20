@@ -8,12 +8,6 @@
 using namespace Rcpp;
 using namespace std;
 
-class serialization_error : public std::exception {
-public:
-    const string msg;
-    serialization_error(string msg) : msg(msg) {}
-};
-
 std::string kPkgPrefix  = "pkg: ";
 std::string kFuncPrefix = "func: ";
 std::string kArgsPrefix = "argv: ";
@@ -75,7 +69,7 @@ void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
         //print(args_list);
         string args;
         try {
-            args = serialize(args_list);
+            args = serialize_cpp(args_list);
         } catch (serialization_error e) {
             args = "<unserializable " + e.msg + ">";
         }
@@ -107,7 +101,7 @@ void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
 
     string retv;
     try {
-        retv = serialize(retv_env);
+        retv = serialize_cpp(retv_env);
     } catch (serialization_error e) {
         retv = "<unserializable " + e.msg + ">";
     }

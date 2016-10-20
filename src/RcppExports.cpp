@@ -6,6 +6,17 @@
 
 using namespace Rcpp;
 
+// serialize_r
+SEXP serialize_r(SEXP s);
+RcppExport SEXP testr_serialize_r(SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_r(s));
+    return rcpp_result_gen;
+END_RCPP
+}
 // serialize_error_handler
 SEXP serialize_error_handler(SEXP e);
 RcppExport SEXP testr_serialize_error_handler(SEXP eSEXP) {

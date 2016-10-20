@@ -4,10 +4,12 @@
 \alias{genthat_trace}
 \title{Decorates function to capture calls and return values}
 \usage{
-genthat_trace(func, tracer)
+genthat_trace(func_name, package, tracer)
 }
 \arguments{
-\item{func}{function name as a character string}
+\item{func_name}{function name}
+
+\item{package}{package name}
 
 \item{tracer}{expression to insert at beginning of function body}
 }

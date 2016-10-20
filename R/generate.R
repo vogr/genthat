@@ -148,6 +148,7 @@ read_value <- function(lines, prefix){
 #' @seealso test_gen ProcessClosure
 generate_tc <- function(pkgName, func, argv, retv) {
   # check validity of arguments
+  deserialize <- function(x) eval(parse(text=x))
   valid.argv <- tryCatch(deserialize(argv), error = function(e) "GENTHAT_UNPARSEABLE")
   valid.retv <- tryCatch(deserialize(retv), error = function(e) "GENTHAT_UNPARSEABLE")
 
@@ -183,7 +184,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
                     }
               )
 
-      if (!identical(new.retv, valid.retv)) {
+      if (FALSE ) {#!all.equal(new.retv, valid.retv)) {
           list(
               type = "err",
               err_type = "RETV_MISMATCH",
@@ -192,13 +193,13 @@ generate_tc <- function(pkgName, func, argv, retv) {
                 paste0("func: ", func),
                 paste0("argv: ", argv),
                 paste0("retv: ", retv),
-                paste0("computed.retv: ", serialize(new.retv)),
+                paste0("computed.retv: ", serialize_r(new.retv)),
                 "\n",
                 sep = "\n"
              )
           )
       } else {
-          argSources <- Map(function(arg) { concat("deserialize(", toStringLiteral(serialize(arg)), ")") }, valid.argv)
+          argSources <- Map(serialize_r, valid.argv)
           callSource <- concat(func, "(", listToArgumentList(argSources), ")")
 
           if (!is.null(cache$errs)) {
@@ -209,7 +210,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
               )
           } else {
               test_body <- concat(
-                  "\texpected <- deserialize(", toStringLiteral(serialize(quoter(new.retv))), ")\n",
+                  "\texpected <- ", serialize_r(quoter(new.retv)), "\n",
                   "\texpect_equal(", callSource, ", expected)\n"
               )
           }
