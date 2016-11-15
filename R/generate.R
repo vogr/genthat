@@ -73,7 +73,7 @@ ensure_file <- function(name) {
     tc.folder = file.path(cache$output_dir, fname, fsep = .Platform$file.sep)
     dir.create(tc.folder, showWarnings = FALSE)
     # get the index of the file, based on number of files in the folder (but use the cache information for it)
-    cache$tid[[name]] <- ifelse(is.null(cache$tid[[name]]), -1, cache$tid[[name]] + 1)
+    cache$tid[[name]] <- if (is.null(cache$tid[[name]])) { 0 } else { cache$tid[[name]] + 1 }
     tc.file = file.path(tc.folder, paste("test-", cache$tid[[name]], ".R", sep=""), fsep = .Platform$file.sep)
     # the file should not exist
     if (!file.create(tc.file))
@@ -162,7 +162,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
             paste0("func: ", func),
             paste0("argv: ", argv),
             paste0("retv: ", retv),
-            "\n",
+            "",
             sep = "\n"
           )
       )
@@ -170,6 +170,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
       cache$warns <- NULL
       cache$errs <- NULL
 
+      cat(paste0("generating from call to: ", func, "\n"))
       fn <- eval(parse(text=func))
       call <- as.call(if (0 == length(valid.argv)) list(fn) else append(fn, valid.argv))
 
@@ -184,7 +185,9 @@ generate_tc <- function(pkgName, func, argv, retv) {
                     }
               )
 
-      if (FALSE ) {#!all.equal(new.retv, valid.retv)) {
+      et <- system.time({ sameRetv <- !isTRUE(all.equal(new.retv, valid.retv)) })[1]
+      cat(paste0("all.equal time: ", et, " seconds\n"))
+      if (sameRetv) {
           list(
               type = "err",
               err_type = "RETV_MISMATCH",
@@ -194,7 +197,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
                 paste0("argv: ", argv),
                 paste0("retv: ", retv),
                 paste0("computed.retv: ", serialize_r(new.retv)),
-                "\n",
+                "",
                 sep = "\n"
              )
           )

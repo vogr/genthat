@@ -31,20 +31,6 @@ static Rboolean hasAttributes(SEXP s)
     return FALSE;
 }
 
-static string serialize_env(SEXP s)
-{
-    SEXP names = R_lsInternal3(s, TRUE, FALSE);
-    int n = XLENGTH(names);
-    string elems = "";
-    for (int i = 0; i < n; i++)
-    {
-        SEXP key = STRING_ELT(names, i);
-        SEXP value = Rf_findVarInFrame(s, Rf_install(CHAR(key)));
-        elems += (i == 0 ? "" : ", ") + string(CHAR(key)) + "=" + serialize_cpp0(value);
-    }
-    return "as.environment(list(" + elems + "))";
-}
-
 static string simple_real_to_string(double val)
 {
     static char buff[1000];
@@ -54,7 +40,7 @@ static string simple_real_to_string(double val)
 
 static string real_to_string(double val)
 {
-    return R_IsNA(val)  ? "NA" :
+    return R_IsNA(val)  ? "NA_real_" :
            R_IsNaN(val) ? "NaN" :
            val == R_PosInf ? "Inf" :
            val == R_NegInf ? "-Inf" : StringFromReal(val);
@@ -66,7 +52,7 @@ static string complex_scalar_to_string(Rcomplex val)
     double imag = val.i;
     bool isNA = (R_IsNA(real) || R_IsNA(imag));
     if (isNA) {
-        return "NA";
+        return "NA_complex_";
     } else {
         string real_str = real_to_string(real);
         string imag_str = real_to_string(imag) + "i";
@@ -183,7 +169,7 @@ string symbol_to_attrib_key(SEXP a)
  */
 string wrap_in_attributes(SEXP s, string s_str)
 {
-    PROTECT(s);
+    RObject protected_s(s);
     if (hasAttributes(s)) {
         string elems = "";
 		for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a))
@@ -192,10 +178,8 @@ string wrap_in_attributes(SEXP s, string s_str)
                 elems += ", " + symbol_to_attrib_key(a) + "=" + serialize_cpp0(CAR(a));
             }
 		}
-        UNPROTECT(1);
         return "structure(" + s_str + elems + ")";
     } else {
-        UNPROTECT(1);
         return s_str;
     }
 }
@@ -254,11 +238,35 @@ string serialize_cpp(SEXP s)
 
     std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
     auto diffTime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-    cout << "serialize duration: " << diffTime << "ms" << endl;
+    cout << "serialize duration: " << diffTime << "μs" << endl;
 
     visited_environments.clear();
     return res;
 }
+
+string escape_list_key(string name)
+{
+    if (is_syntactic_name(name.c_str())) {
+        return name;
+    } else {
+        return "`" + escape_attrib_name(name.c_str()) + "`";
+    }
+}
+
+static string serialize_env(SEXP s)
+{
+    SEXP names = R_lsInternal3(s, TRUE, FALSE);
+    int n = XLENGTH(names);
+    string elems = "";
+    for (int i = 0; i < n; i++)
+    {
+        SEXP key = STRING_ELT(names, i);
+        SEXP value = Rf_findVarInFrame(s, Rf_install(CHAR(key)));
+        elems += (i == 0 ? "" : ", ") + escape_list_key(string(CHAR(key))) + "=" + serialize_cpp0(value);
+    }
+    return "as.environment(list(" + elems + "))";
+}
+
 
 string serialize_cpp0(SEXP s)
 {
@@ -266,117 +274,96 @@ string serialize_cpp0(SEXP s)
     case NILSXP:
         return "NULL";
     case VECSXP: { /* lists */
-        PROTECT(s);
-        try {
-            int n = XLENGTH(s);
-            string ret = "list(";
-            SEXP names = Rf_getAttrib(s, R_NamesSymbol);
-            for (int i = 0 ; i < n ; i++)
-            {
-                SEXP val = VECTOR_ELT(s, i);
-                string label = (names == R_NilValue || string(CHAR(STRING_ELT(names, i))) == "") ?
-                                    "" :
-                                    (string(CHAR(STRING_ELT(names, i))) + "=");
-                ret += string(i == 0 ? "" : ",") + label + serialize_cpp0(val);
-            }
-            ret += ")";
-            UNPROTECT(1);
-            return wrap_in_attributes(s, ret);
-        } catch (std::exception e) {
-            UNPROTECT(1);
-            throw;
-        } }
-    case LGLSXP:
-        throw sexp_not_implemented("EXPRSXP");
+        RObject protected_s(s);
+        int n = XLENGTH(s);
+        string ret = "list(";
+        SEXP names = Rf_getAttrib(s, R_NamesSymbol);
+        for (int i = 0 ; i < n ; i++)
+        {
+            SEXP val = VECTOR_ELT(s, i);
+            string label = (names == R_NilValue || string(CHAR(STRING_ELT(names, i))) == "") ?
+                                "" :
+                                (escape_list_key(string(CHAR(STRING_ELT(names, i)))) + "=");
+            ret += string(i == 0 ? "" : ",") + label + serialize_cpp0(val);
+        }
+        ret += ")";
+        return wrap_in_attributes(s, ret);}
+    case LGLSXP: {
+        RObject protected_s(s);
+        int n = XLENGTH(s);
+        string elems = "";
+        for (int i = 0; i < n; i++)
+        {
+            int val = LOGICAL(s)[i];
+            string str_val = (val == NA_LOGICAL) ? "NA" : (val == 0) ? "FALSE" : "TRUE";
+            elems += (i == 0 ? "" : ",") + str_val;
+        }
+        return wrap_in_attributes(s, n == 0 ? "logical(0)" : n == 1 ? elems : "c(" + elems + ")"); }
     case INTSXP: {
-        PROTECT(s);
-        try {
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                int val = INTEGER(s)[i];
-                string str_val = val == NA_INTEGER ? "NA" : (to_string(val) + "L");
-                elems += (i == 0 ? "" : ",") + str_val;
-            }
-            UNPROTECT(1);
-            return wrap_in_attributes(s, n == 1 ? elems : "c(" + elems + ")");
-        } catch (std::exception e) {
-            UNPROTECT(1);
-            throw;
-        } }
+        RObject protected_s(s);
+        int n = XLENGTH(s);
+        string elems = "";
+        for (int i = 0; i < n; i++)
+        {
+            int val = INTEGER(s)[i];
+            string str_val = val == NA_INTEGER ? "NA_integer_" : (to_string(val) + "L");
+            elems += (i == 0 ? "" : ",") + str_val;
+        }
+        return wrap_in_attributes(s, n == 0 ? "integer(0)" : n == 1 ? elems : "c(" + elems + ")"); }
     case REALSXP: {
-        PROTECT(s);
-        try {
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
+        RObject protected_s(s);
+        int n = XLENGTH(s);
+        string elems = "";
+        for (int i = 0; i < n; i++)
+        {
+            double val = REAL(s)[i];
+            for (int j = 0; j < sizeof(double); j++)
             {
-                double val = REAL(s)[i];
-                for (int j = 0; j < sizeof(double); j++)
-                {
-                    string str_val = char_to_hex(((unsigned char *) &val)[j]);
-                    elems += ((i == 0 && j == 0) ? "" : ",") + str_val;
-                }
+                string str_val = char_to_hex(((unsigned char *) &val)[j]);
+                elems += ((i == 0 && j == 0) ? "" : ",") + str_val;
             }
-            UNPROTECT(1);
-            string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"double\")";
-            return wrap_in_attributes(s, decoded);
-        } catch (std::exception e) {
-            UNPROTECT(1);
-            throw;
-        } }
+        }
+        string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"double\")";
+        return wrap_in_attributes(s, n == 0 ? "double(0)" : decoded); }
     case CPLXSXP: {
-        PROTECT(s);
-        try {
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
+        RObject protected_s(s);
+        int n = XLENGTH(s);
+        string elems = "";
+        for (int i = 0; i < n; i++)
+        {
+            Rcomplex val = COMPLEX(s)[i];
+
+            double real = val.r;
+            for (int j = 0; j < sizeof(double); j++)
             {
-                Rcomplex val = COMPLEX(s)[i];
-
-                double real = val.r;
-                for (int j = 0; j < sizeof(double); j++)
-                {
-                    string str_val = char_to_hex(((unsigned char *) &real)[j]);
-                    elems += ((i == 0 && j == 0) ? "" : ",") + str_val;
-                }
-
-                double imag = val.i;
-                for (int j = 0; j < sizeof(double); j++)
-                {
-                    string str_val = char_to_hex(((unsigned char *) &imag)[j]);
-                    elems += "," + str_val;
-                }
+                string str_val = char_to_hex(((unsigned char *) &real)[j]);
+                elems += ((i == 0 && j == 0) ? "" : ",") + str_val;
             }
-            UNPROTECT(1);
-            string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"complex\")";
-            return wrap_in_attributes(s, decoded);
-        } catch (std::exception e) {
-            UNPROTECT(1);
-            throw;
-        } }
+
+            double imag = val.i;
+            for (int j = 0; j < sizeof(double); j++)
+            {
+                string str_val = char_to_hex(((unsigned char *) &imag)[j]);
+                elems += "," + str_val;
+            }
+        }
+        string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"complex\")";
+        return wrap_in_attributes(s, n == 0 ? "complex(0)" : decoded); }
     case STRSXP: {
-        PROTECT(s);
-        try {
-            int n = XLENGTH(s);
-            SEXP attrs = ATTRIB(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                SEXP val = STRING_ELT(s, i);
-                string str_val = "NA";
-                if (val != NA_STRING) {
-                    str_val = to_string_literal(CHAR(val));
-                }
-                elems += (i == 0 ? "" : ",") + str_val;
+        RObject protected_s(s);
+        int n = XLENGTH(s);
+        SEXP attrs = ATTRIB(s);
+        string elems = "";
+        for (int i = 0; i < n; i++)
+        {
+            SEXP val = STRING_ELT(s, i);
+            string str_val = "NA_character_";
+            if (val != NA_STRING) {
+                str_val = to_string_literal(CHAR(val));
             }
-            UNPROTECT(1);
-            return wrap_in_attributes(s, n == 1 ? elems : "c(" + elems + ")");
-        } catch (std::exception e) {
-            UNPROTECT(1);
-            throw;
-        } }
+            elems += (i == 0 ? "" : ",") + str_val;
+        }
+        return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")"); }
     case SYMSXP:
         throw sexp_not_implemented("SYMSXP");
     case ENVSXP:

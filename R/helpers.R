@@ -190,11 +190,11 @@ parseFunctionNames <- function(...) {
 list_functions <- function(src.root, recursive = TRUE) {
     functions = character()
     if (file.info(src.root)$isdir)
-        src.root <- list.files(src.root, pattern = "[rR]$", recursive = recursive, full.names = T)
+        src.root <- list.files(src.root, pattern = "\\.[rRsS]$", recursive = recursive, full.names = T)
     for (src.file in src.root) {
         exp <- parse(src.file)
         for (e in exp) {
-            if (typeof(e) == "language" && e[[1]] == as.name("<-") && is.name(e[[2]])) {
+            if (typeof(e) == "language" && (e[[1]] == as.name("<-") || e[[1]] == as.name("=")) && is.name(e[[2]])) {
                 name <- e[[2]]
                 what <- e[[3]]
                 if (typeof(what) == "language" && what[[1]] == as.name("function")) {

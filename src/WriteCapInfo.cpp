@@ -76,6 +76,7 @@ void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
 
         //cout << "called :" << fname << "()" << endl;
         //cout << "with args :" << args << endl;
+        cout << "args map size: " << cached_args.size() << endl;
         cached_args.emplace(as<int>(call_id), make_pair(as<string>(fname), args));
     }
     Function replaceError(testr.find("replaceError"));

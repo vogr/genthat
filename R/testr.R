@@ -30,8 +30,7 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
     # load package
     package = devtools::as.package(package.dir)
     cache$pkg.name <- package$package
-    # TODO (filippo) is this necessary ?
-    library(package = package$package, character.only = T, quiet = ! verbose)
+    require(package = package$package, character.only = T, quiet = ! verbose)
     if (verbose) message(paste("Package", package$package, "installed\n"))
     if (missing(functions)) {
         # get list of all functions defined in the package' R code
@@ -95,8 +94,13 @@ gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE,
 #'
 gen_from_package <- function(package.dir = ".", include.tests = FALSE, include.vignettes = FALSE, include.manPages = FALSE, timed = FALSE, filter = TRUE, build = TRUE, output, verbose = testr_options("verbose"), clear_capture = TRUE) {
     package = devtools::as.package(package.dir)
+
+    require(utils)
+    require(methods)
     devtools::document(package.dir)
-    detach(concat("package", ":", package$package), unload = T, character.only = T)
+
+    detach(concat("package:", package$package), unload = T, character.only = T)
+
     f <- function() {
         if (include.vignettes)
         {
@@ -199,7 +203,6 @@ stop_capture_all <- function(verbose = testr_options("verbose")) {
 #' @export
 generate <- function(output_dir, root = testr_options("capture.folder"),
                      timed = F, clear_capture = T, verbose = testr_options("verbose")) {
-    cat("GENERATING TESTS!!!\n")
     cache$output.dir <- output_dir
     test_gen(root, output_dir, timed, verbose = verbose);
     if (clear_capture) {
