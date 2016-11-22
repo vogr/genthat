@@ -107,6 +107,12 @@ void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
         retv = "<unserializable " + e.msg + ">";
     }
 
+    cout << "serialized retv!!! " << endl;
+    cout << "args: " << endl;
+    cout << args << endl;
+    cout << "retv: " << endl;
+    cout << retv << endl;
+
     if (as<bool>(options("IO"))) {
         string traceFile = as<string>(cache.get("trace_path"));
         traceFile += "/";

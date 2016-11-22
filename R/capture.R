@@ -23,19 +23,53 @@ overwrite_export <- function(name, val, package) {
     invisible(NULL)
 }
 
+#trace_function <- function(func, func_name, tracer) {
+#    pkg_namespace <- getNamespace(package)
+#    func <- pkg_namespace[[func_name]]
+#    body(func) <- substitute({ tracer; original.body }, list(tracer = tracer, original.body = body(func)));
+#    overwrite_export(func_name, func, package)
+#}
+
 #' @title Decorates function to capture calls and return values
 #'
 #' @description More sane replacement of the base::trace function.
+#' @param func function value
 #' @param func_name function name
-#' @param package package name
-#' @param tracer expression to insert at beginning of function body
 #' @export
 #'
-genthat_trace <- function(func_name, package, tracer) {
-    pkg_namespace <- getNamespace(package)
-    func <- pkg_namespace[[func_name]]
-    body(func) <- substitute({ tracer; original.body }, list(tracer = tracer, original.body = body(func)));
-    overwrite_export(func_name, func, package)
+decorate_function_val <- function(func, func_name) {
+
+    tracer.expr <- substitute({
+        call_id <- call_id_counter$value
+        assign("value", call_id + 1, call_id_counter)
+
+        #print(paste0("call to: ", fname))
+        #print(as.list(match.call())[-1])
+        args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
+        #print(paste0("resolved call to: ", fname))
+
+        testr:::enter_function(
+            fname,
+            args,
+            call_id
+        )
+
+        exit.expr <- substitute({
+            testr:::exit_function(c)
+        }, list(
+            c = call_id
+        ))
+
+        on.exit(eval(exit.expr))
+
+    }, as.environment(list(
+        fname = func_name,
+        call_id_counter = call_id_counter
+    ))) #nolint
+
+    body(func) <- substitute({ tracer; original.body }, list(tracer = tracer.expr, original.body = body(func)));
+
+    func
 }
 
 #' @title Decorates function to capture calls and return values
@@ -84,37 +118,14 @@ decorate <- function(func, package, verbose) {
         warning("Not decorating S3 generic")
         return(invisible())
     }
-    tracer.expr <- substitute({
-        call_id <- call_id_counter$value
-        assign("value", call_id + 1, call_id_counter)
 
-        #print(paste0("call to: ", fname))
-        args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
-        #print(paste0("resolved call to: ", fname))
+    pkg_namespace <- getNamespace(package)
+    func_name <- if (is.na(package)) func else paste(package, escapeNonSyntacticName(func), sep=":::")
+    new_function <- decorate_function_val(pkg_namespace[[func]], func_name)
 
-        testr:::enter_function(
-            fname,
-            args,
-            call_id
-        )
-
-        exit.expr <- substitute({
-            testr:::exit_function(c)
-        }, list(
-            c = call_id
-        ))
-
-        on.exit(eval(exit.expr))
-
-    }, as.environment(list(
-        fname = if (is.na(package)) func else paste(package, escapeNonSyntacticName(func), sep=":::"),
-        call_id_counter = call_id_counter
-    ))) #nolint
+    overwrite_export(func, new_function, package)
 
     hidden <- !func %in% ls(as.environment(if (is.na(package)) .GlobalEnv else paste("package", package, sep=":")))
-
-    genthat_trace(func, package, tracer.expr)
-
     .decorated[[func]] <- list(func=func, package=package, hidden=hidden)
 }
 

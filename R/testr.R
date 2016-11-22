@@ -14,6 +14,11 @@
 #' @export
 
 gen_from_function <- function(package.dir = ".", code, functions, filter = TRUE, exclude_existing_tests = FALSE, build = TRUE, timed = FALSE, output, verbose = testr_options("verbose"), clear_capture = TRUE) {
+    #cat("waiting\n")
+    #Sys.sleep(15)
+    #cat("started\n")
+
+
     cleanup = F
     # stop all ongoing captures
     stop_capture_all()
