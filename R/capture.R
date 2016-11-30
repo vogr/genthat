@@ -43,10 +43,32 @@ decorate_function_val <- function(func, func_name) {
         call_id <- call_id_counter$value
         assign("value", call_id + 1, call_id_counter)
 
-        #print(paste0("call to: ", fname))
-        #print(as.list(match.call())[-1])
-        args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
-        #print(paste0("resolved call to: ", fname))
+        forceArgs <- FALSE
+
+        if (forceArgs) {
+			e <- environment()
+			arg_names <- names(as.list(match.call())[-1])
+
+			# force evaluation of named args
+			named <- lapply(arg_names[arg_names != ""], function(name) { e[[name]] })
+			# force evaluation of ... args
+			dots <- if (hasDots) list(...) else list()
+
+			args <- list() # returned argument list
+			dot_counter <- 1
+			for (arg_counter in seq(1, length(arg_names))) {
+				name <- arg_names[arg_counter]
+				if (name == "") {
+					x <- dots[[dot_counter]]
+					dot_counter <- dot_counter + 1 
+					args[[arg_counter]] <- x
+				} else {
+					args[[name]] <- e[[name]]
+				}
+			}   
+        } else {
+            args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
+        }
 
         testr:::enter_function(
             fname,
@@ -64,6 +86,7 @@ decorate_function_val <- function(func, func_name) {
 
     }, as.environment(list(
         fname = func_name,
+        hasDots = "..." %in% names(formals(func)),
         call_id_counter = call_id_counter
     ))) #nolint
 

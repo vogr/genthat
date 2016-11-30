@@ -69,6 +69,8 @@ void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
         //print(args_list);
         string args;
         try {
+            cout << "args_list:" << endl;
+            print(args_list);
             args = serialize_cpp(args_list);
         } catch (serialization_error e) {
             args = "<unserializable " + e.msg + ">";
