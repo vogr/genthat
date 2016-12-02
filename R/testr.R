@@ -304,6 +304,22 @@ test_pkg_env <- function(package) {
     parent = parent.env(getNamespace(package)))
 }
 
+formatTime <- function(secs) {
+    x <- secs
+    hours <- floor(x / 3600)
+    x <- x - hours * 3600
+    minutes <- floor(x / 60)
+    x <- x - minutes * 60
+    x <- floor(x)
+
+    parts <- Filter(function(x) !is.null(x), c(
+        if (hours!=0) paste0(hours, 'h') else NULL,
+        if (minutes!=0) paste0(minutes, 'm') else NULL,
+        if (x!=0) paste0(x, 's') else NULL
+    ))
+    if (length(parts) == 0) '0s' else paste(parts, collapse=" ")
+}
+
 run_package_tests <- function(src.root, verbose) {
     if (package_uses_testthat(src.root)) {
         package <- devtools::as.package(src.root)
@@ -314,4 +330,58 @@ run_package_tests <- function(src.root, verbose) {
     } else {
         if (verbose) message("Package has no tests!")
     }
+}
+
+assign('toString.gen_from_cran_result', function(x) {
+    message("toString.gen_from_cran_result")
+    "spravny"
+}, envir = globalenv())
+
+assign('print.gen_from_cran_result', function(x) {
+    message("print.gen_from_cran_result")
+    print(toString.gen_from_cran_result(x))
+}, envir = globalenv())
+
+gen_from_cran_result <- function(vals) {
+    class(vals) <- 'gen_from_cran_result'
+    vals
+}
+
+#' @title Generate tests for given package
+#' @description Generates tests from package downloaded from CRAN
+#'
+#' @param package name of package
+#' @export
+gen_from_cran <- function(package, verbose = TRUE, source.dir = "sources", out.dir = "generated_tests", filter = FALSE, clear_capture = FALSE, include.manPages = TRUE, include.vignettes = TRUE, include.tests = TRUE) {
+    output.dir <- file.path(out.dir, package)
+    if (dir.exists(output.dir))
+        stop("Output dir already exists.")
+    dir.create(output.dir, recursive = TRUE)
+    if (!dir.exists(source.dir))
+        dir.create(source.dir)
+
+    t0 <- Sys.time()
+
+    fetchResult <- fetchCRANPackage(package, dest.dir = "sources", quiet = !verbose)
+    t_fetch <- Sys.time()
+
+    gen_from_package(
+        file.path(source.dir, package),
+        output = output.dir,
+        build = FALSE,
+        include.manPages = TRUE,
+        include.vignettes = TRUE,
+        include.tests = TRUE,
+        filter = filter,
+        verbose = verbose,
+        clear_capture = clear_capture
+    )
+    t_gen <- Sys.time()
+
+    fetchTime <- t_fetch - t0
+    genTime <- t_gen - t_fetch
+    totalTime <- t_gen - t0
+
+    # TODO change the way the returned value is printed in the console
+    gen_from_cran_result(list(fetchTime = formatTime(fetchTime), genTime = formatTime(genTime), total = formatTime(totalTime)))
 }
