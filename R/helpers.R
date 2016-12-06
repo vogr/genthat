@@ -216,7 +216,7 @@ extract_example <- function(ex) {
 
 example_code <- function(fromFile) {
     code <- tools::parse_Rd(fromFile)
-    code <- code[sapply(code, function(x) attr(x, "Rd_tag") == "\\examples")]
+    code <- Filter(function(x) attr(x, "Rd_tag") == "\\examples", code)
     result = ""
     for (cc in code)
         result = c(result, extract_example(cc))

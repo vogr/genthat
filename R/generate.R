@@ -54,7 +54,6 @@ test_gen <- function(root, output_dir, timed = F, verbose=testr_options("verbose
       stop("Unable to create file: ", cache$bad_argv)
   cache$tid <- list()
   Map(function(x) { process_capture(x) }, all.capture)
-  cache$tid <- NULL
   cache$output_dir <- NULL
   cache$bad_argv <- NULL
 }
@@ -73,7 +72,7 @@ ensure_file <- function(name) {
     tc.folder = file.path(cache$output_dir, fname, fsep = .Platform$file.sep)
     dir.create(tc.folder, showWarnings = FALSE)
     # get the index of the file, based on number of files in the folder (but use the cache information for it)
-    cache$tid[[name]] <- if (is.null(cache$tid[[name]])) { 0 } else { cache$tid[[name]] + 1 }
+    cache$tid[[name]] <- if (is.null(cache$tid[[name]])) { 0L } else { cache$tid[[name]] + 1L }
     tc.file = file.path(tc.folder, paste("test-", cache$tid[[name]], ".R", sep=""), fsep = .Platform$file.sep)
     # the file should not exist
     if (!file.create(tc.file))
@@ -94,6 +93,9 @@ ensure_file <- function(name) {
 process_capture <- function(cap_file){
   lines <- readLines(cap_file)
   cache$i <- 1
+  cache$generated_tests <- 0L
+  cache$retv_mismatch_count <- 0L
+  cache$unparsable_count <- 0L
   pkgName <- read_value(lines, kPkgPrefix)
   while (cache$i < length(lines)) {
     # read test case information
@@ -154,6 +156,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
 
   # proper arguments should always be packed in a list
   if (identical(valid.argv, "GENTHAT_UNPARSEABLE") || identical(valid.retv, "GENTHAT_UNPARSEABLE")) {
+      cache$unparsable_count <- cache$unparsable_count + 1L
       list(
           type = "err",
           err_type = "UNPARSEABLE",
@@ -188,6 +191,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
       et <- system.time({ sameRetv <- !isTRUE(all.equal(new.retv, valid.retv)) })[1]
       cat(paste0("all.equal time: ", et, " seconds\n"))
       if (sameRetv) {
+          cache$retv_mismatch_count <- cache$retv_mismatch_count + 1L
           list(
               type = "err",
               err_type = "RETV_MISMATCH",
@@ -202,6 +206,7 @@ generate_tc <- function(pkgName, func, argv, retv) {
              )
           )
       } else {
+          cache$generated_tests <- cache$generated_tests + 1L
           argSources <- Map(serialize_r, valid.argv)
           callSource <- concat(func, "(", listToArgumentList(argSources), ")")
 

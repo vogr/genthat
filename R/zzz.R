@@ -3,6 +3,9 @@ cache <- new.env()
 cache$capture_num <- 0
 cache$trace_replaced <- FALSE
 cache$output.dir <- NA
+cache$generated_tests <- 0L
+cache$retv_mismatch_count <- 0L
+cache$unparsable_count <- 0L
 
 cache$arguments <- list()
 .decorated <- new.env()
