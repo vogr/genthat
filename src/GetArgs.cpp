@@ -1,4 +1,4 @@
-#include "testr.h"
+#include "genthat.h"
 using namespace Rcpp;
 using namespace std;
 

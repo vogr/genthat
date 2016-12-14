@@ -1,0 +1,920 @@
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:NULL
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:NULL
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:NULL
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:NULL
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:NULL
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:NULL
+computed.retv:character(0)
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:NULL
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:NULL
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:NULL
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:NULL
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:NULL
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:NULL
+computed.retv:character(0)
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:NULL
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:NULL
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:NULL
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:NULL
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:NULL
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:NULL
+computed.retv:character(0)
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"GENTHAT_NO_RET_VAL"
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"GENTHAT_NO_RET_VAL"
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:"GENTHAT_NO_RET_VAL"
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:"GENTHAT_NO_RET_VAL"
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:"GENTHAT_NO_RET_VAL"
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:"GENTHAT_NO_RET_VAL"
+computed.retv:character(0)
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::causes_warning
+argv:list()
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::causes_warning
+argv:list()
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::causes_warning
+argv:list()
+retv:<unserializable object 'GENTHAT_NO_RET_VAL' not found>
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:"<GENTHAT_NO_RET_VAL>"
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:"<GENTHAT_NO_RET_VAL>"
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:character(0)
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:"<GENTHAT_NO_RET_VAL>"
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:"<GENTHAT_NO_RET_VAL>"
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:character(0)
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:"this is public: 42"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:"this is private: 42"
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:"<GENTHAT_NO_RET_VAL>"
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:"<GENTHAT_NO_RET_VAL>"
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:7
+
+func:toyProject:::causes_warning
+argv:list()
+retv:"<GENTHAT_NO_RET_VAL>"
+computed.retv:character(0)
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:6
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:<unserializable <func>>
+
+func:toyProject:::my_apply
+argv:<unserializable <func>>
+retv:6
+
+func:toyProject:::applyFirst
+argv:<unserializable <func>>
+retv:<unserializable <func>>
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"attempt to use zero-length variable name"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to use zero-length variable name"
+
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to use zero-length variable name"
+
+func:toyProject:::causes_warning
+argv:list()
+retv:character(0)
+computed.retv:"attempt to use zero-length variable name"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"there is no package called ‘oyProject’"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"there is no package called ‘oyProject’"
+
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"there is no package called ‘oyProject’"
+
+func:toyProject:::causes_warning
+argv:list()
+retv:character(0)
+computed.retv:"there is no package called ‘oyProject’"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+
+func:
+argv:list(a=3, b=4)
+retv:7
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+
+func:
+argv:list(a=3, b=4)
+retv:7
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+
+func:
+argv:list(a=3, b=4)
+retv:7
+
+computed.retv:"there is no package called ‘oyProject\n’"
+
+func: toyProject:::public_fn
+argv: list(x="42")
+retv: "this is public: 42"
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func:
+argv: list(x="42")
+retv: "this is private: 42"
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func: 
+argv:  <unserializable <func>>
+retv:  6
+
+
+func: 
+argv:  <unserializable <func>>
+retv:  <unserializable <func>>
+
+
+func:
+argv: list(a=3, b=4)
+retv: 7
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func: toyProject:::public_fn
+argv: list(x="42")
+retv: "this is public: 42"
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func:
+argv: list(x="42")
+retv: "this is private: 42"
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func: 
+argv:  <unserializable <func>>
+retv:  6
+
+
+func: 
+argv:  <unserializable <func>>
+retv:  <unserializable <func>>
+
+
+func:
+argv: list(a=3, b=4)
+retv: 7
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func: toyProject:::public_fn
+argv: list(x="42")
+retv: "this is public: 42"
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func:
+argv: list(x="42")
+retv: "this is private: 42"
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func: 
+argv:  <unserializable <func>>
+retv:  6
+
+
+func: 
+argv:  <unserializable <func>>
+retv:  <unserializable <func>>
+
+
+func:
+argv: list(a=3, b=4)
+retv: 7
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func:
+argv: list()
+retv: character(0)
+
+computed.retv:"there is no package called ‘ toyProject\n’"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+
+func:
+argv:list(a=3, b=4)
+retv:7
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:
+argv:list()
+retv:character(0)
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func: toyProject:::public_f
+argv: list(x="42"
+retv: "this is public: 42
+
+
+func: 
+argv: list(x="42"
+retv: "this is private: 42
+
+
+func: 
+argv: <unserializable <func>
+retv: 
+
+
+func: 
+argv: <unserializable <func>
+retv: <unserializable <func>
+
+
+func: 
+argv: list(a=3, b=4
+retv: 
+
+
+func: 
+argv: list(
+retv: character(0
+
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+
+func:
+argv:list(a=3, b=4)
+retv:7
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:
+argv:list()
+retv:character(0)
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+
+func:
+argv:list(a=3, b=4)
+retv:7
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:
+argv:list()
+retv:character(0)
+
+computed.retv:"there is no package called ‘toyProject\n’"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"attempt to apply non-function"
+
+func: 
+argv: <unserializable <func>>
+retv: 6
+
+func: 
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"attempt to apply non-function"
+
+func:
+argv:list()
+retv:character(0)
+computed.retv:"attempt to apply non-function"
+
+func:toyProject:::public_fn
+argv:list(x="42")
+retv:"this is public: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func:toyProject:::private_fn
+argv:list(x="42")
+retv:"this is private: 42"
+computed.retv:"argument \"x\" is missing, with no default"
+
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func:toyProject:::my_add
+argv:list(a=3, b=4)
+retv:7
+computed.retv:"argument \"a\" is missing, with no default"
+
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+
+cause: UNPARSEABLE
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+cause: UNPARSEABLE
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>
+cause: UNPARSEABLE
+func: toyProject:::my_apply
+argv: <unserializable <func>>
+retv: 6
+cause: UNPARSEABLE
+func: toyProject:::applyFirst
+argv: <unserializable <func>>
+retv: <unserializable <func>>

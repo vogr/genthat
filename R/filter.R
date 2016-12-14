@@ -12,7 +12,7 @@
 #' @param compact If TRUE, after filtering, tests will be compacted to a file per function
 #' @param verbose if to show additional infomation during filtering
 #'
-filter_tests <- function(tc_root, tc_result_root, functions, package_path, remove_tests = FALSE, exclude_existing_tests = FALSE, compact = FALSE, verbose = testr_options("verbose")) {
+filter_tests <- function(tc_root, tc_result_root, functions, package_path, remove_tests = FALSE, exclude_existing_tests = FALSE, compact = FALSE, verbose = FALSE) {
     if (missing(tc_root) || !file.exists(tc_root))
         stop("Specified directory with test cases does not exist!")
     if (missing(functions) && missing(package_path)) {
@@ -94,3 +94,41 @@ filter_tests <- function(tc_root, tc_result_root, functions, package_path, remov
     sapply(all.tc, cov_change)
     invisible(NULL)
 }
+
+#' @title Filter the generated tests so that only tests increasing code coverage will be kept.
+#'
+#' @description This function attempts to filter test cases based on code coverage collected by covr package.
+#' Filtering is done in iterational way by measuring code coverage of every test separately and skipping the ones
+#' that don't increase the coverage.
+#'
+#' @param test_root root directory of tests to be filtered
+#' @param output_dir resulting directory where tests will be store. If nothing is supplied, tests that don't
+#' increase coverage will be removed from test_root
+#' @param ... functions that tests should be filtered aganist
+#' @param package_path package root of the package that coverage should be measured
+#' @param remove_tests if the tests that don't increase coverage should be removed. Default: \code{FALSE}.
+#' This option will be set to \code{TRUE} if \code{output_dir} is not supplied
+#' @param compact If TRUE, the filtered tests will be compacted into files one per function, rather than the default one per test.
+#' @param verbose whether the additional information should be displayed. Default: \code{TRUE}
+#' @return NULL
+#'
+#' @export
+prune <- function(test_root, output_dir, ...,
+                   package_path = "", remove_tests = FALSE, compact = FALSE,
+                   verbose = FALSE) {
+    functions <- parseFunctionNames(...)
+    if (length(functions) && package_path != "") {
+        stop("Both list of functions and package to be filtered aganist is supplied, please use one of the arguments")
+    }
+    if (missing(output_dir) && !remove_tests) {
+        warning("output_directory was not supplied, so the tests that don't increase coverage will be removed from test_root")
+        remove_tests <- TRUE
+    }
+    # convert functions into a list function=>package to use vectorize functions sapply/lapply
+    fn <- sapply(functions, `[`, 1)
+    functions <- sapply(functions, `[`, 2)
+    names(functions) <- fn
+    filter_tests(test_root, output_dir, functions, package_path, remove_tests = remove_tests, compact = compact, verbose = verbose)
+    invisible(NULL)
+}
+

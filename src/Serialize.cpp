@@ -1,5 +1,5 @@
 
-#include "testr.h"
+#include "genthat.h"
 
 using namespace Rcpp;
 using namespace std;
@@ -238,7 +238,7 @@ string serialize_cpp(SEXP s)
 
     std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
     auto diffTime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-    cout << "serialize duration: " << diffTime << "μs" << endl;
+    //cout << "serialize duration: " << diffTime << "μs" << endl;
 
     visited_environments.clear();
     return res;

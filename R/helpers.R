@@ -1,3 +1,4 @@
+
 #' @title Check if function is S3 generic
 #'
 #' @description Determine if function has a call to UseMethod. In that case there is no need to capture it.
@@ -10,43 +11,6 @@ is_s3_generic <- function(fname, env=.GlobalEnv) {
     uses <- codetools::findGlobals(f, merge = FALSE)$functions
     any(uses == "UseMethod")
     #"UseMethod" %in% uses
-}
-
-#' @title Clean temporary directory
-#'
-#' @description Make sure temp dir is empty by deleting unnecessary files
-clean_temp <- function() {
-    for (file in list.files(cache$temp_dir, full.names = TRUE, pattern = "\\.RData|\\.[rR]$")) {
-        file.remove(file)
-    }
-}
-
-#' @title Parse and evaluate
-#'
-#' @description Function that wraps parse(eval(...)) call with tryCatch
-#' @param what text to be parse and evaluate
-parse_eval <- function(what) {
-    tryCatch({
-        eval(parse(text=what))
-        TRUE
-        },
-        error=function(e) {
-            FALSE
-            })
-}
-
-#' @title Quote language from evaluation
-#'
-#' @description In certain cases, language arguments (like calls), need to be quoated
-#' @param arg list of arguments
-quoter <- function(arg) {
-    if (is.list(arg)) {
-        org.attrs <- attributes(arg)
-        res <- lapply(arg, function(x) if(is.language(x)) enquote(x) else quoter(x))
-        attributes(res) <- org.attrs
-        res
-    }
-    else arg
 }
 
 #' @title Removes prefixes and quote from line
@@ -85,25 +49,6 @@ find_tests <- function(path) {
     }
     warning("No testthat directories found in ", path, call. = FALSE)
     return(NULL)
-}
-
-#' @title Reassing object in the namespace
-#'
-#' @description Record that particual line was executed.
-#' Used in statement coverage, needed for namespace replacement
-#' @param name name of an object to be replaced
-#' @param obj object that will be put in the environment
-#' @param env environment to be replaced in
-reassing_in_env <- function(name, obj, env) {
-    if (exists(name, env)) {
-        if (bindingIsLocked(name, env)) {
-            unlockBinding(name, env)
-            assign(name, obj, envir = env)
-            lockBinding(name, env)
-        } else {
-            assign(name, obj, envir = env)
-        }
-    }
 }
 
 #' @title Get function name without special characters
@@ -272,5 +217,63 @@ escapeNonSyntacticName <- function(name) {
     } else {
         concat('`', name, '`')
     }
+}
+
+force_rebind <- function(what, value, env) {
+    sym <- as.name(what)
+    .Internal(unlockBinding(sym, env))
+    assign(what, value, env)
+    .Internal(lockBinding(sym, env))
+}
+
+overwrite_export <- function(name, val, package) {
+    pkg.namespace_env <- getNamespace(package)
+    pkg.package_env <- as.environment(paste0("package:", package))
+    force_rebind(name, val, pkg.namespace_env)
+    is.exported <- exists(name, envir = pkg.package_env, inherits = FALSE)
+    if (is.exported) {
+        force_rebind(name, val, pkg.package_env)
+        rev_dep.imports_envs <- tryCatch(getNamespaceUsers(package), error = function(e) c())
+        lapply(rev_dep.imports_envs, function(imports_env) force_rebind(name, val, imports_env))
+    }
+    invisible(NULL)
+}
+
+formatTime <- function(secs) {
+    x <- secs
+    hours <- floor(x / 3600)
+    x <- x - hours * 3600
+    minutes <- floor(x / 60)
+    x <- x - minutes * 60
+    x <- floor(x)
+
+    parts <- Filter(function(x) !is.null(x), c(
+        if (hours!=0) paste0(hours, 'h') else NULL,
+        if (minutes!=0) paste0(minutes, 'm') else NULL,
+        if (x!=0) paste0(x, 's') else NULL
+    ))
+    if (length(parts) == 0) '0s' else paste(parts, collapse=" ")
+}
+
+test_pkg_env <- function(package) {
+  list2env(as.list(getNamespace(package), all.names = TRUE),
+    parent = parent.env(getNamespace(package)))
+}
+
+run_package_tests <- function(src.root, verbose) {
+    if (package_uses_testthat(src.root)) {
+        package <- devtools::as.package(src.root)
+        test_path <- file.path(src.root, "tests", "testthat")
+        testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
+    } else if (file.exists(file.path(src.root, "tests"))) {
+        run_R_tests(src.root, verbose = TRUE)
+    } else {
+        if (verbose) message("Package has no tests!")
+    }
+}
+
+package_uses_testthat <- function(package.dir) {
+    test_path <- file.path(package.dir, "tests", "testthat")
+    file.exists(test_path)
 }
 

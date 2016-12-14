@@ -2,7 +2,7 @@
 #include <fstream>
 #include <map>
 #include <exception>
-#include "testr.h"
+#include "genthat.h"
 #include <sys/stat.h>
 #define MAX_FILE_SIZE 50 * 1000000
 using namespace Rcpp;
@@ -36,8 +36,8 @@ SEXP serialize_error_handler(SEXP e)
 
 string serialize(SEXP value)
 {
-    Environment testr = Environment::namespace_env("testr");
-    Function Rfn(testr.find("serialize"));
+    Environment genthat = Environment::namespace_env("genthat");
+    Function Rfn(genthat.find("serialize"));
     serialize_error = nullptr;
     SEXP res = Rfn(value);
     if (serialize_error != nullptr) {
@@ -60,37 +60,26 @@ map<int,pair<string,string>> cached_args;
 
 // [[Rcpp::export]]
 void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
-    Environment testr = Environment::namespace_env("testr");
-    Function options("testr_options");
-    Environment cache = testr.get("cache");
-    SEXP originalErrMsg = Function("geterrmessage")();
-    if (as<bool>(options("IO"))) {
+    Environment genthat = Environment::namespace_env("genthat");
+    Environment cache = genthat.get("cache");
 
-        //print(args_list);
-        string args;
-        try {
-            cout << "args_list:" << endl;
-            print(args_list);
-            args = serialize_cpp(args_list);
-        } catch (serialization_error e) {
-            args = "<unserializable " + e.msg + ">";
-        }
-
-        //cout << "called :" << fname << "()" << endl;
-        //cout << "with args :" << args << endl;
-        cout << "args map size: " << cached_args.size() << endl;
-        cached_args.emplace(as<int>(call_id), make_pair(as<string>(fname), args));
+    //print(args_list);
+    string args;
+    try {
+        args = serialize_cpp(args_list);
+    } catch (serialization_error e) {
+        args = "<unserializable " + e.msg + ">";
     }
-    Function replaceError(testr.find("replaceError"));
-    replaceError(originalErrMsg);
+
+    //cout << "called :" << fname << "()" << endl;
+    //cout << "with args :" << args << endl;
+    cached_args.emplace(as<int>(call_id), make_pair(as<string>(fname), args));
 }
 
 // [[Rcpp::export]]
 void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
-    SEXP originalErrMsg = PROTECT(Function("geterrmessage")());
-    Environment testr = Environment::namespace_env("testr");
-    Function options("testr_options");
-    Environment cache = testr.get("cache");
+    Environment genthat = Environment::namespace_env("genthat");
+    Environment cache = genthat.get("cache");
 
     auto cached_call = cached_args.find(as<int>(call_id));
     if (cached_call == cached_args.end()) {
@@ -109,34 +98,20 @@ void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
         retv = "<unserializable " + e.msg + ">";
     }
 
-    cout << "serialized retv!!! " << endl;
-    cout << "args: " << endl;
-    cout << args << endl;
-    cout << "retv: " << endl;
-    cout << retv << endl;
-
-    if (as<bool>(options("IO"))) {
-        string traceFile = as<string>(cache.get("trace_path"));
-        traceFile += "/";
-        traceFile += as<string>(options("capture.file"));
-        traceFile += ".";
-        traceFile += to_string(captureFileNumber);
-        tracefile.open(traceFile.c_str(), std::ios::app);
-        if (get_file_size(traceFile) == 0) {
-            string pkgName = as<string>(cache.get("pkg.name"));
-            tracefile << kPkgPrefix << pkgName << std::endl << std::endl;
-        }
-        printCapture(fname, kFuncPrefix);
-        printCapture(args, kArgsPrefix);
-        printCapture(retv, kRetvPrefix);
-        tracefile << std::endl;
-        tracefile.close();
-        if (get_file_size(traceFile) > MAX_FILE_SIZE)
-            captureFileNumber++;
-    }
-
-    Function replaceError(testr.find("replaceError"));
-    replaceError(originalErrMsg);
-    UNPROTECT_PTR(originalErrMsg);
+    string traceFile = as<string>(cache.get("capture.dir"));
+    traceFile += "/capture.";
+    traceFile += to_string(captureFileNumber);
+    tracefile.open(traceFile.c_str(), std::ios::app);
+    //if (get_file_size(traceFile) == 0) {
+    //    string pkgName = as<string>(cache.get("package.name"));
+    //    tracefile << kPkgPrefix << pkgName << std::endl << std::endl;
+    //}
+    printCapture(fname, kFuncPrefix);
+    printCapture(args, kArgsPrefix);
+    printCapture(retv, kRetvPrefix);
+    tracefile << std::endl;
+    tracefile.close();
+    if (get_file_size(traceFile) > MAX_FILE_SIZE)
+        captureFileNumber++;
 }
 

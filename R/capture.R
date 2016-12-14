@@ -1,34 +1,12 @@
 
-call_id_counter <- new.env(parent = emptyenv())
-
-call_id_counter$value <- 0
-
-force_rebind <- function(what, value, env) {
-    sym <- as.name(what)
-    .Internal(unlockBinding(sym, env))
-    assign(what, value, env)
-    .Internal(lockBinding(sym, env))
+start_capture <- function(package.name = NULL, capture.dir = "capture") {
+    cache$package.name <- package.name
+    cache$capture.dir <- capture.dir
+    cache$capture_num <- 0
+    cache$decorated <- new.env()
+    cache$call_id_counter <- as.environment(list(value = 0))
+    cache$capture.arguments <- TRUE
 }
-
-overwrite_export <- function(name, val, package) {
-    pkg.namespace_env <- getNamespace(package)
-    pkg.package_env <- as.environment(paste0("package:", package))
-    force_rebind(name, val, pkg.namespace_env)
-    is.exported <- exists(name, envir = pkg.package_env, inherits = FALSE)
-    if (is.exported) {
-        force_rebind(name, val, pkg.package_env)
-        rev_dep.imports_envs <- tryCatch(getNamespaceUsers(package), error = function(e) c())
-        lapply(rev_dep.imports_envs, function(imports_env) force_rebind(name, val, imports_env))
-    }
-    invisible(NULL)
-}
-
-#trace_function <- function(func, func_name, tracer) {
-#    pkg_namespace <- getNamespace(package)
-#    func <- pkg_namespace[[func_name]]
-#    body(func) <- substitute({ tracer; original.body }, list(tracer = tracer, original.body = body(func)));
-#    overwrite_export(func_name, func, package)
-#}
 
 #' @title Decorates function to capture calls and return values
 #'
@@ -70,14 +48,14 @@ decorate_function_val <- function(func, func_name) {
             args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
         }
 
-        testr:::enter_function(
+        genthat:::enter_function(
             fname,
             args,
             call_id
         )
 
         exit.expr <- substitute({
-            testr:::exit_function(c)
+            genthat:::exit_function(c)
         }, list(
             c = call_id
         ))
@@ -87,7 +65,7 @@ decorate_function_val <- function(func, func_name) {
     }, as.environment(list(
         fname = func_name,
         hasDots = "..." %in% names(formals(func)),
-        call_id_counter = call_id_counter
+        call_id_counter = cache$call_id_counter
     ))) #nolint
 
     body(func) <- substitute({ tracer; original.body }, list(tracer = tracer.expr, original.body = body(func)));
@@ -105,14 +83,6 @@ decorate_function_val <- function(func, func_name) {
 #' @export
 #'
 decorate <- function(func, package, verbose) {
-    if (identical(class(library), "function") && getRversion() < '3.3.0') {
-        suppressMessages(trace(library,
-                               exit=quote(if (!missing(package)) testr:::refresh_decoration(package)),
-                               print = FALSE))
-    }
-    if (!cache$trace_replaced && getRversion() < '3.3.0') {
-        replace_trace()
-    }
     if(class(func) != "character" || (!missing(package) && class(package) != "character")){
         stop("wrong argument type!")
     }
@@ -149,7 +119,7 @@ decorate <- function(func, package, verbose) {
     overwrite_export(func, new_function, package)
 
     hidden <- !func %in% ls(as.environment(if (is.na(package)) .GlobalEnv else paste("package", package, sep=":")))
-    .decorated[[func]] <- list(func=func, package=package, hidden=hidden)
+    cache$decorated[[func]] <- list(func=func, package=package, hidden=hidden)
 }
 
 #' @title undecorate function
@@ -167,12 +137,12 @@ undecorate <- function(func, verbose) {
     } else {
         stop("wrong argument type!")
     }
-    ind <- which(fname %in% ls(.decorated, all.names = TRUE))
+    ind <- which(fname %in% ls(cache$decorated, all.names = TRUE))
     if (length(ind) == 0) {
         stop(sprintf("Function %s was not decorated!", fname))
     }
-    package <- .decorated[[func]]$package
-    hidden <- .decorated[[func]]$hidden
+    package <- cache$decorated[[func]]$package
+    hidden <- cache$decorated[[func]]$hidden
     params <- list(fname)
     if (hidden)
         params[["where"]] <- call("getNamespace", package)
@@ -181,7 +151,7 @@ undecorate <- function(func, verbose) {
     } else {
         suppressMessages(do.call(untrace, params))
     }
-    rm(list=c(func), envir=.decorated)
+    rm(list=c(func), envir=cache$decorated)
 }
 
 
@@ -191,14 +161,14 @@ undecorate <- function(func, verbose) {
 #' @param fname function name
 #' @param args.env environment to read arguments to function call from
 #' @seealso Decorate
-#' @useDynLib testr
+#' @useDynLib genthat
 #' @importFrom Rcpp evalCpp
 #' @export
 #'
 enter_function <- function(fname, args.env, call_id) {
-    if (!testr_options("capture.arguments"))
-        return(NULL)
-    .Call("testr_enterFunction_cpp", PACKAGE = "testr", fname, args.env, call_id)
+    if (cache$capture.arguments) {
+        .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args.env, call_id)
+    }
 }
 
 #' @title Write down capture information
@@ -207,55 +177,15 @@ enter_function <- function(fname, args.env, call_id) {
 #' @param fname function name
 #' @param args.env environment to read arguments to function call from
 #' @seealso Decorate
-#' @useDynLib testr
+#' @useDynLib genthat
 #' @importFrom Rcpp evalCpp
 #' @export
 #'
 exit_function <- function(call_id) {
-    if (!testr_options("capture.arguments"))
-        return(NULL)
-    .Call("testr_exitFunction_cpp", PACKAGE = "testr", call_id, returnValue())
+    if (cache$capture.arguments) {
+        .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
+    }
 }
-
-#' @title Setup information capturing for list of function
-#'
-#' @description This function is respinsible for setting up capturing for functions
-#'
-#' @param flist function or list of functions to turn on capturing for. List should be only as character.
-#' @param package name of the package
-#' @param verbose if to print additional status information
-#' @seealso Decorate
-#' @export
-setup_capture <- function(flist, package, verbose = testr_options("verbose")) {
-    old <- testr_options("capture.arguments")
-    if (old)
-        testr_options("capture.arguments", FALSE)
-    for (func in flist)
-        if (eligible_capture(func))
-            # TODO perhaps we want to put base in because these are builtins?
-            decorate(func, NA_character_, verbose)
-    if (old)
-        testr_options("capture.arguments", TRUE)
-}
-
-#' @title Check if function is eligible for wrapping to capture arguments and return values
-#'
-#' @description This function checks that supplied function for capture is not a keyword, operator or in the blacklist (functions like rm, .GlobalEnv, etc.)
-#' This is an internal function and is supposed to be used in setup_capture
-#' @param func function name to check
-#' @return TRUE/FALSE if can be captured or not
-#' @seealso setup_capture
-eligible_capture <- function(func){
-    return (!length(utils::getAnywhere(func)$objs) == 0
-            && class(utils::getAnywhere(func)[1]) == "function"
-            && !func %in% blacklist
-            && !func %in% operators
-            && !func %in% keywords
-            && !func %in% sys
-            && !func %in% env
-            && !func %in% primitive_generics_fails)
-}
-
 
 #' @title Clear decoration
 #'
@@ -264,6 +194,28 @@ eligible_capture <- function(func){
 #' @seealso undecorate
 #' @export
 clear_decoration <- function(verbose) {
-    for (fname in ls(.decorated, all.names = TRUE))
+    for (fname in ls(cache$decorated, all.names = TRUE))
         undecorate(fname, verbose = verbose)
 }
+
+#' @title Stops capturing the selected functions.
+#'
+#' @description This function removes the tracing functionality for specified function
+#' @param ... Functions whose capture is to be dropped (uses the same format as capture)
+#' @param verbose TRUE to display additional information
+#' @export
+stop_capture <- function(..., verbose = FALSE) {
+    for (f in parseFunctionNames(...))
+        undecorate(f$name, f$package, verbose = verbose)
+    invisible(NULL)
+}
+
+#' @title Stops capturing all currently captured functions.
+#'
+#' @description Remove tracing functionality for all the functions
+#' @param verbose TRUE to display additional information
+#' @export
+stop_capture_all <- function(verbose = FALSE) {
+    clear_decoration(verbose = verbose)
+}
+

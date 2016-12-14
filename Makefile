@@ -16,5 +16,5 @@ check: build
     R CMD check $(PKGNAME)_$(PKGVERS).tar.gz --as-cran
 
 test:
-	R -e 'library(testr);testr_options("rtests", TRUE); devtools::test()'
+	R -e 'library(genthat); devtools::test()'
 

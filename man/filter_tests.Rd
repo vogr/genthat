@@ -6,7 +6,7 @@
 \usage{
 filter_tests(tc_root, tc_result_root, functions, package_path,
   remove_tests = FALSE, exclude_existing_tests = FALSE, compact = FALSE,
-  verbose = testr_options("verbose"))
+  verbose = FALSE)
 }
 \arguments{
 \item{tc_root}{directory with test cases to filter}

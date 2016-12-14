@@ -2,18 +2,18 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 serialize_r <- function(s) {
-    .Call('testr_serialize_r', PACKAGE = 'testr', s)
+    .Call('genthat_serialize_r', PACKAGE = 'genthat', s)
 }
 
 serialize_error_handler <- function(e) {
-    .Call('testr_serialize_error_handler', PACKAGE = 'testr', e)
+    .Call('genthat_serialize_error_handler', PACKAGE = 'genthat', e)
 }
 
 enterFunction_cpp <- function(fname, args_list, call_id) {
-    invisible(.Call('testr_enterFunction_cpp', PACKAGE = 'testr', fname, args_list, call_id))
+    invisible(.Call('genthat_enterFunction_cpp', PACKAGE = 'genthat', fname, args_list, call_id))
 }
 
 exitFunction_cpp <- function(call_id, retv_env) {
-    invisible(.Call('testr_exitFunction_cpp', PACKAGE = 'testr', call_id, retv_env))
+    invisible(.Call('genthat_exitFunction_cpp', PACKAGE = 'genthat', call_id, retv_env))
 }
 

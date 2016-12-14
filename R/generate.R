@@ -27,7 +27,7 @@ listToArgumentList <- function(args) {
 #' @param output_dir directory where generated test cases will be saved
 #' @param verbose wheater display debug output
 #' @param timed whether result is dependent on time of generation
-test_gen <- function(root, output_dir, timed = F, verbose=testr_options("verbose")) {
+test_gen <- function(root, output_dir, timed = F, verbose = FALSE) {
   if (verbose) {
     cat("Output:", output_dir, "\n")
     cat("Root:", root, "\n")
@@ -36,11 +36,7 @@ test_gen <- function(root, output_dir, timed = F, verbose=testr_options("verbose
   if (missing(root) || !file.exists(root)) {
     stop("Input dir/file doesn't exist!")
   }
-  if (file.info(root)$isdir){
-    all.capture <- lapply(list.files(root, recursive=TRUE, all.files = TRUE), function(x) file.path(root,x))
-  } else {
-    all.capture <- root
-  }
+  all.capture <- if (!file.info(root)$isdir) root else lapply(list.files(root, recursive=TRUE, all.files = TRUE), function(x) file.path(root,x))
   # output dir checks
   if (missing(output_dir)) stop("A output directory must be provided!");
   if (!file.exists(output_dir) || !file.info(output_dir)$isdir) dir.create(output_dir)
@@ -53,9 +49,10 @@ test_gen <- function(root, output_dir, timed = F, verbose=testr_options("verbose
       && !file.create(cache$bad_argv))
       stop("Unable to create file: ", cache$bad_argv)
   cache$tid <- list()
-  Map(function(x) { process_capture(x) }, all.capture)
+  ret <- Map(function(x) { process_capture(x) }, all.capture)
   cache$output_dir <- NULL
   cache$bad_argv <- NULL
+  ret
 }
 
 #' @title Manage Test Case file
@@ -79,7 +76,6 @@ ensure_file <- function(name) {
         stop("Unable to create file: ", tc.file)
     # TODO perhaps this is not needed for testthat
     write("library(testthat)", file = tc.file, append = TRUE)
-    write("library(testr)", file = tc.file, append = TRUE)
     write("", file = tc.file, append = TRUE)
     # write context information (the function name)
     write(paste("context(\"",name,"\")\n", sep=""), file = tc.file, append = TRUE)
@@ -90,38 +86,39 @@ ensure_file <- function(name) {
 #'
 #' @description This function parses file with closure capture information and generates test cases
 #' @param cap_file path to closure capture file
-process_capture <- function(cap_file){
+process_capture <- function(cap_file) {
   lines <- readLines(cap_file)
   cache$i <- 1
   cache$generated_tests <- 0L
   cache$retv_mismatch_count <- 0L
   cache$unparsable_count <- 0L
-  pkgName <- read_value(lines, kPkgPrefix)
+  ret <- list()
   while (cache$i < length(lines)) {
     # read test case information
     func <- read_value(lines, kFuncPrefix)
     args <- read_value(lines, kArgsPrefix)
     retv <- read_value(lines, kRetvPrefix)
 
-    if (args != "<unserializable>") {
-        feedback <- generate_tc(pkgName, func, args, retv)
+    if (args != "<unserializable>") { # TODO ???
+        feedback <- generate_tc(func, args, retv)
 
         #### see what we get
         if (feedback$type == "err") {
-          print("...ERROR TEST")
-          print(paste0("CAUSE: ", feedback$err_type))
           # the captured information is not usable
           write(feedback$msg, file=cache$bad_argv, append=TRUE);
         } else if (feedback$type == "src") {
-          print("...VALID TEST")
           #### good, we get the source code
           tc.file <- ensure_file(func)
           write(feedback$msg, file=tc.file, append=TRUE);
         } else {
           stop("Unexpected generate_tc() return value!");
         }
+        ret <- c(ret, list(feedback))
+    } else {
+        # TODO
     }
   }
+  ret
 }
 
 read_value <- function(lines, prefix){
@@ -142,13 +139,25 @@ read_value <- function(lines, prefix){
   paste(value, collapse="\n", sep="")
 }
 
+#' Do we have access to the function in test generation phase, to recompute the return value from the arguments?
+#'
+#' @param function.name string name of binding
+#' @return boolean value signaling whether evaluating the supplied function name in the global scope yields the function or not.
+#'
+#' @examples
+#' isAccessibleFunction("myFn1") == FALSE
+#' isAccessibleFunction("ggplot2::ggplot") == TRUE
+isAccessibleFunction <- function(function.name) {
+    length(grep("::", function.name)) != 0 # TODO handle functions and package-names containing "::"
+}
+
 #' @title Generates a testcase for closure function
 #'
 #' @description This function generates a test case for builtin function using supplied arguments. All elements should be given as text.
 #' @param func function name
 #' @param argv input arguments for a closure function call
 #' @seealso test_gen ProcessClosure
-generate_tc <- function(pkgName, func, argv, retv) {
+generate_tc <- function(func, argv, retv) {
   # check validity of arguments
   deserialize <- function(x) eval(parse(text=x))
   valid.argv <- tryCatch(deserialize(argv), error = function(e) "GENTHAT_UNPARSEABLE")
@@ -172,70 +181,105 @@ generate_tc <- function(pkgName, func, argv, retv) {
   } else {
       cache$warns <- NULL
       cache$errs <- NULL
+      test_body <- ""
+      warningChecks <- ""
 
-      cat(paste0("generating from call to: ", func, "\n"))
-      fn <- eval(parse(text=func))
-      call <- as.call(if (0 == length(valid.argv)) list(fn) else append(fn, valid.argv))
+      message(paste0("generating from call to: ", func, "\n"))
 
-	  new.retv <- withCallingHandlers(
-                    tryCatch(
-                        eval(call, envir = getNamespace(pkgName)),
-                        error = function(e) cache$errs <- e$message
-                    ),
-                    warning=function(w) {
-                        cache$warns <- ifelse(is.null(cache$warns), w$message, paste(cache$warns, w$message, sep="; "))
-                        invokeRestart("muffleWarning")
-                    }
-              )
+      if (isAccessibleFunction(func)) {
+          pkgName <- sub("^(.*):::.*$", "\\1", func)
+          fn <- eval(parse(text=func))
+          call <- as.call(if (0 == length(valid.argv)) list(fn) else append(fn, valid.argv))
 
-      et <- system.time({ sameRetv <- !isTRUE(all.equal(new.retv, valid.retv)) })[1]
-      cat(paste0("all.equal time: ", et, " seconds\n"))
-      if (sameRetv) {
-          cache$retv_mismatch_count <- cache$retv_mismatch_count + 1L
-          list(
-              type = "err",
-              err_type = "RETV_MISMATCH",
-              msg = paste(
-                paste0("cause: ", "RETV_MISMATCH"),
-                paste0("func: ", func),
-                paste0("argv: ", argv),
-                paste0("retv: ", retv),
-                paste0("computed.retv: ", serialize_r(new.retv)),
-                "",
-                sep = "\n"
-             )
+          new.retv <- withCallingHandlers(
+                        tryCatch(
+                            eval(call, envir = getNamespace(pkgName)),
+                            error = function(e) cache$errs <- e$message
+                        ),
+                        warning=function(w) {
+                            cache$warns <- ifelse(is.null(cache$warns), w$message, paste(cache$warns, w$message, sep="; "))
+                            invokeRestart("muffleWarning")
+                        }
+                  )
+
+          et <- system.time({ sameRetv <- isTRUE(all.equal(new.retv, valid.retv)) })[1]
+          message(paste0("all.equal time: ", et, " seconds\n"))
+          if (!sameRetv) {
+              cache$retv_mismatch_count <- cache$retv_mismatch_count + 1L
+              return(list(
+                  type = "err",
+                  err_type = "RETV_MISMATCH",
+                  msg = paste(
+                    paste0("cause: ", "RETV_MISMATCH"),
+                    paste0("func: ", func),
+                    paste0("argv: ", argv),
+                    paste0("retv: ", retv),
+                    paste0("computed.retv: ", serialize_r(new.retv)),
+                    "",
+                    sep = "\n"
+                 )
+              ))
+          }
+          
+      }
+
+      cache$generated_tests <- cache$generated_tests + 1L
+      argSources <- Map(serialize_r, valid.argv)
+      callSource <- concat(func, "(", listToArgumentList(argSources), ")")
+
+      if (!is.null(cache$errs)) {
+          test_body <- paste(
+            "\texpect_error({\n",
+            "\t", callSource, "},\n",
+            "\t", deparse(cache$errs), ")\n"
           )
       } else {
-          cache$generated_tests <- cache$generated_tests + 1L
-          argSources <- Map(serialize_r, valid.argv)
-          callSource <- concat(func, "(", listToArgumentList(argSources), ")")
-
-          if (!is.null(cache$errs)) {
-              test_body <- paste(
-                "\texpect_error({\n",
-                "\t", callSource, "},\n",
-                "\t", deparse(cache$errs), ")\n"
-              )
-          } else {
-              test_body <- concat(
-                  "\texpected <- ", serialize_r(quoter(new.retv)), "\n",
-                  "\texpect_equal(", callSource, ", expected)\n"
-              )
-          }
-
-          warningChecks <- if (!is.null(cache$warns) && length(cache$warns) > 0) paste("\texpect_warning(", callSource, ", ", deparse(cache$warns), ")\n", sep="") else ""
-
-          src <- concat(
-            "test_that(", deparse(func), ", {\n",
-            test_body,
-            warningChecks,
-            "})"
-          )
-
-          list(
-            type = "src",
-            msg = src
+          test_body <- concat(
+              "\texpected <- ", retv, "\n",
+              "\texpect_equal(", callSource, ", expected)\n"
           )
       }
+
+      warningChecks <- if (!is.null(cache$warns) && length(cache$warns) > 0) paste("\texpect_warning(", callSource, ", ", deparse(cache$warns), ")\n", sep="") else ""
+
+      src <- concat(
+        "test_that(", deparse(func), ", {\n",
+        test_body,
+        warningChecks,
+        "})"
+      )
+
+      list(
+        type = "src",
+        msg = src
+      )
   }
 }
+
+#' @title Generates tests from captured information.
+#'
+#' @description This function takes the tracing information collected by capture and generates
+#' testthat compatible testcases.
+#'
+#' @param output_dir Directory to which the tests should be generated.
+#' @param root Directory with the capture information, defaults to capture.
+#' @param timed TRUE if the tests result depends on time, in which case the current date & time will be appended to the output_dir.
+#' @param verbose TRUE to display additional information.
+#' @param clear_capture if FALSE captured traces will not be deleted after the generation so that subsequent calls to generate() can use them too
+#' @export
+generate <- function(output_dir, root,
+                     timed = F, clear_capture = T, verbose = FALSE) {
+    out <- if (missing(output_dir)) "generated_tests" else output_dir
+    if (missing(output_dir)) {
+        if (!dir.create(out)) {
+            stop("Couldn't create output dir.")
+        }
+    }
+    cache$output.dir <- out
+    ret <- test_gen(root, out, timed, verbose = verbose);
+    if (clear_capture) {
+        unlink(file.path(root, list.files(path = root, no.. = T)))
+    }
+    ret
+}
+
