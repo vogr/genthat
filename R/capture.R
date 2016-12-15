@@ -8,6 +8,20 @@ start_capture <- function(package.name = NULL, capture.dir = "capture") {
     cache$capture.arguments <- TRUE
 }
 
+isDecoratedFun <- function(fn) {
+    if (typeof(fn) != "closure") {
+        FALSE
+    } else {
+        b <- body(fn)
+        if (length(b) != 3) {
+            FALSE
+        } else {
+            tracer.expr <- b[[2]]
+            isTRUE(attr(tracer.expr, 'isGenthatTracerExpression'))
+        }
+    }
+}
+
 #' @title Decorates function to capture calls and return values
 #'
 #' @description More sane replacement of the base::trace function.
@@ -15,35 +29,36 @@ start_capture <- function(package.name = NULL, capture.dir = "capture") {
 #' @param func_name function name
 #' @export
 #'
-decorate_function_val <- function(func, func_name) {
+decorate_function_val <- function(func, func_name, tracer.expr) {
+    if (isDecoratedFun(func)) return(func) #stop("Trying to decorate already decorated function!")
 
-    tracer.expr <- substitute({
+    tracer.expr <- if (!missing(tracer.expr)) tracer.expr else substitute({
         call_id <- call_id_counter$value
         assign("value", call_id + 1, call_id_counter)
 
         forceArgs <- FALSE
 
         if (forceArgs) {
-			e <- environment()
-			arg_names <- names(as.list(match.call())[-1])
+            e <- environment()
+            arg_names <- names(as.list(match.call())[-1])
 
-			# force evaluation of named args
-			named <- lapply(arg_names[arg_names != ""], function(name) { e[[name]] })
-			# force evaluation of ... args
-			dots <- if (hasDots) list(...) else list()
+            # force evaluation of named args
+            named <- lapply(arg_names[arg_names != ""], function(name) { e[[name]] })
+            # force evaluation of ... args
+            dots <- if (hasDots) list(...) else list()
 
-			args <- list() # returned argument list
-			dot_counter <- 1
-			for (arg_counter in seq(1, length(arg_names))) {
-				name <- arg_names[arg_counter]
-				if (name == "") {
-					x <- dots[[dot_counter]]
-					dot_counter <- dot_counter + 1 
-					args[[arg_counter]] <- x
-				} else {
-					args[[name]] <- e[[name]]
-				}
-			}   
+            args <- list() # returned argument list
+            dot_counter <- 1
+            for (arg_counter in seq(1, length(arg_names))) {
+                name <- arg_names[arg_counter]
+                if (name == "") {
+                    x <- dots[[dot_counter]]
+                    dot_counter <- dot_counter + 1 
+                    args[[arg_counter]] <- x
+                } else {
+                    args[[name]] <- e[[name]]
+                }
+            }   
         } else {
             args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
         }
@@ -68,6 +83,8 @@ decorate_function_val <- function(func, func_name) {
         call_id_counter = cache$call_id_counter
     ))) #nolint
 
+    attr(tracer.expr, 'isGenthatTracerExpression') <- TRUE
+
     body(func) <- substitute({ tracer; original.body }, list(tracer = tracer.expr, original.body = body(func)));
 
     func
@@ -82,39 +99,14 @@ decorate_function_val <- function(func, func_name) {
 #' @param verbose if to print additional output
 #' @export
 #'
-decorate <- function(func, package, verbose) {
-    if(class(func) != "character" || (!missing(package) && class(package) != "character")){
-        stop("wrong argument type!")
-    }
-    if (is.na(package)){
-        package <- utils::find(func)
-        if (length(package) == 0) {
-            warning(sprintf("Can't determine a package for function '%s'. If function is hidden, use package param",
-                            func))
-            return(invisible())
-        } else {
-            if (length(package) > 1) {
-                warning("Function found in multiple packages, supply the exact name")
-                return(invisible())
-            }
-        }
-        if (package != ".GlobalEnv")
-            package <- substr(package, 9, nchar(package))
-        else
-            package <- NA
-    }
-    if (is.na(package))
-        isS3 <- is_s3_generic(func)
-    else
-        isS3 <- is_s3_generic(func, getNamespace(package))
-    if (isS3) {
-        warning("Not decorating S3 generic")
-        return(invisible())
-    }
+decorate <- function(func, package, verbose, tracer.expr) {
+    if (class(func) != "character") stop("Parameter `func` must be a string!")
+    if (missing(package)) stop("Missing parameter package!")
+    if (class(package) != "character") stop("Parameter `package` must be a string!")
 
     pkg_namespace <- getNamespace(package)
     func_name <- if (is.na(package)) func else paste(package, escapeNonSyntacticName(func), sep=":::")
-    new_function <- decorate_function_val(pkg_namespace[[func]], func_name)
+    new_function <- decorate_function_val(pkg_namespace[[func]], func_name, tracer.expr= tracer.expr)
 
     overwrite_export(func, new_function, package)
 
@@ -130,28 +122,16 @@ decorate <- function(func, package, verbose) {
 #' @export
 #' @seealso Decorate
 #'
-undecorate <- function(func, verbose) {
-    return()
-    if (class(func) == "character"){
-        fname <- func
-    } else {
-        stop("wrong argument type!")
-    }
-    ind <- which(fname %in% ls(cache$decorated, all.names = TRUE))
-    if (length(ind) == 0) {
-        stop(sprintf("Function %s was not decorated!", fname))
-    }
-    package <- cache$decorated[[func]]$package
-    hidden <- cache$decorated[[func]]$hidden
-    params <- list(fname)
-    if (hidden)
-        params[["where"]] <- call("getNamespace", package)
-    if (verbose) {
-        do.call(untrace, params)
-    } else {
-        suppressMessages(do.call(untrace, params))
-    }
-    rm(list=c(func), envir=cache$decorated)
+undecorate <- function(func, package, verbose) {
+    pkg_namespace <- getNamespace(package)
+    fn <- pkg_namespace[[func]]
+    if (!is.function(fn)) stop("Trying to undecorate non-function value!")
+    if (!isDecoratedFun(fn)) stop("Trying to undecorate non-decorated function!")
+
+    new_body <- body(fn)[[3]]
+    new_function <- fn
+    body(new_function) <- new_body
+    overwrite_export(func, new_function, package)
 }
 
 
@@ -167,7 +147,9 @@ undecorate <- function(func, verbose) {
 #'
 enter_function <- function(fname, args.env, call_id) {
     if (cache$capture.arguments) {
+        cache$capture.arguments <- FALSE
         .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args.env, call_id)
+        cache$capture.arguments <- TRUE
     }
 }
 
@@ -183,7 +165,9 @@ enter_function <- function(fname, args.env, call_id) {
 #'
 exit_function <- function(call_id) {
     if (cache$capture.arguments) {
+        cache$capture.arguments <- FALSE
         .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
+        cache$capture.arguments <- TRUE
     }
 }
 
@@ -194,8 +178,11 @@ exit_function <- function(call_id) {
 #' @seealso undecorate
 #' @export
 clear_decoration <- function(verbose) {
-    for (fname in ls(cache$decorated, all.names = TRUE))
-        undecorate(fname, verbose = verbose)
+    decorated_funs <- cache$decorated
+    lapply(ls(decorated_funs, all.names = TRUE), function(key) {
+        decorated_fn <- decorated_funs[[key]]
+        undecorate(decorated_fn$func, decorated_fn$package, verbose = verbose)
+    })
 }
 
 #' @title Stops capturing the selected functions.

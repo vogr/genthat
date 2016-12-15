@@ -4,7 +4,7 @@
 \alias{generate_tc}
 \title{Generates a testcase for closure function}
 \usage{
-generate_tc(pkgName, func, argv, retv)
+generate_tc(func, argv, retv)
 }
 \arguments{
 \item{func}{function name}

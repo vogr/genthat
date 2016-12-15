@@ -4,7 +4,7 @@
 \alias{decorate_function_val}
 \title{Decorates function to capture calls and return values}
 \usage{
-decorate_function_val(func, func_name)
+decorate_function_val(func, func_name, tracer.expr)
 }
 \arguments{
 \item{func}{function value}

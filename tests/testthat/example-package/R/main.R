@@ -33,7 +33,7 @@ fnWithDefaults <- function(x, y = N) {
     } else {
         N <- 4 * x
     }
-    print(N)
+    message(N)
     N <- 99
 }
 

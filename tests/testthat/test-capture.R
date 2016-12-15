@@ -25,8 +25,82 @@ test_that('Can capture arguments of type environment', {
             myget = function(key, envir) { 42 }
         ))
         expect_equal(test_result2, FALSE)
-
     })
+})
+
+test_that('Can decorate package function.', {
+    test_capturing(function(dir) {
+        dir.create("generated_tests")
+        dir.create("traces")
+
+        example_package_path <- file.path(get_testthat_folder(), "example-package")
+        devtools::load_all(example_package_path)
+
+        decorate("public_fn", "examplePackage", verbose = FALSE)
+
+        gen_from_code({ examplePackage::public_fn(92) }, "generated_tests", "traces")
+
+        testfile <- file.path(dir, 'generated_tests', 'examplePackage___public_fn', 'test-0.R')
+
+        generatedTest <- get_only(loadTestFile(testfile)$testCases)
+        expect_equal(lapply(generatedTest$arguments, eval), list(x = 92))
+    })
+})
+
+test_that('isDecoratedFun FALSE cases.', {
+    expect_equal(isDecoratedFun(function() {}), FALSE)
+    expect_equal(isDecoratedFun(function() 5), FALSE)
+    expect_equal(isDecoratedFun(function(x) x + 1), FALSE)
+    expect_equal(isDecoratedFun(function(x) { print(x); x + 1 }), FALSE)
+})
+
+test_that('Can decorate functions manually.', {
+    f <- function(key, envir) { get(key, envir = envir) }
+    expect_equal(isDecoratedFun(f), FALSE)
+    f <- decorate_function_val(f, "myget")
+    expect_equal(isDecoratedFun(f), TRUE)
+})
+
+test_that('Can decorate functions in packages.', {
+    expect_equal(isDecoratedFun(base::unlist), FALSE)
+    decorate("unlist", "base", verbose = FALSE)
+    expect_equal(isDecoratedFun(base::unlist), TRUE)
+})
+
+test_that('Can decorate builtin function.', {
+    test_capturing(function(dir) {
+        dir.create("generated_tests")
+        dir.create("traces")
+
+        decorate("unlist", "base", verbose = FALSE)
+
+        gen_from_code({ unlist(list(1,2,3,4)) }, "generated_tests", "traces")
+
+        testfile <- file.path(dir, 'generated_tests', 'base___unlist', 'test-0.R')
+
+        # TODO function is captured but recorded arguments have really weird values
+        warning("TODO function is captured but recorded arguments have really weird values")
+        #generatedTest <- get_only(loadTestFile(testfile)$testCases)
+        #expect_equal(args, list(x = list(1,2,3,4)))
+    })
+})
+
+test_that('We capture the same calls for testthat:::comparison as base::trace.', {
+    runCompareExamples <- function() { capture.output(suppressWarnings(example(compare))) }
+
+    trace_spy <- get_spy_expression()
+    trace("comparison", trace_spy$expression, where = asNamespace("testthat"))
+    runCompareExamples()
+    untrace("comparison", where = asNamespace("testthat"))
+    expect_true(trace_spy$getCount() > 1)
+
+    genthat_spy <- get_spy_expression()
+    decorate("comparison", "testthat", tracer.expr = genthat_spy$expression)
+    runCompareExamples()
+    undecorate("comparison", "testthat")
+    expect_true(genthat_spy$getCount() > 1)
+
+    expect_equal(genthat_spy$getCount(), trace_spy$getCount())
 })
 
 #test_that('Can decorate functions', {
@@ -76,20 +150,3 @@ test_that('Can capture arguments of type environment', {
 #    #test_decoration(functions)
 #})
 
-#test_that('Capture writes down all the calls for testthat:::comparison', {
-#    capture_dir <- file.path("temp", "capture")
-#    unlink(capture_dir, recursive = TRUE, force = TRUE)
-#    dir.create(capture_dir, recursive = TRUE)
-#    testr::testr_options("capture.folder", capture_dir)
-#    trace("comparison", where = asNamespace("testthat"))
-#    trace_example <- capture.output(suppressWarnings(example(compare)))
-#    untrace("comparison", where = asNamespace("testthat"))
-#    testr::start_capture(testthat:::comparison)
-#    out <- capture.output(suppressWarnings(example(compare)))
-#    testr::stop_capture_all()
-#    lines <- readLines(file.path(capture_dir, "capture.0"))
-#    expect_equal(length(grep(pattern = "Tracing comparison", trace_example)),
-#                 length(grep(pattern = "func", lines)))
-#    unlink(capture_dir, recursive = TRUE, force = TRUE)
-#})
-#

@@ -4,7 +4,7 @@
 \alias{decorate}
 \title{Decorates function to capture calls and return values}
 \usage{
-decorate(func, package, verbose)
+decorate(func, package, verbose, tracer.expr)
 }
 \arguments{
 \item{func}{function name as a character string}

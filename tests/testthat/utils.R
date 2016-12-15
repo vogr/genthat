@@ -5,6 +5,11 @@ get_testthat_folder <- function() {
     testthat_folder
 }
 
+get_only <- function(xs) {
+    expect_equal(length(xs), 1)
+    xs[[1]]
+}
+
 run_test_file <- function(path, locals = list()) {
     asserts <- logical(0)
     gen_testing_env <- function(locals) {
@@ -37,5 +42,18 @@ test_capturing <- function(fn) {
         unlink(tname, recursive = TRUE, force = TRUE)
     })
     retVal
+}
+
+#' Creates a pair consisting of an expression \code{expression} that when evaluated increments a counter.
+#' and a function \code{getCount} that returns the current counter value.
+get_spy_expression <- function() {
+    counter <- 0
+    list(
+        expression = substitute(
+            { eval(quote(counter <- counter + 1), envir=e) },
+            as.environment(list(e = environment()))
+        ),
+        getCount = function() counter
+    )
 }
 

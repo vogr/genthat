@@ -1,0 +1,29 @@
+
+    if(class(func) != "character" || (!missing(package) && class(package) != "character")){
+        stop("wrong argument type!")
+    }
+    if (is.na(package)){
+        package <- utils::find(func)
+        if (length(package) == 0) {
+            warning(sprintf("Can't determine a package for function '%s'. If function is hidden, use package param",
+                            func))
+            return(invisible())
+        } else {
+            if (length(package) > 1) {
+                warning("Function found in multiple packages, supply the exact name")
+                return(invisible())
+            }
+        }
+        if (package != ".GlobalEnv")
+            package <- substr(package, 9, nchar(package))
+        else
+            package <- NA
+    }
+    if (is.na(package))
+        isS3 <- is_s3_generic(func)
+    else
+        isS3 <- is_s3_generic(func, getNamespace(package))
+    if (isS3) {
+        warning("Not decorating S3 generic")
+        return(invisible())
+    }

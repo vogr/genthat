@@ -4,7 +4,7 @@
 \alias{undecorate}
 \title{undecorate function}
 \usage{
-undecorate(func, verbose)
+undecorate(func, package, verbose)
 }
 \arguments{
 \item{func}{function name as a character string}

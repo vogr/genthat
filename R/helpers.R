@@ -226,6 +226,10 @@ force_rebind <- function(what, value, env) {
     .Internal(lockBinding(sym, env))
 }
 
+getImportsEnvironment <- function(pkgName) {
+    parent.env(getNamespace(pkgName))
+}
+
 overwrite_export <- function(name, val, package) {
     pkg.namespace_env <- getNamespace(package)
     pkg.package_env <- as.environment(paste0("package:", package))
@@ -233,8 +237,13 @@ overwrite_export <- function(name, val, package) {
     is.exported <- exists(name, envir = pkg.package_env, inherits = FALSE)
     if (is.exported) {
         force_rebind(name, val, pkg.package_env)
-        rev_dep.imports_envs <- tryCatch(getNamespaceUsers(package), error = function(e) c())
-        lapply(rev_dep.imports_envs, function(imports_env) force_rebind(name, val, imports_env))
+        if (package != "base") {
+            reverse_dependencies <- tryCatch(getNamespaceUsers(package), error = function(e) c())
+            lapply(reverse_dependencies, function(depPackage) {
+                importsEnv <- getImportsEnvironment(depPackage)
+                force_rebind(name, val, importsEnv)
+            })
+        }
     }
     invisible(NULL)
 }
