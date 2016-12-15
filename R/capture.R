@@ -29,10 +29,10 @@ isDecoratedFun <- function(fn) {
 #' @param func_name function name
 #' @export
 #'
-decorate_function_val <- function(func, func_name, tracer.expr) {
+decorate_function_val <- function(func, func_name, ..., enter_function, exit_function) {
     if (isDecoratedFun(func)) return(func) #stop("Trying to decorate already decorated function!")
 
-    tracer.expr <- if (!missing(tracer.expr)) tracer.expr else substitute({
+    tracer.expr <- substitute({
         call_id <- call_id_counter$value
         assign("value", call_id + 1, call_id_counter)
 
@@ -63,14 +63,14 @@ decorate_function_val <- function(func, func_name, tracer.expr) {
             args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
         }
 
-        genthat:::enter_function(
+        enter_function(
             fname,
             args,
             call_id
         )
 
         exit.expr <- substitute({
-            genthat:::exit_function(c)
+            exit_function(c)
         }, list(
             c = call_id
         ))
@@ -80,7 +80,11 @@ decorate_function_val <- function(func, func_name, tracer.expr) {
     }, as.environment(list(
         fname = func_name,
         hasDots = "..." %in% names(formals(func)),
-        call_id_counter = cache$call_id_counter
+        call_id_counter = cache$call_id_counter,
+        enter_function = if (!missing(enter_function)) enter_function else genthat:::enter_function,
+        # the default exit_function is dependent on the state set by the default enter_function
+        # so when an enter_function is passed by the user exit_function defaults to noop
+        exit_function = if (!missing(exit_function)) exit_function else if (!missing(enter_function)) noop else genthat:::exit_function
     ))) #nolint
 
     attr(tracer.expr, 'isGenthatTracerExpression') <- TRUE
@@ -99,14 +103,14 @@ decorate_function_val <- function(func, func_name, tracer.expr) {
 #' @param verbose if to print additional output
 #' @export
 #'
-decorate <- function(func, package, verbose, tracer.expr) {
+decorate <- function(func, package, verbose, ..., enter_function, exit_function) {
     if (class(func) != "character") stop("Parameter `func` must be a string!")
     if (missing(package)) stop("Missing parameter package!")
     if (class(package) != "character") stop("Parameter `package` must be a string!")
 
     pkg_namespace <- getNamespace(package)
     func_name <- if (is.na(package)) func else paste(package, escapeNonSyntacticName(func), sep=":::")
-    new_function <- decorate_function_val(pkg_namespace[[func]], func_name, tracer.expr= tracer.expr)
+    new_function <- decorate_function_val(pkg_namespace[[func]], func_name, enter_function = enter_function, exit_function = exit_function)
 
     overwrite_export(func, new_function, package)
 

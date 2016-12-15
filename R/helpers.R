@@ -1,4 +1,6 @@
 
+noop <- function(...) {}
+
 #' @title Check if function is S3 generic
 #'
 #' @description Determine if function has a call to UseMethod. In that case there is no need to capture it.

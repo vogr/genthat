@@ -48,11 +48,13 @@ test_capturing <- function(fn) {
 #' and a function \code{getCount} that returns the current counter value.
 get_spy_expression <- function() {
     counter <- 0
+    inc_expr <- substitute(
+        { eval(quote(counter <- counter + 1), envir=e) },
+        as.environment(list(e = environment()))
+    )
     list(
-        expression = substitute(
-            { eval(quote(counter <- counter + 1), envir=e) },
-            as.environment(list(e = environment()))
-        ),
+        expression = inc_expr,
+        fn = function(...) eval(inc_expr),
         getCount = function() counter
     )
 }

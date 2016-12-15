@@ -95,7 +95,7 @@ test_that('We capture the same calls for testthat:::comparison as base::trace.',
     expect_true(trace_spy$getCount() > 1)
 
     genthat_spy <- get_spy_expression()
-    decorate("comparison", "testthat", tracer.expr = genthat_spy$expression)
+    decorate("comparison", "testthat", enter_function = genthat_spy$fn)
     runCompareExamples()
     undecorate("comparison", "testthat")
     expect_true(genthat_spy$getCount() > 1)
