@@ -1,15 +1,24 @@
 
-# TODO find better way to get path to sources
+#' Returns the root of the folder containing all the
+#' testthat tests.
+#' This works because testthat starts running
+#' the test code in the folder where those tests are located.
 testthat_folder <- getwd()
 get_testthat_folder <- function() {
+    # TODO find better way to get path to sources
     testthat_folder
 }
 
+#' Asserts that the array is of length 1 and returns its
+#' only element.
 get_only <- function(xs) {
     expect_equal(length(xs), 1)
     xs[[1]]
 }
 
+#' Runs a test file with a mock of testthat and returns a
+#' boolean value signaling whether all the assertions
+#' encountered during the execution were satisfied.
 run_test_file <- function(path, locals = list()) {
     asserts <- logical(0)
     gen_testing_env <- function(locals) {
@@ -24,18 +33,19 @@ run_test_file <- function(path, locals = list()) {
     all(asserts)
 }
 
-test_capturing <- function(fn) {
-    tname <- tempfile(pattern = "genthat-sandbox-")
+#' Creates a temporary directory that exists only during the
+#' execution of the passed function. The name of the
+#' directory is passed as an arguement to the function.
+with_tempdir <- function(fn) {
+    tname <- tempfile(pattern = "genthat-tempdir-")
     if (!dir.create(tname)) {
-        stop("Couldn't create sandbox directory.")
+        stop("Couldn't create temporary directory.")
     }
     oldwd <- getwd()
     setwd(tname)
     retVal <- tryCatch({
         fn(tname)
     }, error = function(e) {
-        print("error!: ")
-        print(e)
         stop(e)
     }, finally = {
         setwd(oldwd)
@@ -44,7 +54,8 @@ test_capturing <- function(fn) {
     retVal
 }
 
-#' Creates a pair consisting of an expression \code{expression} that when evaluated increments a counter.
+#' Creates a pair consisting of an expression
+#' \code{expression} that when evaluated increments a counter,
 #' and a function \code{getCount} that returns the current counter value.
 get_spy_expression <- function() {
     counter <- 0

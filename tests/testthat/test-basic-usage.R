@@ -7,7 +7,7 @@ source("./utils.R")
 context("Basic usage of genthat")
 
 test_that("basic gen_from_code usage", {
-    test_capturing(function(dir) {
+    with_tempdir(function(dir) {
         dir.create("generated_tests")
         dir.create("traces")
 
@@ -31,7 +31,7 @@ test_that("basic gen_from_code usage", {
 })
 
 test_that("basic gen_from_function usage", {
-    test_capturing(function(dir) {
+    with_tempdir(function(dir) {
         dir.create("generated_tests")
         dir.create("traces")
 

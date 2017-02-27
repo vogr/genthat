@@ -6,7 +6,7 @@ source("./utils.R")
 context("Call capturing")
 
 test_that('Can capture arguments of type environment', {
-    test_capturing(function(dir) {
+    with_tempdir(function(dir) {
         dir.create("generated_tests")
         dir.create("traces")
 
@@ -29,7 +29,7 @@ test_that('Can capture arguments of type environment', {
 })
 
 test_that('Can decorate package function.', {
-    test_capturing(function(dir) {
+    with_tempdir(function(dir) {
         dir.create("generated_tests")
         dir.create("traces")
 
@@ -68,7 +68,7 @@ test_that('Can decorate functions in packages.', {
 })
 
 test_that('Can decorate builtin function.', {
-    test_capturing(function(dir) {
+    with_tempdir(function(dir) {
         dir.create("generated_tests")
         dir.create("traces")
 

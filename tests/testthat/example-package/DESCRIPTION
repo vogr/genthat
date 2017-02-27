@@ -4,12 +4,11 @@ Title: Package to test genthat.
 Version: 0.1.0
 Author: Filippo Ghibellini
 Maintainer: Filippo Ghibellini <ghibefil@fit.cvut.cz>
-Description: Type tracer for R packages.
+Description: Example R project.
 License: GPL (>= 2)
 Imports:
     testthat
 Suggests:
-    parallel,
     knitr,
     rmarkdown,
     roxygen2
