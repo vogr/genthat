@@ -26,8 +26,8 @@ filter_tests <- function(tc_root, tc_result_root, functions, package_path, remov
         is_package <- FALSE
     }
     if (verbose) cat("Test cases root - ", tc_root, "\n")
-    all.tc <- list.files(path = tc_root, all.files = TRUE, recursive = TRUE, pattern = "\\.[rR]$", full.names = TRUE)
-    if (verbose) cat("Number of test cases - ", length(all.tc), "\n")
+    all_tc <- list.files(path = tc_root, all.files = TRUE, recursive = TRUE, pattern = "\\.[rR]$", full.names = TRUE)
+    if (verbose) cat("Number of test cases - ", length(all_tc), "\n")
     # create dummy objects
     if (is_package) {
         # for package, run also its tests so that we do not duplicate
@@ -91,7 +91,7 @@ filter_tests <- function(tc_root, tc_result_root, functions, package_path, remov
         }
         new_total_coverage
     }
-    sapply(all.tc, cov_change)
+    sapply(all_tc, cov_change)
     invisible(NULL)
 }
 

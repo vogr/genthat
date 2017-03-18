@@ -14,4 +14,3 @@ gen_from_cran(package, version, verbose = TRUE, source.dir = "sources",
 \description{
 Generates tests from package downloaded from CRAN
 }
-

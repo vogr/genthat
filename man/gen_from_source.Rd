@@ -4,10 +4,10 @@
 \alias{gen_from_source}
 \title{Generate tests for give source}
 \usage{
-gen_from_source(src.root, output_dir, trace.dir, ...)
+gen_from_source(src_root, output_dir, trace_dir, ...)
 }
 \arguments{
-\item{src.root}{Source file to be executed and captured, or directory containing multiple files.}
+\item{src_root}{Source file to be executed and captured, or directory containing multiple files.}
 
 \item{output_dir}{Directory to which the tests will be generated.}
 
@@ -16,4 +16,3 @@ gen_from_source(src.root, output_dir, trace.dir, ...)
 \description{
 Generates tests by running given source file.
 }
-

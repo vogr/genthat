@@ -9,7 +9,7 @@ exit_function(call_id)
 \arguments{
 \item{fname}{function name}
 
-\item{args.env}{environment to read arguments to function call from}
+\item{args_env}{environment to read arguments to function call from}
 }
 \description{
 This function is respinsible for writing down capture information for decorated function calls.
@@ -17,4 +17,3 @@ This function is respinsible for writing down capture information for decorated 
 \seealso{
 Decorate
 }
-

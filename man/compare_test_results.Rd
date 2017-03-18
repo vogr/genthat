@@ -17,4 +17,3 @@ comparison structure
 \description{
 Returns comparison of two results returned by \code{run_generated_tests()}.
 }
-

@@ -17,4 +17,3 @@ This function generates a test case for builtin function using supplied argument
 \seealso{
 test_gen ProcessClosure
 }
-

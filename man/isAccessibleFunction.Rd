@@ -4,10 +4,10 @@
 \alias{isAccessibleFunction}
 \title{Do we have access to the function in test generation phase, to recompute the return value from the arguments?}
 \usage{
-isAccessibleFunction(function.name)
+isAccessibleFunction(function_name)
 }
 \arguments{
-\item{function.name}{string name of binding}
+\item{function_name}{string name of binding}
 }
 \value{
 boolean value signaling whether evaluating the supplied function name in the global scope yields the function or not.
@@ -19,4 +19,3 @@ Do we have access to the function in test generation phase, to recompute the ret
 isAccessibleFunction("myFn1") == FALSE
 isAccessibleFunction("ggplot2::ggplot") == TRUE
 }
-

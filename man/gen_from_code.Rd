@@ -2,9 +2,9 @@
 % Please edit documentation in R/genthat.R
 \name{gen_from_code}
 \alias{gen_from_code}
-\title{Generate tests for give code}
+\title{Generate tests for given code}
 \usage{
-gen_from_code(code, output_dir, trace.dir, ...)
+gen_from_code(code, output_dir, trace_dir, ...)
 }
 \arguments{
 \item{code}{Code from which the tests will be generated.}
@@ -16,4 +16,3 @@ gen_from_code(code, output_dir, trace.dir, ...)
 \description{
 Generates tests from given code and specific captured functions
 }
-

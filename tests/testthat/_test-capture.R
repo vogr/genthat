@@ -10,9 +10,10 @@ test_that('Can capture arguments of type environment', {
         dir.create("generated_tests")
         dir.create("traces")
 
+        # myget is used because we cannot record native functions at the moment
         myget <- decorate_function_val(function(key, envir) { get(key, envir = envir) }, "myget")
-        e1 <- as.environment(list(a = 3, c = 9))
-        gen_from_code({ x <- myget("a", envir = e1) }, "generated_tests", "traces")
+        env1 <- as.environment(list(a = 3, c = 9))
+        gen_from_code({ x <- myget("a", envir = env1) }, "generated_tests", "traces")
 
         testfile <- file.path(dir, 'generated_tests', 'myget', 'test-0.R')
 
@@ -86,6 +87,7 @@ test_that('Can decorate builtin function.', {
 })
 
 test_that('We capture the same calls for testthat:::comparison as base::trace.', {
+    options(error = recover)
     runCompareExamples <- function() { capture.output(suppressWarnings(example(compare))) }
 
     trace_spy <- get_spy_expression()

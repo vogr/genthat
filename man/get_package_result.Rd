@@ -20,4 +20,3 @@ Result of a \code{get_package_...(...)} function.
 \examples{
 get_package_result("vcrpart", "./sources/vcrpart")
 }
-

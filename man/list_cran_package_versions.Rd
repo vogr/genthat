@@ -21,4 +21,3 @@ Lists the available versions of a package on the given CRAN mirror.
 \examples{
 list_cran_package_versions("ggplot2")
 }
-

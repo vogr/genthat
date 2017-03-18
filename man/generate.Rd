@@ -21,4 +21,3 @@ generate(output_dir, root, timed = F, clear_capture = T, verbose = FALSE)
 This function takes the tracing information collected by capture and generates
 testthat compatible testcases.
 }
-

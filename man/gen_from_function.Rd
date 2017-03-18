@@ -4,30 +4,31 @@
 \alias{gen_from_function}
 \title{Adds regression tests to specified package.}
 \usage{
-gen_from_function(package.dir = ".", trace.dir = "traces", code, functions,
-  filter = TRUE, exclude_existing_tests = FALSE, build = TRUE,
-  timed = FALSE, output, verbose = FALSE, clear_capture = TRUE)
+gen_from_function(package_dir = ".", code, trace_dir = "traces", functions,
+  filter = TRUE, exclude_existing_tests = FALSE, output_dir,
+  verbose = FALSE, clear_capture = TRUE)
 }
 \arguments{
-\item{package.dir}{Name/path to the package, uses devtools notation}
+\item{package_dir}{Path to the package.}
 
 \item{code}{Function (with no arguments) whose code will be executed and its calls in the package captured.}
 
+\item{trace_dir}{Path where traces are gonna be stored.}
+
 \item{functions}{Functions from the package to be captured, if missing, all package functions will be captured (character vector)}
 
-\item{filter}{T if the generated tests should be filtered}
+\item{filter}{Whether the generated tests should be filtered based on code coverage.}
 
 \item{exclude_existing_tests}{If TRUE, existing tests will be ignored from the code coverage}
 
-\item{build}{T if the package will be built beforehand}
-
-\item{timed}{TRUE if the tests result depends on time, in which case the current date & time will be appended to the output_dir.}
-
-\item{output}{If used, specifies where should the tests be unfiltered tests be generated (if not specified, they will use a temp directory and clean it afterwards)}
-
 \item{verbose}{Prints additional information.}
+
+\item{output}{If used, specifies where should the tests be unfiltered tests be generated (if missing, they will use a temp directory and clean it afterwards)}
 }
 \description{
-Given a package, the code to be executed and a list of functions to capture, the function captures the selected functions from the package, then runs the specified code. It then generates tests from the captured information and using code coverage filters them against existing tests for the package. Those that increase the code coverage will be added to already existing testthat tests for the package.
+Given a package, the code to be executed and a list of functions to capture,
+the function captures the selected functions from the package, then runs the specified code.
+It then generates tests from the captured information and using code coverage filters them
+against existing tests for the package. Those that increase the code coverage will be added
+to already existing testthat tests for the package.
 }
-

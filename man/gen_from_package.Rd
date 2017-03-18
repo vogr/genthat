@@ -4,15 +4,15 @@
 \alias{gen_from_package}
 \title{Generates tests for a package by running the code associated with it.}
 \usage{
-gen_from_package(package.dir = ".", capture.dir = "capture",
-  include.tests = FALSE, include.vignettes = FALSE,
-  include.manPages = FALSE, timed = FALSE, filter = TRUE, build = TRUE,
+gen_from_package(package_dir = ".", capture_dir = "capture",
+  include_tests = FALSE, include_vignettes = FALSE,
+  include_manPages = FALSE, timed = FALSE, filter = TRUE, build = TRUE,
   output, verbose = FALSE, clear_capture = TRUE)
 }
 \arguments{
-\item{package.dir}{Name/path to the package, uses devtools notation.}
+\item{package_dir}{Name/path to the package, uses devtools notation.}
 
-\item{include.tests}{If TRUE, captures also execution of package's tests.}
+\item{include_tests}{If TRUE, captures also execution of package's tests.}
 
 \item{timed}{TRUE if the tests result depends on time, in which case the current date & time will be appended to the output_dir.}
 
@@ -27,4 +27,3 @@ gen_from_package(package.dir = ".", capture.dir = "capture",
 \description{
 Runs the examples, vignettes and possibly tests associated with the package and captures the usage of package's functions. Creates tests from the captured information, filters it according to the already existing tests and if any new tests are found, adds them to package's tests.
 }
-

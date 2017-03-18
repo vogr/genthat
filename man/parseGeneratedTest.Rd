@@ -15,4 +15,3 @@ Accepts one string representing a call to \code{test_that()} and returns an appr
 \examples{
 parseGeneratedTest("\\n\\ttest_that('test-42', { expected <- 42; expect_equal(the_truth_function("anything"), expected) })\\n\\n")
 }
-

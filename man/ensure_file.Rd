@@ -15,4 +15,3 @@ This function creates a test case file if one does not exist already
 \seealso{
 test_gen
 }
-

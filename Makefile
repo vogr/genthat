@@ -5,16 +5,19 @@ PKGSRC  := $(shell basename `pwd`)
 
 build:
 	cd ..; \
-    R CMD build $(PKGSRC)
+	R CMD build $(PKGSRC)
 
 install: build
 	cd ..; \
-    R CMD INSTALL $(PKGNAME)_$(PKGVERS).tar.gz
+	R CMD INSTALL $(PKGNAME)_$(PKGVERS).tar.gz
 
 check: build
 	cd ..; \
-    R CMD check $(PKGNAME)_$(PKGVERS).tar.gz --as-cran
+	R CMD check $(PKGNAME)_$(PKGVERS).tar.gz --as-cran
+
+test-installed: install
+	R -e 'library(genthat); devtools::test()'
 
 test:
-	R -e 'library(genthat); devtools::test()'
+	R -e 'library(devtools); document(); load_all(); devtools::test()'
 

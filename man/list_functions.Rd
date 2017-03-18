@@ -4,10 +4,10 @@
 \alias{list_functions}
 \title{Returns names of functions defined in given file(s)}
 \usage{
-list_functions(src.root, recursive = TRUE)
+list_functions(src_root, recursive = TRUE)
 }
 \arguments{
-\item{src.root}{A source file to be analyzed, or a directory containing source files (*.R or *.r) to be analyzed.}
+\item{src_root}{A source file to be analyzed, or a directory containing source files (*.R or *.r) to be analyzed.}
 
 \item{recursive}{TRUE if subdirectories should be scanned too.}
 }
@@ -18,4 +18,3 @@ Character vector of function names defined in the file.
 Analyses given file, or files if directory
 is supplied for all functions defined in global scope and returns their names as character vector.
 }
-

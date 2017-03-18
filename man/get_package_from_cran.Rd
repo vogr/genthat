@@ -29,4 +29,3 @@ Fetches a package from CRAN and installs all the dependencies.
 get_package_from_cran("vcrpart")
 get_package_from_archive("vcrpart", "0.3-3", dest.dir="./package_sources")
 }
-

@@ -14,4 +14,3 @@ gen_from_archive(path, verbose = TRUE, source.dir = "sources",
 \description{
 Generates tests from package downloaded from CRAN
 }
-

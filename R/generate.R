@@ -36,20 +36,20 @@ test_gen <- function(root, output_dir, timed = F, verbose = FALSE) {
   if (missing(root) || !file.exists(root)) {
     stop("Input dir/file doesn't exist!")
   }
-  all.capture <- if (!file.info(root)$isdir) root else lapply(list.files(root, recursive=TRUE, all.files = TRUE), function(x) file.path(root,x))
+  all_capture <- if (!file.info(root)$isdir) root else lapply(list.files(root, recursive=TRUE, all.files = TRUE), function(x) file.path(root,x))
   # output dir checks
   if (missing(output_dir)) stop("A output directory must be provided!");
   if (!file.exists(output_dir) || !file.info(output_dir)$isdir) dir.create(output_dir)
   if (timed)
     output_dir <- file.path(output_dir, format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
   cache$output_dir <- output_dir
-  # bad.arguments file to store incorrect arguments
+  # bad_arguments file to store incorrect arguments
   cache$bad_argv <- file.path(cache$output_dir, "bad_arguments");
   if (!file.exists(cache$bad_argv)
       && !file.create(cache$bad_argv))
       stop("Unable to create file: ", cache$bad_argv)
   cache$tid <- list()
-  ret <- Map(function(x) { process_capture(x) }, all.capture)
+  ret <- Map(function(x) { process_capture(x) }, all_capture)
   cache$output_dir <- NULL
   cache$bad_argv <- NULL
   ret
@@ -66,20 +66,20 @@ ensure_file <- function(name) {
     # replace ::: with ___ so that we work on Windows too
     fname <- gsub(":::", "___", fname)
     # check if the folder for the function exists and create it if not
-    tc.folder = file.path(cache$output_dir, fname, fsep = .Platform$file.sep)
-    dir.create(tc.folder, showWarnings = FALSE)
+    tc_folder = file.path(cache$output_dir, fname, fsep = .Platform$file.sep)
+    dir.create(tc_folder, showWarnings = FALSE)
     # get the index of the file, based on number of files in the folder (but use the cache information for it)
     cache$tid[[name]] <- if (is.null(cache$tid[[name]])) { 0L } else { cache$tid[[name]] + 1L }
-    tc.file = file.path(tc.folder, paste("test-", cache$tid[[name]], ".R", sep=""), fsep = .Platform$file.sep)
+    tc_file = file.path(tc_folder, paste("test-", cache$tid[[name]], ".R", sep=""), fsep = .Platform$file.sep)
     # the file should not exist
-    if (!file.create(tc.file))
-        stop("Unable to create file: ", tc.file)
+    if (!file.create(tc_file))
+        stop("Unable to create file: ", tc_file)
     # TODO perhaps this is not needed for testthat
-    write("library(testthat)", file = tc.file, append = TRUE)
-    write("", file = tc.file, append = TRUE)
+    write("library(testthat)", file = tc_file, append = TRUE)
+    write("", file = tc_file, append = TRUE)
     # write context information (the function name)
-    write(paste("context(\"",name,"\")\n", sep=""), file = tc.file, append = TRUE)
-    return(tc.file)
+    write(paste("context(\"",name,"\")\n", sep=""), file = tc_file, append = TRUE)
+    return(tc_file)
 }
 
 #' @title Process File with Closure capture information
@@ -108,8 +108,8 @@ process_capture <- function(cap_file) {
           write(feedback$msg, file=cache$bad_argv, append=TRUE);
         } else if (feedback$type == "src") {
           #### good, we get the source code
-          tc.file <- ensure_file(func)
-          write(feedback$msg, file=tc.file, append=TRUE);
+          tc_file <- ensure_file(func)
+          write(feedback$msg, file=tc_file, append=TRUE);
         } else {
           stop("Unexpected generate_tc() return value!");
         }
@@ -141,14 +141,14 @@ read_value <- function(lines, prefix){
 
 #' Do we have access to the function in test generation phase, to recompute the return value from the arguments?
 #'
-#' @param function.name string name of binding
+#' @param function_name string name of binding
 #' @return boolean value signaling whether evaluating the supplied function name in the global scope yields the function or not.
 #'
 #' @examples
 #' isAccessibleFunction("myFn1") == FALSE
 #' isAccessibleFunction("ggplot2::ggplot") == TRUE
-isAccessibleFunction <- function(function.name) {
-    length(grep("::", function.name)) != 0 # TODO handle functions and package-names containing "::"
+isAccessibleFunction <- function(function_name) {
+    length(grep("::", function_name)) != 0 # TODO handle functions and package-names containing "::"
 }
 
 #' @title Generates a testcase for closure function
@@ -160,11 +160,11 @@ isAccessibleFunction <- function(function.name) {
 generate_tc <- function(func, argv, retv) {
   # check validity of arguments
   deserialize <- function(x) eval(parse(text=x))
-  valid.argv <- tryCatch(deserialize(argv), error = function(e) "GENTHAT_UNPARSEABLE")
-  valid.retv <- tryCatch(deserialize(retv), error = function(e) "GENTHAT_UNPARSEABLE")
+  valid_argv <- tryCatch(deserialize(argv), error = function(e) "GENTHAT_UNPARSEABLE")
+  valid_retv <- tryCatch(deserialize(retv), error = function(e) "GENTHAT_UNPARSEABLE")
 
   # proper arguments should always be packed in a list
-  if (identical(valid.argv, "GENTHAT_UNPARSEABLE") || identical(valid.retv, "GENTHAT_UNPARSEABLE")) {
+  if (identical(valid_argv, "GENTHAT_UNPARSEABLE") || identical(valid_retv, "GENTHAT_UNPARSEABLE")) {
       cache$unparsable_count <- cache$unparsable_count + 1L
       list(
           type = "err",
@@ -189,9 +189,9 @@ generate_tc <- function(func, argv, retv) {
       if (isAccessibleFunction(func)) {
           pkgName <- sub("^(.*):::.*$", "\\1", func)
           fn <- eval(parse(text=func))
-          call <- as.call(if (0 == length(valid.argv)) list(fn) else append(fn, valid.argv))
+          call <- as.call(if (0 == length(valid_argv)) list(fn) else append(fn, valid_argv))
 
-          new.retv <- withCallingHandlers(
+          new_retv <- withCallingHandlers(
                         tryCatch(
                             eval(call, envir = getNamespace(pkgName)),
                             error = function(e) cache$errs <- e$message
@@ -202,7 +202,7 @@ generate_tc <- function(func, argv, retv) {
                         }
                   )
 
-          et <- system.time({ sameRetv <- isTRUE(all.equal(new.retv, valid.retv)) })[1]
+          et <- system.time({ sameRetv <- isTRUE(all.equal(new_retv, valid_retv)) })[1]
           message(paste0("all.equal time: ", et, " seconds\n"))
           if (!sameRetv) {
               cache$retv_mismatch_count <- cache$retv_mismatch_count + 1L
@@ -214,7 +214,7 @@ generate_tc <- function(func, argv, retv) {
                     paste0("func: ", func),
                     paste0("argv: ", argv),
                     paste0("retv: ", retv),
-                    paste0("computed.retv: ", serialize_r(new.retv)),
+                    paste0("computed_retv: ", serialize_r(new_retv)),
                     "",
                     sep = "\n"
                  )
@@ -224,7 +224,7 @@ generate_tc <- function(func, argv, retv) {
       }
 
       cache$generated_tests <- cache$generated_tests + 1L
-      argSources <- Map(serialize_r, valid.argv)
+      argSources <- Map(serialize_r, valid_argv)
       callSource <- concat(func, "(", listToArgumentList(argSources), ")")
 
       if (!is.null(cache$errs)) {
@@ -275,7 +275,7 @@ generate <- function(output_dir, root,
             stop("Couldn't create output dir.")
         }
     }
-    cache$output.dir <- out
+    cache$output_dir <- out
     ret <- test_gen(root, out, timed, verbose = verbose);
     if (clear_capture) {
         unlink(file.path(root, list.files(path = root, no.. = T)))

@@ -10,9 +10,10 @@ test_that("parseGeneratedTest() works", {
             expect_equal(fn1(40L, 2L), expected)
         })
     ')
+    expect_equal("list", "list")
     expect_equal(typeof(ret), "list")
-    expect_equal(ret$expected.value, 42L)
-    expect_equal(ret$tested.function, "fn1")
+    expect_equal(ret$expected_value, 42L)
+    expect_equal(ret$tested_function, "fn1")
     expect_equal(lapply(ret$arguments, eval), list(40L, 2L))
 })
 
@@ -43,14 +44,14 @@ test_that("loadTestFile() works", {
 
     testcase1 <- ret$testCases[[1]]
     expect_equal(typeof(testcase1), "list")
-    expect_equal(testcase1$expected.value, 42L)
-    expect_equal(testcase1$tested.function, "fn1")
+    expect_equal(testcase1$expected_value, 42L)
+    expect_equal(testcase1$tested_function, "fn1")
     expect_equal(lapply(testcase1$arguments, eval), list(40L, 2L))
 
     testcase2 <- ret$testCases[[2]]
     expect_equal(typeof(testcase2), "list")
-    expect_equal(testcase2$expected.value, 10)
-    expect_equal(testcase2$tested.function, "fn1")
+    expect_equal(testcase2$expected_value, 10)
+    expect_equal(testcase2$tested_function, "fn1")
     expect_equal(lapply(testcase2$arguments, eval), list(9, 1))
 
 })

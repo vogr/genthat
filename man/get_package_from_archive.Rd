@@ -23,4 +23,3 @@ Extracts package from an archive and installs all the dependencies.
 get_package_from_archive("./vcrpart_0.3-3.tar.gz")
 get_package_from_archive("./vcrpart_0.3-3.tar.gz", dest.dir="./package_sources", quiet=FALSE)
 }
-

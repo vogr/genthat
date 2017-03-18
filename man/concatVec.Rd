@@ -15,4 +15,3 @@ character scalar
 \description{
 Every argument must me a single string.
 }
-

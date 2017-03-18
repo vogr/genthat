@@ -98,12 +98,12 @@ void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
         retv = "<unserializable " + e.msg + ">";
     }
 
-    string traceFile = as<string>(cache.get("capture.dir"));
+    string traceFile = as<string>(cache.get("capture_dir"));
     traceFile += "/capture.";
     traceFile += to_string(captureFileNumber);
     tracefile.open(traceFile.c_str(), std::ios::app);
     //if (get_file_size(traceFile) == 0) {
-    //    string pkgName = as<string>(cache.get("package.name"));
+    //    string pkgName = as<string>(cache.get("package_name"));
     //    tracefile << kPkgPrefix << pkgName << std::endl << std::endl;
     //}
     printCapture(fname, kFuncPrefix);

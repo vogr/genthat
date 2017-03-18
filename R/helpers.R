@@ -57,9 +57,9 @@ find_tests <- function(path) {
 #'
 #' @description This function is respinsible for extractng function name from test file name and removing special characters
 #' @param filename filename to be processed
-#' @param modify.characters if special characters should be removed
+#' @param modify_characters if special characters should be removed
 #'
-extract_func_name <- function(filename, modify.characters = TRUE){
+extract_func_name <- function(filename, modify_characters = TRUE){
     fname <- filename
     if (grepl(".[rR]$", filename)) {
         fname <- gsub("(.*)tc_(.*)_(.*).R", "\\2", filename)
@@ -67,7 +67,7 @@ extract_func_name <- function(filename, modify.characters = TRUE){
     if (fname %in% operators) {
         fname <- "operators"
     }
-    if (modify.characters){
+    if (modify_characters){
         fname <- gsub("\\.", "", fname)
         fname <- gsub("<-", "assign_", fname)
         fname <- gsub("\\[", "extract_parentasis_", fname)
@@ -131,15 +131,15 @@ parseFunctionNames <- function(...) {
 #' @description Analyses given file, or files if directory
 #' is supplied for all functions defined in global scope and returns their names as character vector.
 #'
-#' @param src.root A source file to be analyzed, or a directory containing source files (*.R or *.r) to be analyzed.
+#' @param src_root A source file to be analyzed, or a directory containing source files (*.R or *.r) to be analyzed.
 #' @param recursive TRUE if subdirectories should be scanned too.
 #' @return Character vector of function names defined in the file.
-list_functions <- function(src.root, recursive = TRUE) {
+list_functions <- function(src_root, recursive = TRUE) {
     functions = character()
-    if (file.info(src.root)$isdir)
-        src.root <- list.files(src.root, pattern = "\\.[rRsS]$", recursive = recursive, full.names = T)
-    for (src.file in src.root) {
-        exp <- parse(src.file)
+    if (file.info(src_root)$isdir)
+        src_root <- list.files(src_root, pattern = "\\.[rRsS]$", recursive = recursive, full.names = T)
+    for (src_file in src_root) {
+        exp <- parse(src_file)
         for (e in exp) {
             if (typeof(e) == "language" && (e[[1]] == as.name("<-") || e[[1]] == as.name("=")) && is.name(e[[2]])) {
                 name <- e[[2]]
@@ -233,12 +233,12 @@ getImportsEnvironment <- function(pkgName) {
 }
 
 overwrite_export <- function(name, val, package) {
-    pkg.namespace_env <- getNamespace(package)
-    pkg.package_env <- as.environment(paste0("package:", package))
-    force_rebind(name, val, pkg.namespace_env)
-    is.exported <- exists(name, envir = pkg.package_env, inherits = FALSE)
-    if (is.exported) {
-        force_rebind(name, val, pkg.package_env)
+    pkg_namespace_env <- getNamespace(package)
+    pkg_package_env <- as.environment(paste0("package:", package))
+    force_rebind(name, val, pkg_namespace_env)
+    is_exported <- exists(name, envir = pkg_package_env, inherits = FALSE)
+    if (is_exported) {
+        force_rebind(name, val, pkg_package_env)
         if (package != "base") {
             reverse_dependencies <- tryCatch(getNamespaceUsers(package), error = function(e) c())
             lapply(reverse_dependencies, function(depPackage) {
@@ -271,20 +271,40 @@ test_pkg_env <- function(package) {
     parent = parent.env(getNamespace(package)))
 }
 
-run_package_tests <- function(src.root, verbose) {
-    if (package_uses_testthat(src.root)) {
-        package <- devtools::as.package(src.root)
-        test_path <- file.path(src.root, "tests", "testthat")
+run_package_tests <- function(src_root, verbose) {
+    if (package_uses_testthat(src_root)) {
+        package <- devtools::as.package(src_root)
+        test_path <- file.path(src_root, "tests", "testthat")
         testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
-    } else if (file.exists(file.path(src.root, "tests"))) {
-        run_R_tests(src.root, verbose = TRUE)
+    } else if (file.exists(file.path(src_root, "tests"))) {
+        run_R_tests(src_root, verbose = TRUE)
     } else {
         if (verbose) message("Package has no tests!")
     }
 }
 
-package_uses_testthat <- function(package.dir) {
-    test_path <- file.path(package.dir, "tests", "testthat")
+package_uses_testthat <- function(package_dir) {
+    test_path <- file.path(package_dir, "tests", "testthat")
     file.exists(test_path)
+}
+
+#' @title Appends x to list lst
+#'
+#' @param lst list
+#' @param x appended element
+#'
+listPush <- function(lst, x) {
+    if (!is.list(lst)) stop("Invalid call to listPush()!")
+    lst[[length(lst) + 1]] <- x
+}
+
+listEnvFunctions <- function(env) {
+    all_names <- ls(env, all.names = TRUE)
+    Filter(function(name) is.function(env[[name]]), all_names)
+}
+
+listExportedFunctions <- function(package) {
+    env <- as.environment(paste0("package:", package))
+    listEnvFunctions(env)
 }
 
