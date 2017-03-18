@@ -1,4 +1,4 @@
-library(testr)
+library(genthat)
 library(testthat)
 
 context("Corner cases")
@@ -39,7 +39,7 @@ test_that('Missing argument corner case is fixed', {
   Xc <- qr.X(qrstr, complete=TRUE)
   dim(Xc) # square: nrow(x) ^ 2
   dimnames(X) <- NULL
-  testr::stop_capture_all()
+  genthat::stop_capture_all()
   expect_true(all.equal(Xc[,1:p], X))
 
   # was failing before 5fe109579d670a0ebf094215398410ca08c3749b
@@ -50,7 +50,7 @@ test_that('Missing argument corner case is fixed', {
   X <- hilbert(9)[,1:6]
   s <- svd(X)
   D <- diag(s$d)
-  testr::stop_capture_all()
+  genthat::stop_capture_all()
   expect_true(all(abs(X - s$u %*% D %*% t(s$v)) < Eps))#  X = U D V'
   expect_true(all(abs(D - t(s$u) %*% X %*% s$v) < Eps))#  D = U' X V
 })

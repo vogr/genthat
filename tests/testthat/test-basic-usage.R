@@ -35,10 +35,10 @@ test_that("basic gen_from_function usage", {
         dir.create("generated_tests")
         dir.create("traces")
 
-        example_package_path <- file.path(get_testthat_folder(), "example-package")
+        example_package_path <- file.path(get_testthat_folder(), "toyProject")
         gen_result <- gen_from_function(example_package_path, function() { suppressMessages({ public_fn(32) }) }, out = "generated_tests", trace.dir = "traces")
 
-        testfile <- file.path(dir, 'generated_tests', 'examplePackage___public_fn', 'test-0.R')
+        testfile <- file.path(dir, 'generated_tests', 'toyProject___public_fn', 'test-0.R')
 
         test_result1 <- run_test_file(testfile, list())
         expect_equal(test_result1, TRUE)
