@@ -1,5 +1,5 @@
 library(testthat)
-library(testr)
+library(genthat)
 
 context("toyProject:::public_fn")
 

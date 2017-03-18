@@ -1,4 +1,4 @@
-library(testr)
+library(genthat)
 library(testthat)
 
 context("Filtering")

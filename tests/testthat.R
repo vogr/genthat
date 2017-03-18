@@ -1,4 +1,4 @@
 library(testthat)
-library(testr)
+library(genthat)
 
-test_check("testr")
+test_check("genthat")
