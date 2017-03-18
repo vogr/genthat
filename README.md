@@ -9,13 +9,17 @@ genthat - test case generation for R
 *genthat* is a framework for unit tests generation from source code and for test execution, and filtering of test cases based on C code coverage using `gcov` and R code coverage using `covr`.
 
 # Installation
-Even thought the development of the package started sometime ago it is still rather experimental and no available from CRAN release yet. However, that is one of the near future plans to have a stable version and release it through CRAN.
+
+Even thought the development of the package started sometime ago it is still
+rather experimental and no available from CRAN release yet.
+However, that is one of the near future plans to have a stable version and
+release it through CRAN.
 
 It can be installed easily using the `devtools` package:
 
 ```r
 library(devtools)
-install_github('reactorlabs/genthat')
+install_github('PRL-PRG/genthat')
 ```
 
 Or download the sources and build manually. If you're running R on Windows, you need to install Rtools.
@@ -23,7 +27,7 @@ Or download the sources and build manually. If you're running R on Windows, you 
 Usage
 -----
 
-```
+```r
 library("genthat")
 library("some.package")
 
@@ -42,7 +46,6 @@ decorate_exported("some.package", c("exported_fn1", "exported_fn2"))
 decorate_exported("some.package", all = TRUE)
 # e) decorate all non-exported function in package
 decorate_hidden_functions("some.package")
-
 
 # STEP 2 - Call some code that calls the decorated functions (this will generate the traces).
 
@@ -71,7 +74,7 @@ gen_tests(output_dir = "./genthat_tests")
 ```
 Alternatively we provide wrapper functions that cover the most common usecases.
 
-```
+```r
 library("genthat")
 library("some.package")
 
