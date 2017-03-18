@@ -1,5 +1,7 @@
-library(genthat)
+
 library(testthat)
+library(devtools)
+load_all("../..", export_all = FALSE) # genthat
 
 source("./utils.R")
 
@@ -35,7 +37,7 @@ test_that('Can decorate package function.', {
         dir.create("traces")
 
         example_package_path <- file.path(get_testthat_folder(), "example-package")
-        devtools::load_all(example_package_path)
+        load_all(example_package_path, TRUE, export_all = FALSE)
 
         decorate("public_fn", "examplePackage", verbose = FALSE)
 
@@ -46,63 +48,6 @@ test_that('Can decorate package function.', {
         generatedTest <- get_only(loadTestFile(testfile)$testCases)
         expect_equal(lapply(generatedTest$arguments, eval), list(x = 92))
     })
-})
-
-test_that('isDecoratedFun FALSE cases.', {
-    expect_equal(isDecoratedFun(function() {}), FALSE)
-    expect_equal(isDecoratedFun(function() 5), FALSE)
-    expect_equal(isDecoratedFun(function(x) x + 1), FALSE)
-    expect_equal(isDecoratedFun(function(x) { print(x); x + 1 }), FALSE)
-})
-
-test_that('Can decorate functions manually.', {
-    f <- function(key, envir) { get(key, envir = envir) }
-    expect_equal(isDecoratedFun(f), FALSE)
-    f <- decorate_function_val(f, "myget")
-    expect_equal(isDecoratedFun(f), TRUE)
-})
-
-test_that('Can decorate functions in packages.', {
-    expect_equal(isDecoratedFun(base::unlist), FALSE)
-    decorate("unlist", "base", verbose = FALSE)
-    expect_equal(isDecoratedFun(base::unlist), TRUE)
-})
-
-test_that('Can decorate builtin function.', {
-    with_tempdir(function(dir) {
-        dir.create("generated_tests")
-        dir.create("traces")
-
-        decorate("unlist", "base", verbose = FALSE)
-
-        gen_from_code({ unlist(list(1,2,3,4)) }, "generated_tests", "traces")
-
-        testfile <- file.path(dir, 'generated_tests', 'base___unlist', 'test-0.R')
-
-        # TODO function is captured but recorded arguments have really weird values
-        warning("TODO function is captured but recorded arguments have really weird values")
-        #generatedTest <- get_only(loadTestFile(testfile)$testCases)
-        #expect_equal(args, list(x = list(1,2,3,4)))
-    })
-})
-
-test_that('We capture the same calls for testthat:::comparison as base::trace.', {
-    options(error = recover)
-    runCompareExamples <- function() { capture.output(suppressWarnings(example(compare))) }
-
-    trace_spy <- get_spy_expression()
-    trace("comparison", trace_spy$expression, where = asNamespace("testthat"))
-    runCompareExamples()
-    untrace("comparison", where = asNamespace("testthat"))
-    expect_true(trace_spy$getCount() > 1)
-
-    genthat_spy <- get_spy_expression()
-    decorate("comparison", "testthat", enter_function = genthat_spy$fn)
-    runCompareExamples()
-    undecorate("comparison", "testthat")
-    expect_true(genthat_spy$getCount() > 1)
-
-    expect_equal(genthat_spy$getCount(), trace_spy$getCount())
 })
 
 #test_that('Can decorate functions', {

@@ -219,15 +219,6 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
     func
 }
 
-start_capture <- function(package_name = NULL, capture_dir = "capture") {
-    cache$package_name <- package_name
-    cache$capture_dir <- capture_dir
-    cache$capture_num <- 0
-    cache$decorated <- new.env()
-    cache$call_id_counter <- as.environment(list(value = 0))
-    cache$capture_arguments <- TRUE
-}
-
 #' @title undecorate function
 #'
 #' @description Reset previously decorate function
@@ -312,5 +303,14 @@ stop_capture <- function(..., verbose = FALSE) {
 #' @param verbose TRUE to display additional information
 stop_capture_all <- function(verbose = FALSE) {
     clear_decoration(verbose = verbose)
+}
+
+start_capture <- function(package_name = NULL, capture_dir = "capture") {
+    cache$package_name <- package_name
+    cache$capture_dir <- capture_dir
+    cache$capture_num <- 0
+    cache$decorated <- new.env()
+    cache$call_id_counter <- as.environment(list(value = 0))
+    cache$capture_arguments <- TRUE
 }
 
