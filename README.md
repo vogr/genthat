@@ -46,6 +46,8 @@ decorate_exported("somePackage", c("exported_fn1", "exported_fn2"))
 decorate_exported("somePackage", all = TRUE)
 # e) decorate all non-exported function in package
 decorate_hidden_functions("somePackage")
+# f) to decorate a single hidden function just call
+decorate_function("hidden_fn1", env = getNamespace("somePackage"))
 
 # STEP 2 - Call some code that calls the decorated functions (this will generate the traces).
 
