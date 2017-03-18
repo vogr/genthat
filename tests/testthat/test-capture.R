@@ -33,14 +33,14 @@ test_that('Can decorate package function.', {
         dir.create("generated_tests")
         dir.create("traces")
 
-        example_package_path <- file.path(get_testthat_folder(), "example-package")
+        example_package_path <- file.path(get_testthat_folder(), "toyProject")
         devtools::load_all(example_package_path)
 
-        decorate("public_fn", "examplePackage", verbose = FALSE)
+        decorate("public_fn", "toyProject", verbose = FALSE)
 
-        gen_from_code({ examplePackage::public_fn(92) }, "generated_tests", "traces")
+        gen_from_code({ toyProject::public_fn(92) }, "generated_tests", "traces")
 
-        testfile <- file.path(dir, 'generated_tests', 'examplePackage___public_fn', 'test-0.R')
+        testfile <- file.path(dir, 'generated_tests', 'toyProject___public_fn', 'test-0.R')
 
         generatedTest <- get_only(loadTestFile(testfile)$testCases)
         expect_equal(lapply(generatedTest$arguments, eval), list(x = 92))
