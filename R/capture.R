@@ -19,7 +19,7 @@ decorate_function_val <- function(func, func_label) {
 
     new_func <- decorate_function_val__(func, func_label)
 
-    listPush(cache$decorated_functions, list(
+    add_decorated_function(list(
         type = "value",
         decorated_func = new_func,
         original_func = func
@@ -47,7 +47,7 @@ decorate_function <- function(func_names, env = environment()) {
         new_function <- decorate_function_val__(original_func, func_name)
         env[[func_name]] <- new_function
 
-        listPush(cache$decorated_functions, list(
+        add_decorated_function(list(
             type = "bound",
             name = func_name,
             env = env,
@@ -90,7 +90,7 @@ decorate_exported <- function(package, functions = NULL, ..., all = FALSE) {
         new_function <- decorate_function_val__(original_func, label)
         overwrite_export(func, new_function, package)
 
-        listPush(cache$decorated_functions, list(
+        add_decorated_function(list(
             type = "exported",
             name = func,
             package = package,
@@ -123,7 +123,30 @@ decorate_hidden_functions <- function(package) {
     })
 }
 
-#' @title Tell you whether the function is a result of genethat's function decoration.
+#' @title Undecorate all functions.
+#'
+#' @description Undecorate all functions.
+#' Functions decorated through `decorate_function_val()` are not undecorated.
+#' @export
+#'
+undecorate_all <- function() {
+    lapply(cache$decorated_functions, function(decorated_fun) {
+        if (decorated_fun$type == "value") {
+            ; # do nothing
+        } else if (decorated_fun$type == "bound") {
+            env <- decorated_fun$env
+            name <- decorated_fun$name
+            env[[name]] <- decorated_fun$original_func
+        } else if (decorated_fun$type == "exported") {
+            package <- decorated_fun$package
+            name <- decorated_fun$name
+            overwrite_export(name, decorated_fun$original_func, package)
+        }
+    })
+    cache$decorated_functions <- list()
+}
+
+#' @title Tells you whether the function is a result of genthat's function decoration.
 #'
 #' @param fn function value
 #' @export
@@ -218,26 +241,6 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 
     func
 }
-
-#' @title undecorate function
-#'
-#' @description Reset previously decorate function
-#' @param func function name as a character string
-#' @param verbose if to print additional output
-#' @seealso Decorate
-#'
-undecorate <- function(func, package, verbose) {
-    pkg_namespace <- getNamespace(package)
-    fn <- pkg_namespace[[func]]
-    if (!is.function(fn)) stop("Trying to undecorate non-function value!")
-    if (!is_decorated(fn)) stop("Trying to undecorate non-decorated function!")
-
-    new_body <- body(fn)[[3]]
-    new_function <- fn
-    body(new_function) <- new_body
-    overwrite_export(func, new_function, package)
-}
-
 
 #' @title Write down capture information
 #'

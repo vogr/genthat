@@ -293,9 +293,10 @@ package_uses_testthat <- function(package_dir) {
 #' @param lst list
 #' @param x appended element
 #'
-listPush <- function(lst, x) {
-    if (!is.list(lst)) stop("Invalid call to listPush()!")
+listAppend <- function(lst, x) {
+    if (!is.list(lst)) stop("Invalid call to listAppend()!")
     lst[[length(lst) + 1]] <- x
+    lst
 }
 
 listEnvFunctions <- function(env) {
@@ -308,3 +309,9 @@ listExportedFunctions <- function(package) {
     listEnvFunctions(env)
 }
 
+add_decorated_function <- function(record) {
+    cache$decorated_functions <- listAppend(
+        cache$decorated_functions,
+        record
+    )
+}

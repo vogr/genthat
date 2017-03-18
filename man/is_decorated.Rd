@@ -2,7 +2,7 @@
 % Please edit documentation in R/capture.R
 \name{is_decorated}
 \alias{is_decorated}
-\title{Tell you whether the function is a result of genethat's function decoration.}
+\title{Tells you whether the function is a result of genthat's function decoration.}
 \usage{
 is_decorated(fn)
 }

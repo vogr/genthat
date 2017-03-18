@@ -19,5 +19,5 @@ test-installed: install
 	R -e 'library(genthat); devtools::test()'
 
 test:
-	R -e 'library(devtools); document(); load_all(); devtools::test()'
+	R -e 'library(devtools); document(); devtools::test()'
 
