@@ -29,7 +29,7 @@ Usage
 
 ```r
 library("genthat")
-library("some.package")
+library("somePackage")
 
 fn1 <- function(a) { a + 1 }
 fn2 <- function(b) { b + 2 }
@@ -41,18 +41,18 @@ fn1 <- decorate_function_val(fn1, "fn1_label")
 # b) decorate a function bound in an environment
 decorate_function("fn2", env = environment())
 # c) decorate a function exported from a package
-decorate_exported("some.package", c("exported_fn1", "exported_fn2"))
+decorate_exported("somePackage", c("exported_fn1", "exported_fn2"))
 # d) decorate all the functions a package exports
-decorate_exported("some.package", all = TRUE)
+decorate_exported("somePackage", all = TRUE)
 # e) decorate all non-exported function in package
-decorate_hidden_functions("some.package")
+decorate_hidden_functions("somePackage")
 
 # STEP 2 - Call some code that calls the decorated functions (this will generate the traces).
 
 fn1(42)
 fn2(69)
 # utility function to run code accompanying the package
-run_package("some.package", include_tests = TRUE, include_vignettes = TRUE, include_man_pages = TRUE)
+run_package("somePackage", include_tests = TRUE, include_vignettes = TRUE, include_man_pages = TRUE)
 
 # STEP 3 - Undecorate all the functions.
 
@@ -76,12 +76,12 @@ Alternatively we provide wrapper functions that cover the most common usecases.
 
 ```r
 library("genthat")
-library("some.package")
+library("somePackage")
 
 # This call will:
 # 1) decorate all the functions defined in the package (exported & hidden)
 # 2) run the tests in the package
 # 3) generate new tests from the traces
-gen_from_package("some.package", include_tests = TRUE,  output_dir = "./genthat_tests")
+gen_from_package("somePackage", include_tests = TRUE,  output_dir = "./genthat_tests")
 ```
 
