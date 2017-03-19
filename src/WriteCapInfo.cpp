@@ -60,12 +60,10 @@ map<int,pair<string,string>> cached_args;
 
 SEXP makeError(string description)
 {
-    const char *names[] = { "type", "error_description", "" };
-    SEXP lst = PROTECT(Rf_mkNamed(VECSXP, names));
-    SET_VECTOR_ELT(lst, 0, Rf_mkString("error"));
-    SET_VECTOR_ELT(lst, 1, Rf_mkString(description.c_str()));
-    UNPROTECT(1);
-    return lst;
+    return List::create(
+        Named("type") = Rf_mkString("error"),
+        Named("error_description") = Rf_mkString(description.c_str())
+    );
 }
 
 // [[Rcpp::export]]
@@ -117,14 +115,12 @@ SEXP exitFunction_cpp (SEXP call_id, SEXP retv_env)
         return makeError("<unserializable: " + e.msg + ">");
     }
 
-    const char *names[] = { "type", "func", "args", "retv", "" };
-    SEXP lst = PROTECT(Rf_mkNamed(VECSXP, names));
-    SET_VECTOR_ELT(lst, 0, Rf_mkString("trace"));
-    SET_VECTOR_ELT(lst, 1, Rf_mkString(fname.c_str()));
-    SET_VECTOR_ELT(lst, 2, Rf_mkString(args.c_str()));
-    SET_VECTOR_ELT(lst, 3, Rf_mkString(retv.c_str()));
-    UNPROTECT(1);
-    return lst;
+    return List::create(
+        Named("type") = Rf_mkString("trace"),
+        Named("func") = Rf_mkString(fname.c_str()),
+        Named("args") = Rf_mkString(args.c_str()),
+        Named("retv") = Rf_mkString(retv.c_str())
+    );
 
     /*
     string traceFile = as<string>(cache.get("capture_dir"));
