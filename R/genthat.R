@@ -1,4 +1,13 @@
 
+genthat_init <- function(package_name = NULL, capture_dir = "capture") {
+    cache$package_name <- package_name
+    cache$capture_dir <- capture_dir
+    cache$capture_num <- 0
+    cache$decorated <- new.env()
+    cache$call_id_counter <- as.environment(list(value = 0))
+    cache$capture_arguments <- TRUE
+}
+
 #' @title Adds regression tests to specified package.
 #'
 #' @description Given a package, the code to be executed and a list of functions to capture,

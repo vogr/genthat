@@ -211,20 +211,20 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
             args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
         }
 
-        enter_function(
+        call_exit <- enter_function(
             fname,
             args,
             call_id
         )
 
-        exit_expr <- substitute({
-            exit_function(c)
-        }, list(
-            c = call_id
-        ))
-
-        on.exit(eval(exit_expr))
-
+        if (call_exit) {
+            exit_expr <- substitute({
+                exit_function(c)
+            }, list(
+                c = call_id
+            ))
+            on.exit(eval(exit_expr))
+        }
     }, as.environment(list(
         fname = func_label,
         hasDots = "..." %in% names(formals(func)),
@@ -254,8 +254,17 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 enter_function <- function(fname, args_env, call_id) {
     if (cache$capture_arguments) {
         cache$capture_arguments <- FALSE
-        .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
+        res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
         cache$capture_arguments <- TRUE
+        if (res == 0) { # success
+            TRUE
+        } else {
+            error_description <- res$error_description
+            # TODO push failed trace
+            FALSE
+        }
+    } else {
+        FALSE
     }
 }
 
@@ -274,46 +283,5 @@ exit_function <- function(call_id) {
         .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
         cache$capture_arguments <- TRUE
     }
-}
-
-#' @title Clear decoration
-#'
-#' @description Clear anything previously decorate
-#' @param verbose if to print additional debugging information. Default \code{TRUE}.
-#' @seealso undecorate
-clear_decoration <- function(verbose) {
-    decorated_funs <- cache$decorated
-    lapply(ls(decorated_funs, all.names = TRUE), function(key) {
-        decorated_fn <- decorated_funs[[key]]
-        undecorate(decorated_fn$func, decorated_fn$package, verbose = verbose)
-    })
-}
-
-#' @title Stops capturing the selected functions.
-#'
-#' @description This function removes the tracing functionality for specified function
-#' @param ... Functions whose capture is to be dropped (uses the same format as capture)
-#' @param verbose TRUE to display additional information
-stop_capture <- function(..., verbose = FALSE) {
-    for (f in parseFunctionNames(...))
-        undecorate(f$name, f$package, verbose = verbose)
-    invisible(NULL)
-}
-
-#' @title Stops capturing all currently captured functions.
-#'
-#' @description Remove tracing functionality for all the functions
-#' @param verbose TRUE to display additional information
-stop_capture_all <- function(verbose = FALSE) {
-    clear_decoration(verbose = verbose)
-}
-
-start_capture <- function(package_name = NULL, capture_dir = "capture") {
-    cache$package_name <- package_name
-    cache$capture_dir <- capture_dir
-    cache$capture_num <- 0
-    cache$decorated <- new.env()
-    cache$call_id_counter <- as.environment(list(value = 0))
-    cache$capture_arguments <- TRUE
 }
 

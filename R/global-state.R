@@ -1,7 +1,7 @@
 
 cache <- new.env()
 cache$capture_file_size <- 50 * 1000 * 1000
-cache$capture_arguments <- FALSE
+cache$capture_arguments <- TRUE
 cache$capture_dir = NULL
 cache$capture_num <- 0
 cache$output_dir <- NA

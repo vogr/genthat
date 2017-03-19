@@ -32,6 +32,7 @@ test_that('decorate_function_val__() functionality', {
             expect_equal(fname, "label1")
             expect_equal(args, list(a = 4, b = 3))
             expect_equal(call_id, 0)
+            TRUE
         },
         exit_function = function(call_id) {
             exit_got_called <<- TRUE
@@ -45,6 +46,48 @@ test_that('decorate_function_val__() functionality', {
     expect_true(enter_got_called)
     expect_true(exit_got_called)
 })
+
+enterFunction_cpp <- function(name, args, call_id) { .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", name, args, call_id) }
+exitFunction_cpp <- function(call_id, retv) { .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, retv) }
+
+test_that("enterFunction_cpp positive", {
+    res <- enterFunction_cpp("fn1", list(a = 42, b = "hey!"), 1)
+    expect_equal(res, 0)
+})
+
+test_that("enterFunction_cpp unserializable", {
+    res <- enterFunction_cpp("fn1", list(x = function() {}), 2) # functions cannot be serialized
+    expect_type(res, "list")
+    expect_equal(res$type, "error")
+    expect_match(res$error_description, "^<unserializable:")
+})
+
+test_that("exitFunction_cpp positive", {
+    enterFunction_cpp("fn1", list(a = 42L), 35)
+    res <- exitFunction_cpp(35, 1337L)
+    expect_type(res, "list")
+    expect_equal(res$type, "trace")
+    expect_equal(res$func, "fn1")
+    expect_equal(res$args, "structure(list(a=42L), .Names=\"a\")")
+    expect_equal(res$retv, "1337L")
+})
+
+test_that("exitFunction_cpp unserializable", {
+    enterFunction_cpp("fn1", list(a = 42), 249348)
+    res <- exitFunction_cpp(249348, function() {}) # functions cannot be serialized
+    expect_type(res, "list")
+    expect_equal(res$type, "error")
+    expect_match(res$error_description, "^<unserializable:")
+})
+
+test_that("exitFunction_cpp non-initialized calls", {
+    res <- exitFunction_cpp(103984837, 42L) # functions cannot be serialized
+    expect_type(res, "list")
+    expect_equal(res$type, "error")
+    expect_match(res$error_description, "^<Terminated non-initialized call!>$")
+})
+
+
 
 # TODO
 # test_that('We capture the same calls for testthat:::comparison as base::trace.', {

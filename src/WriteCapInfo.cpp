@@ -58,8 +58,18 @@ inline int get_file_size(std::string path)
 
 map<int,pair<string,string>> cached_args;
 
+SEXP makeError(string description)
+{
+    const char *names[] = { "type", "error_description", "" };
+    SEXP lst = PROTECT(Rf_mkNamed(VECSXP, names));
+    SET_VECTOR_ELT(lst, 0, Rf_mkString("error"));
+    SET_VECTOR_ELT(lst, 1, Rf_mkString(description.c_str()));
+    UNPROTECT(1);
+    return lst;
+}
+
 // [[Rcpp::export]]
-void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
+SEXP enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
     Environment genthat = Environment::namespace_env("genthat");
     Environment cache = genthat.get("cache");
 
@@ -68,23 +78,25 @@ void enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
     try {
         args = serialize_cpp(args_list);
     } catch (serialization_error e) {
-        args = "<unserializable " + e.msg + ">";
+        return makeError("<unserializable: " + e.msg + ">");
     }
 
     //cout << "called :" << fname << "()" << endl;
     //cout << "with args :" << args << endl;
     cached_args.emplace(as<int>(call_id), make_pair(as<string>(fname), args));
+
+    return Rf_ScalarInteger(0); // signals success
 }
 
 // [[Rcpp::export]]
-void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
+SEXP exitFunction_cpp (SEXP call_id, SEXP retv_env)
+{
     Environment genthat = Environment::namespace_env("genthat");
     Environment cache = genthat.get("cache");
 
     auto cached_call = cached_args.find(as<int>(call_id));
     if (cached_call == cached_args.end()) {
-        cerr << "Terminated non-initialized call!" <<endl;
-        return;
+        return makeError("<Terminated non-initialized call!>");
     }
     auto call = cached_call->second;
     string fname = call.first;
@@ -95,9 +107,19 @@ void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
     try {
         retv = serialize_cpp(retv_env);
     } catch (serialization_error e) {
-        retv = "<unserializable " + e.msg + ">";
+        return makeError("<unserializable: " + e.msg + ">");
     }
 
+    const char *names[] = { "type", "func", "args", "retv", "" };
+    SEXP lst = PROTECT(Rf_mkNamed(VECSXP, names));
+    SET_VECTOR_ELT(lst, 0, Rf_mkString("trace"));
+    SET_VECTOR_ELT(lst, 1, Rf_mkString(fname.c_str()));
+    SET_VECTOR_ELT(lst, 2, Rf_mkString(args.c_str()));
+    SET_VECTOR_ELT(lst, 3, Rf_mkString(retv.c_str()));
+    UNPROTECT(1);
+    return lst;
+
+    /*
     string traceFile = as<string>(cache.get("capture_dir"));
     traceFile += "/capture.";
     traceFile += to_string(captureFileNumber);
@@ -113,5 +135,6 @@ void exitFunction_cpp (SEXP call_id, SEXP retv_env) {
     tracefile.close();
     if (get_file_size(traceFile) > MAX_FILE_SIZE)
         captureFileNumber++;
+    */
 }
 

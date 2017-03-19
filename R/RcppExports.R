@@ -10,10 +10,10 @@ serialize_error_handler <- function(e) {
 }
 
 enterFunction_cpp <- function(fname, args_list, call_id) {
-    invisible(.Call('genthat_enterFunction_cpp', PACKAGE = 'genthat', fname, args_list, call_id))
+    .Call('genthat_enterFunction_cpp', PACKAGE = 'genthat', fname, args_list, call_id)
 }
 
 exitFunction_cpp <- function(call_id, retv_env) {
-    invisible(.Call('genthat_exitFunction_cpp', PACKAGE = 'genthat', call_id, retv_env))
+    .Call('genthat_exitFunction_cpp', PACKAGE = 'genthat', call_id, retv_env)
 }
 
