@@ -28,6 +28,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// clearCallCache_cpp
+void clearCallCache_cpp();
+RcppExport SEXP genthat_clearCallCache_cpp() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clearCallCache_cpp();
+    return R_NilValue;
+END_RCPP
+}
 // enterFunction_cpp
 SEXP enterFunction_cpp(CharacterVector fname, SEXP args_list, SEXP call_id);
 RcppExport SEXP genthat_enterFunction_cpp(SEXP fnameSEXP, SEXP args_listSEXP, SEXP call_idSEXP) {

@@ -69,7 +69,14 @@ SEXP makeError(string description)
 }
 
 // [[Rcpp::export]]
-SEXP enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id) {
+void clearCallCache_cpp ()
+{
+    cached_args.clear();
+}
+
+// [[Rcpp::export]]
+SEXP enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id)
+{
     Environment genthat = Environment::namespace_env("genthat");
     Environment cache = genthat.get("cache");
 

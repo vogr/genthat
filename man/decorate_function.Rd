@@ -4,7 +4,7 @@
 \alias{decorate_function}
 \title{Decorates function bound in environment}
 \usage{
-decorate_function(func_names, env = environment())
+decorate_function(func_names, env = sys.frame(-1))
 }
 \arguments{
 \item{env}{environment containging binding}

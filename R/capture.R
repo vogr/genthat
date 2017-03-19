@@ -34,7 +34,7 @@ decorate_function_val <- function(func, func_label) {
 #' @param env environment containging binding
 #' @export
 #'
-decorate_function <- function(func_names, env = environment()) {
+decorate_function <- function(func_names, env = sys.frame(-1)) {
     if (is.character(func_names) &&
         is.environment(env)) {
         ;
@@ -181,9 +181,8 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
     if (is_decorated(func)) return(func) #stop("Trying to decorate already decorated function!")
 
     tracer_expr <- substitute({
-        call_id <- call_id_counter$value
-        assign("value", call_id + 1, call_id_counter)
-
+        call_id <- genthat:::gen_cid()
+        
         forceArgs <- TRUE
 
         if (forceArgs) {
@@ -228,7 +227,6 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
     }, as.environment(list(
         fname = func_label,
         hasDots = "..." %in% names(formals(func)),
-        call_id_counter = cache$call_id_counter,
         enter_function = if (!missing(enter_function)) enter_function else genthat:::enter_function,
         # the default exit_function is dependent on the state set by the default enter_function
         # so when an enter_function is passed by the user exit_function defaults to noop
@@ -261,6 +259,7 @@ enter_function <- function(fname, args_env, call_id) {
         } else {
             error_description <- res$error_description
             # TODO push failed trace
+            push_trace(res)
             FALSE
         }
     } else {
@@ -280,8 +279,15 @@ enter_function <- function(fname, args_env, call_id) {
 exit_function <- function(call_id) {
     if (cache$capture_arguments) {
         cache$capture_arguments <- FALSE
-        .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
+        res <- .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
         cache$capture_arguments <- TRUE
+        push_trace(res)
     }
+}
+
+#' @title Empties the data structure storing the arguments for exit_function.
+#'
+clear_call_cache <- function() {
+    .Call("genthat_clearCallCache_cpp", PACKAGE = "genthat")
 }
 

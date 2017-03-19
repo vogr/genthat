@@ -1,7 +1,7 @@
 
 library(testthat)
 library(devtools)
-load_all("../..", export_all = FALSE, quiet = TRUE) # genthat
+#load_all("../..", export_all = FALSE, quiet = TRUE) # genthat
 
 source("./utils.R")
 
@@ -51,20 +51,23 @@ enterFunction_cpp <- function(name, args, call_id) { .Call("genthat_enterFunctio
 exitFunction_cpp <- function(call_id, retv) { .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, retv) }
 
 test_that("enterFunction_cpp positive", {
-    res <- enterFunction_cpp("fn1", list(a = 42, b = "hey!"), 1)
+    cid <- gen_cid()
+    res <- enterFunction_cpp("fn1", list(a = 42, b = "hey!"), cid)
     expect_equal(res, 0)
 })
 
 test_that("enterFunction_cpp unserializable", {
-    res <- enterFunction_cpp("fn1", list(x = function() {}), 2) # functions cannot be serialized
+    cid <- gen_cid()
+    res <- enterFunction_cpp("fn1", list(x = function() {}), cid) # functions cannot be serialized
     expect_type(res, "list")
     expect_equal(res$type, "error")
     expect_match(res$error_description, "^<unserializable:")
 })
 
 test_that("exitFunction_cpp positive", {
-    enterFunction_cpp("fn1", list(a = 42L), 35)
-    res <- exitFunction_cpp(35, 1337L)
+    cid <- gen_cid()
+    enterFunction_cpp("fn1", list(a = 42L), cid)
+    res <- exitFunction_cpp(cid, 1337L)
     expect_type(res, "list")
     expect_equal(res$type, "trace")
     expect_equal(res$func, "fn1")
@@ -73,21 +76,21 @@ test_that("exitFunction_cpp positive", {
 })
 
 test_that("exitFunction_cpp unserializable", {
-    enterFunction_cpp("fn1", list(a = 42), 249348)
-    res <- exitFunction_cpp(249348, function() {}) # functions cannot be serialized
+    cid <- gen_cid()
+    enterFunction_cpp("fn1", list(a = 42), cid)
+    res <- exitFunction_cpp(cid, function() {}) # functions cannot be serialized
     expect_type(res, "list")
     expect_equal(res$type, "error")
     expect_match(res$error_description, "^<unserializable:")
 })
 
 test_that("exitFunction_cpp non-initialized calls", {
-    res <- exitFunction_cpp(103984837, 42L) # functions cannot be serialized
+    cid <- gen_cid()
+    res <- exitFunction_cpp(cid, 42L) # functions cannot be serialized
     expect_type(res, "list")
     expect_equal(res$type, "error")
     expect_match(res$error_description, "^<Terminated non-initialized call!>$")
 })
-
-
 
 # TODO
 # test_that('We capture the same calls for testthat:::comparison as base::trace.', {

@@ -11,4 +11,5 @@ cache$unparsable_count <- 0L
 cache$arguments <- list()
 cache$decorated_functions <- list()
 cache$call_id_counter <- as.environment(list(value = 0))
+cache$traces <- list()
 

@@ -9,6 +9,10 @@ serialize_error_handler <- function(e) {
     .Call('genthat_serialize_error_handler', PACKAGE = 'genthat', e)
 }
 
+clearCallCache_cpp <- function() {
+    invisible(.Call('genthat_clearCallCache_cpp', PACKAGE = 'genthat'))
+}
+
 enterFunction_cpp <- function(fname, args_list, call_id) {
     .Call('genthat_enterFunction_cpp', PACKAGE = 'genthat', fname, args_list, call_id)
 }

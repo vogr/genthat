@@ -315,3 +315,41 @@ add_decorated_function <- function(record) {
         record
     )
 }
+
+push_trace <- function(trace) {
+    cache$traces <- listAppend(
+        cache$traces,
+        trace
+    )
+}
+
+has_next <- function() {
+    length(cache$traces) > 0
+}
+
+get_next <- function() {
+    if (!has_next()) stop("No more traces available!")
+    ret <- cache$traces[[1]]
+    cache$traces[[1]] <- NULL
+    ret
+}
+
+#' @title Iterator over traces
+#'
+#' @export
+#'
+traces <- list(
+    has_next = has_next,
+    get_next = get_next
+)
+
+#' @title Returns the next available call id.
+#'
+#' @export
+#'
+gen_cid <- function() {
+    call_id_counter <- cache$call_id_counter
+    call_id <- call_id_counter$value
+    assign("value", call_id + 1, call_id_counter)
+    call_id
+}
