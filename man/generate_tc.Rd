@@ -2,18 +2,13 @@
 % Please edit documentation in R/generate.R
 \name{generate_tc}
 \alias{generate_tc}
-\title{Generates a testcase for closure function}
+\title{Generate test case from trace}
 \usage{
-generate_tc(func, argv, retv)
+generate_tc(trace)
 }
 \arguments{
-\item{func}{function name}
-
-\item{argv}{input arguments for a closure function call}
+\item{trace}{trace value}
 }
 \description{
-This function generates a test case for builtin function using supplied arguments. All elements should be given as text.
-}
-\seealso{
-test_gen ProcessClosure
+This function generates a test case from the passed trace.
 }

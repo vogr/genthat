@@ -1,7 +1,6 @@
 
 library(testthat)
 library(devtools)
-#load_all("../..", export_all = FALSE, quiet = TRUE) # genthat
 
 source("./utils.R")
 
