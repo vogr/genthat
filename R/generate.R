@@ -102,32 +102,17 @@ generate_tc <- function(trace) {
   #    
   #}
 
-  callSource <- paste0(
-    func,
-    "(",
-    substr(args, 6, nchar(args, type="bytes") - 1), # strip 'list(' & ')'
-    ")"
+  # strip 'list(' & ')' from args
+  callSource <- paste0(func, "(", substr(args, 6, nchar(args, type="bytes") - 1), ")")
+
+  test_body <- concat(
+      "\texpected <- ", retv, "\n",
+      "\texpect_equal(", callSource, ", expected)\n"
   )
-
-  #if (!is.null(cache$errs)) {
-  #    test_body <- paste(
-  #      "\texpect_error({\n",
-  #      "\t", callSource, "},\n",
-  #      "\t", deparse(cache$errs), ")\n"
-  #    )
-  #} else {
-      test_body <- concat(
-          "\texpected <- ", retv, "\n",
-          "\texpect_equal(", callSource, ", expected)\n"
-      )
-  #}
-
-  #warningChecks <- if (!is.null(cache$warns) && length(cache$warns) > 0) paste("\texpect_warning(", callSource, ", ", deparse(cache$warns), ")\n", sep="") else ""
 
   src <- concat(
     "test_that(", deparse(func), ", {\n",
     test_body,
-    "", #warningChecks,
     "})"
   )
 
