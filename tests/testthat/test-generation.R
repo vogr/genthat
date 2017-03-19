@@ -16,5 +16,4 @@ test_that("generate_tc() basic usage", {
 
     test_case <- generate_tc(trace)
     expect_match(test_case$msg, "^test_that\\(");
-    #expect_equal(1,2)
 })
