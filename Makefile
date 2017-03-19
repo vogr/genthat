@@ -15,9 +15,6 @@ check: build
 	cd ..; \
 	R CMD check $(PKGNAME)_$(PKGVERS).tar.gz --as-cran
 
-test-installed: install
-	R -e 'library(genthat); devtools::test()'
-
 test:
-	R -e 'library(devtools); document(); devtools::test()'
+	./docker-run Rscript tests/testthat.R
 
