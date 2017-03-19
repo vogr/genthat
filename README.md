@@ -64,8 +64,8 @@ undecorate_all()
 
 # a) Iterate over the traces.
 traces <- genthat::traces
-while (traces.hasNext()) {
-    trace <- traces.getNext()
+while (traces$has_next()) {
+    trace <- traces$get_next()
     print(trace)
 }
 # b) Generate regression tests from the traces. *
