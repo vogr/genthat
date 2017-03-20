@@ -115,11 +115,6 @@ generate_tc <- function(trace) {
     test_body,
     "})"
   )
-
-  list(
-    type = "src",
-    msg = src
-  )
 }
 
 #' @title Generates tests from captured information.
@@ -128,24 +123,22 @@ generate_tc <- function(trace) {
 #' testthat compatible testcases.
 #'
 #' @param output_dir Directory to which the tests should be generated.
-#' @param root Directory with the capture information, defaults to capture.
-#' @param timed TRUE if the tests result depends on time, in which case the current date & time will be appended to the output_dir.
-#' @param verbose TRUE to display additional information.
-#' @param clear_capture if FALSE captured traces will not be deleted after the generation so that subsequent calls to generate() can use them too
 #' @export
-generate <- function(output_dir, root,
-                     timed = F, clear_capture = T, verbose = FALSE) {
-    out <- if (missing(output_dir)) "generated_tests" else output_dir
+gen_tests <- function(output_dir = "generated_tests") {
     if (missing(output_dir)) {
         if (!dir.create(out)) {
-            stop("Couldn't create output dir.")
+            stop("Couldn't create output dir!")
         }
     }
-    cache$output_dir <- out
-    ret <- test_gen(root, out, timed, verbose = verbose);
-    if (clear_capture) {
-        unlink(file.path(root, list.files(path = root, no.. = T)))
-    }
-    ret
+
+    c <- 0
+    test_cases <- map_iterator(traces, function(trace) {
+        if (trace$type == "trace") {
+            tsources <- generate_tc(trace)
+            fname <- file.path(output_dir, paste0("tc-", c, ".R"))
+            c <- c + 1
+            write(tsources, file = fname)
+        }
+    })
 }
 

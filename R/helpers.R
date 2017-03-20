@@ -334,14 +334,27 @@ get_next <- function() {
     ret
 }
 
+create_iterator <- function(has_next, get_next) {
+    list(
+        has_next = has_next,
+        get_next = get_next
+    )
+}
+
+map_iterator <- function(iterator, fn) {
+    items <- list()
+    while (iterator$has_next()) {
+        item <- fn(iterator$get_next())
+        items <- listAppend(items, item)
+    }
+    items
+}
+
 #' @title Iterator over traces
 #'
 #' @export
 #'
-traces <- list(
-    has_next = has_next,
-    get_next = get_next
-)
+traces <- create_iterator(has_next, get_next)
 
 #' @title Returns the next available call id.
 #'

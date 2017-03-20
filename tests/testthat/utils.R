@@ -70,3 +70,7 @@ get_spy_expression <- function() {
     )
 }
 
+read_file <- function(fileName) {
+    readChar(fileName, nchars = file.info(fileName)$size)
+}
+

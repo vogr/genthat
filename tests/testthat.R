@@ -1,7 +1,8 @@
 
 library(testthat)
 library(devtools)
-load_all(".", export_all = TRUE, quiet = TRUE)
+document(".") # have to generate exports
+load_all(".", reset = TRUE, export_all = TRUE, quiet = TRUE)
 
 res <- test_dir("./tests/testthat")
 
