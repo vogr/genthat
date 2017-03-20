@@ -16,5 +16,5 @@ check: build
 	R CMD check $(PKGNAME)_$(PKGVERS).tar.gz --as-cran
 
 test:
-	./docker-run Rscript tests/testthat.R
+	Rscript tests/testthat.R
 
