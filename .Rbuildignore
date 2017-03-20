@@ -1,5 +1,7 @@
+^.*\.vs$
 ^.*\.Rproj$
 ^\.Rproj\.user$
 Makefile$
 .travis.yml$
 appveyor.yml$
+

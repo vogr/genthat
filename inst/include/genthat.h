@@ -1,7 +1,7 @@
 #include <Rcpp.h>
 
 #include <string>
-#include <pcre.h>
+#include <regex>
 #include <chrono>
 
 using namespace std;
