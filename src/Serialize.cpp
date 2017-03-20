@@ -63,56 +63,46 @@ static string complex_scalar_to_string(Rcomplex val)
 
 static bool is_syntactic_name(const char *name)
 {
-    const char *error_msg = NULL;
-    int error_n;
-    {
-        const char *keyword_regex = "^(if"
-                     "|else"
-                     "|repeat"
-                     "|while"
-                     "|function"
-                     "|for"
-                     "|in"
-                     "|next"
-                     "|break"
-                     "|TRUE"
-                     "|FALSE"
-                     "|NULL"
-                     "|Inf"
-                     "|NaN"
-                     "|NA"
-                     "|NA_integer_"
-                     "|NA_real_"
-                     "|NA_complex_"
-                     "|NA_character_)$";
-        pcre *keywrd = pcre_compile(keyword_regex, PCRE_ANCHORED, &error_msg, &error_n, NULL);;
-        if (keywrd == NULL) {
-            throw serialization_error("couldn't compile regex!");
-        }
-        int ovector[2];
-        int match = pcre_exec(keywrd, NULL, name, strlen(name), 0, 0, (int *) &ovector, 2);
-        if (match < -1) {
-            throw serialization_error("pcre_exec failed!");
-        } else if (match != -1) { /* PCRE_ERROR_NOMATCH */
-            return false; // is keyword
-        }
-    }
-    { 
-        const char *syntactic_name_regex = "^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$";
-        pcre *syntct = pcre_compile(syntactic_name_regex, PCRE_ANCHORED, &error_msg, &error_n, NULL);;
-        if (syntct == NULL) {
-            throw serialization_error("couldn't compile regex!");
-        }
-        int ovector[2];
-        int match = pcre_exec(syntct, NULL, name, strlen(name), 0, 0, (int *) &ovector, 2);
-        if (match < -1) {
-            throw serialization_error("pcre_exec failed!");
-        } else if (match == -1) { /* PCRE_ERROR_NOMATCH */
-            return false;
-        } else {
-            return true;
-        }
-    }
+	auto keywords = string("^(if"
+		"|else"
+		"|repeat"
+		"|while"
+		"|function"
+		"|for"
+		"|in"
+		"|next"
+		"|break"
+		"|TRUE"
+		"|FALSE"
+		"|NULL"
+		"|Inf"
+		"|NaN"
+		"|NA"
+		"|NA_integer_"
+		"|NA_real_"
+		"|NA_complex_"
+		"|NA_character_)$");
+
+	try 
+	{
+		auto keyword_regex = regex(keywords);
+		if (!regex_match(name, keyword_regex))
+			return false;
+	}
+	catch (regex_error& e)
+	{
+		throw serialization_error("keyword regex failed with code: " + e.code());
+	}
+
+	try
+	{
+		auto name_regex = regex("^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$");
+		return regex_match(name, name_regex);
+	}
+	catch (regex_error& e)
+	{
+		throw serialization_error("syntactic name regex failed with code: " + e.code());
+	}
 }
 
 string escape_attrib_name(string str)
