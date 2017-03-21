@@ -36,3 +36,12 @@ test_that("gen_tests() basic usage", {
         expect_match(contents, "^test_that\\(");
     })
 })
+
+test_that("gen_from_package() basic usage", {
+    with_tempdir(function(dir1) {
+        gen_from_package(get_example_package_path(), include_tests = TRUE,  output_dir = dir1)
+
+        files <- list.files(dir1, no.. = TRUE)
+        expect_equal(length(files), 7);
+    })
+})

@@ -8,14 +8,6 @@ gen_tests(output_dir = "generated_tests")
 }
 \arguments{
 \item{output_dir}{Directory to which the tests should be generated.}
-
-\item{root}{Directory with the capture information, defaults to capture.}
-
-\item{timed}{TRUE if the tests result depends on time, in which case the current date & time will be appended to the output_dir.}
-
-\item{verbose}{TRUE to display additional information.}
-
-\item{clear_capture}{if FALSE captured traces will not be deleted after the generation so that subsequent calls to generate() can use them too}
 }
 \description{
 This function takes the tracing information collected by capture and generates

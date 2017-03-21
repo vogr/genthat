@@ -1,5 +1,5 @@
 library(testthat)
-library(toyProject)
+library(examplePackage)
 
 context("Capture")
 

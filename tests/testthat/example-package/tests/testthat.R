@@ -1,4 +1,4 @@
 library(testthat)
-library(toyProject)
+library(examplePackage)
 
-test_check("toyProject")
+test_check("examplePackage")

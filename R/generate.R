@@ -136,7 +136,7 @@ gen_tests <- function(output_dir = "generated_tests") {
         if (trace$type == "trace") {
             tsources <- generate_tc(trace)
             fname <- file.path(output_dir, paste0("tc-", c, ".R"))
-            c <- c + 1
+            c <<- c + 1
             write(tsources, file = fname)
         }
     })

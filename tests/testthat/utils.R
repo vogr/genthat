@@ -9,6 +9,10 @@ get_testthat_folder <- function() {
     testthat_folder
 }
 
+get_example_package_path <- function() {
+    file.path(get_testthat_folder(), "example-package")
+}
+
 #' Asserts that the array is of length 1 and returns its
 #' only element.
 get_only <- function(xs) {

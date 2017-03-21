@@ -271,15 +271,39 @@ test_pkg_env <- function(package) {
     parent = parent.env(getNamespace(package)))
 }
 
-run_package_tests <- function(src_root, verbose) {
+run_test_file <- function(package, path) {
+    message(paste0("\nrunning tesfile: ", path, " for package: ", package, "\n"))
+    mock_env <- as.environment(list(
+        library = noop,
+        context = noop,
+        expect_equal = noop,
+        expect_true = noop,
+        expect_false = noop,
+        test_that = function(desc, expr) {
+            tryCatch({
+                eval(expr, envir = mock_env)
+            }, error = noop, warning = noop)
+        }
+    ))
+    parent.env(mock_env) <- test_pkg_env(package)
+    tryCatch({
+        eval(parse(path), envir = mock_env)
+    }, error = noop, warning = noop)
+    invisible()
+}
+
+run_package_tests <- function(src_root) {
     if (package_uses_testthat(src_root)) {
         package <- devtools::as.package(src_root)
         test_path <- file.path(src_root, "tests", "testthat")
-        testthat::test_dir(test_path, filter = NULL, env = test_pkg_env(package$package))
+        paths <- list.files(test_path, no.. = TRUE)
+        lapply(paths, function(path) {
+            run_test_file(package$package, file.path(test_path, path))
+        })
     } else if (file.exists(file.path(src_root, "tests"))) {
-        run_R_tests(src_root, verbose = TRUE)
+        run_R_tests(src_root)
     } else {
-        if (verbose) message("Package has no tests!")
+        message("Package has no tests!")
     }
 }
 

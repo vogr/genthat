@@ -76,12 +76,11 @@ Alternatively we provide wrapper functions that cover the most common usecases.
 
 ```r
 library("genthat")
-library("somePackage")
 
 # This call will:
 # 1) decorate all the functions defined in the package (exported & hidden)
 # 2) run the tests in the package
 # 3) generate new tests from the traces
-gen_from_package("somePackage", include_tests = TRUE,  output_dir = "./genthat_tests")
+gen_from_package("/path/to/some-package", include_tests = TRUE,  output_dir = "./genthat_tests")
 ```
 

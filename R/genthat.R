@@ -107,63 +107,79 @@ gen_from_function <-
 #' @param verbose Prints additional information.
 #' @export
 #'
-gen_from_package <-
+run_package <-
     function(
-        package_dir = ".",
-        capture_dir = "capture",
+        package = ".",
         include_tests = FALSE,
         include_vignettes = FALSE,
-        include_manPages = FALSE,
-        timed = FALSE,
-        filter = TRUE,
-        build = TRUE,
-        output,
-        verbose = FALSE,
-        clear_capture = TRUE
+        include_man_pages = FALSE
     ) {
 
-    package = devtools::as.package(package_dir)
+    pkg <- devtools::as.package(package)
 
-    require(utils)
-    require(methods)
-    devtools::document(package_dir)
-
-    detach(concat("package:", package$package), unload = T, character.only = T)
-
-    f <- function() {
-        if (include_vignettes)
-        {
-            info <- tools::getVignetteInfo(package = package$package)
-            vdir <- info[,2]
-            vfiles <- info[,6]
-            p <- file.path(vdir, "doc", vfiles)
-            if (verbose) message(paste("Running vignettes (", length(vfiles), "files)\n"))
-            # vignettes are not expected to be runnable, silence errors
-            invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
-        }
-        if (include_manPages)
-        {
-            # run package examples
-            manPath <- file.path(package_dir, "man")
-            examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
-            if (length(examples) != 0) {
-                if (verbose)
-                    cat(paste("Running examples (", length(examples), "man files)\n"))
-                for (f in examples) {
-                    code <- example_code(file.path(manPath, f))
-                    tryCatch(eval(parse(text = code)), error=function(x) print(x))
-                }
+    if (include_vignettes)
+    {
+        info <- tools::getVignetteInfo(package = pkg$package)
+        vdir <- info[,2]
+        vfiles <- info[,6]
+        p <- file.path(vdir, "doc", vfiles)
+        if (verbose) message(paste("Running vignettes (", length(vfiles), "files)\n"))
+        # vignettes are not expected to be runnable, silence errors
+        invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
+    }
+    if (include_man_pages)
+    {
+        # run package examples
+        manPath <- file.path(package, "man")
+        examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
+        if (length(examples) != 0) {
+            message(paste("Running examples (", length(examples), "man files)\n"))
+            for (f in examples) {
+                code <- example_code(file.path(manPath, f))
+                tryCatch(eval(parse(text = code)), error=function(x) print(x))
             }
         }
-        if (include_tests)
-        {
-            if (verbose) message("Running package tests\n")
-            run_package_tests(package_dir, verbose)
-        }
-
     }
+    if (include_tests)
+    {
+        message("Running package tests\n")
+        run_package_tests(package)
+    }
+}
 
-    gen_from_function(package_dir, capture_dir = capture_dir, code = f , filter = filter, exclude_existing_tests = include_tests, build = build, timed = timed, output = output, verbose = verbose, clear_capture = clear_capture)
+#' @title Generates tests for a package by running the code associated with it.
+#'
+#' @description Runs the examples, vignettes and possibly tests associated with the package and captures the usage of package's functions. Creates tests from the captured information, filters it according to the already existing tests and if any new tests are found, adds them to package's tests.
+#'
+#' @param package_dir Name/path to the package, uses devtools notation.
+#' @param include_tests If TRUE, captures also execution of package's tests.
+#' @param build if to build package before. Default \code{TRUE}
+#' @param timed TRUE if the tests result depends on time, in which case the current date & time will be appended to the output_dir.
+#' @param filter TRUE if generated tests should be filteres so that only those adding to a coverage will be used
+#' @param output If used, specifies where should the tests be unfiltered tests be generated (if not specified, they will use a temp directory and clean it afterwards)
+#' @param verbose Prints additional information.
+#' @export
+#'
+gen_from_package <-
+    function(
+        package = ".",
+        output_dir = "generated_tests",
+        include_tests = FALSE,
+        include_vignettes = FALSE,
+        include_man_pages = FALSE
+    ) {
+    pkg <- as.package(package)
+    load_all(package, export_all = FALSE, quiet = TRUE)
+    decorate_exported(pkg$package, all = TRUE)
+    decorate_hidden_functions(pkg$package)
+    run_package(
+        package,
+        include_tests = include_tests,
+        include_vignettes = include_vignettes,
+        include_man_pages = include_man_pages
+    )
+    undecorate_all()
+    gen_tests(output_dir = output_dir)
 }
 
 #' @title Generate tests for given code

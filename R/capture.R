@@ -254,11 +254,10 @@ enter_function <- function(fname, args_env, call_id) {
         cache$capture_arguments <- FALSE
         res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
         cache$capture_arguments <- TRUE
-        if (res == 0) { # success
+        if (typeof(res) != "list") { # success # TODO WHY can't this be res == 0 ?
             TRUE
         } else {
             error_description <- res$error_description
-            # TODO push failed trace
             push_trace(res)
             FALSE
         }

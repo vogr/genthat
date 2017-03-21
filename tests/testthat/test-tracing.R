@@ -1,6 +1,5 @@
 
 library(testthat)
-library(devtools)
 
 source("./utils.R")
 
