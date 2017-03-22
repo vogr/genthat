@@ -60,47 +60,50 @@ generate_tc <- function(trace) {
   args <- trace$args
   retv <- trace$retv
 
-  #cache$warns <- NULL
-  #cache$errs <- NULL
-  #test_body <- ""
-  #warningChecks <- ""
+  warnings <- list()
+  error <- NULL
+  threw_error <- FALSE
 
-  #if (isAccessibleFunction(func)) {
-  #    pkgName <- sub("^(.*):::.*$", "\\1", func)
-  #    fn <- eval(parse(text=func))
-  #    call <- as.call(if (0 == length(valid_argv)) list(fn) else append(fn, valid_argv))
+  if (isAccessibleFunction(func)) {
+      pkgName <- sub("^(.*):::.*$", "\\1", func)
+      fn <- eval(parse(text=func))
+      pargs <- deserialize(args)
+      pretv <- deserialize(retv)
+      call <- as.call(c(list(fn), pargs)) # TODO why can't you pass empty list
 
-  #    new_retv <- withCallingHandlers(
-  #                  tryCatch(
-  #                      eval(call, envir = getNamespace(pkgName)),
-  #                      error = function(e) cache$errs <- e$message
-  #                  ),
-  #                  warning=function(w) {
-  #                      cache$warns <- ifelse(is.null(cache$warns), w$message, paste(cache$warns, w$message, sep="; "))
-  #                      invokeRestart("muffleWarning")
-  #                  }
-  #            )
+      new_retv <- withCallingHandlers(
+            tryCatch(
+                eval(call, envir = getNamespace(pkgName)),
+                error = function(e) {
+                    threw_error <<- TRUE
+                    error <<- e$message
+                    NULL
+                }
+            ),
+            warning=function(w) {
+                warnings <- listAppend(warnings, w$message)
+                invokeRestart("muffleWarning")
+            }
+      )
 
-  #    et <- system.time({ sameRetv <- isTRUE(all.equal(new_retv, valid_retv)) })[1]
-  #    message(paste0("all.equal time: ", et, " seconds\n"))
-  #    if (!sameRetv) {
-  #        cache$retv_mismatch_count <- cache$retv_mismatch_count + 1L
-  #        return(list(
-  #            type = "err",
-  #            err_type = "RETV_MISMATCH",
-  #            msg = paste(
-  #              paste0("cause: ", "RETV_MISMATCH"),
-  #              paste0("func: ", func),
-  #              paste0("argv: ", argv),
-  #              paste0("retv: ", retv),
-  #              paste0("computed_retv: ", serialize_r(new_retv)),
-  #              "",
-  #              sep = "\n"
-  #           )
-  #        ))
-  #    }
-  #    
-  #}
+      if (threw_error) {
+          # TODO generate test-case asserting same error message is thrown
+          return(list(
+              type = "error",
+              error_type = "ERROR_THROWN",
+              func = func
+          ))
+      }
+
+      sameRetv <- isTRUE(all.equal(new_retv, pretv))
+      if (!sameRetv) {
+          return(list(
+              type = "error",
+              error_type = "RETV_MISMATCH",
+              func = func
+          ))
+      }
+  }
 
   # strip 'list(' & ')' from args
   callSource <- paste0(func, "(", substr(args, 6, nchar(args, type="bytes") - 1), ")")
@@ -110,10 +113,13 @@ generate_tc <- function(trace) {
       "\texpect_equal(", callSource, ", expected)\n"
   )
 
-  src <- concat(
-    "test_that(", deparse(func), ", {\n",
-    test_body,
-    "})"
+  list(
+    type = "testcase",
+    source = concat(
+      "test_that(", deparse(func), ", {\n",
+      test_body,
+      "})"
+    )
   )
 }
 
@@ -131,14 +137,21 @@ gen_tests <- function(output_dir = "generated_tests") {
         }
     }
 
-    c <- 0
+    n_success <- 0
+    n_failed <- 0
     test_cases <- map_iterator(traces, function(trace) {
         if (trace$type == "trace") {
-            tsources <- generate_tc(trace)
-            fname <- file.path(output_dir, paste0("tc-", c, ".R"))
-            c <<- c + 1
-            write(tsources, file = fname)
+            res <- generate_tc(trace)
+            if (res$type == "error") {
+                n_failed <<- n_failed + 1
+            } else {
+                fname <- file.path(output_dir, paste0("tc-", n_success, ".R"))
+                n_success <<- n_success + 1
+                write(res$source, file = fname)
+            }
         }
     })
+
+    list(n_success = n_success, n_failed = n_failed)
 }
 
