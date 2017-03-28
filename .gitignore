@@ -7,3 +7,4 @@
 inst/doc
 tests/testthat/capture*
 .vs
+src/genthat.dll
