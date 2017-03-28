@@ -91,25 +91,32 @@ test_that("exitFunction_cpp non-initialized calls", {
     expect_match(res$error_description, "^<Terminated non-initialized call!>$")
 })
 
-# TODO
 # test_that('We capture the same calls for testthat:::comparison as base::trace.', {
+# 
 #     runCompareExamples <- function() { capture.output(suppressWarnings(example(compare))) }
+# 
 #     countTraces <- function() {
-#         # TODO
+#         x <- 0
+#         map_iterator(traces, function(trace) { x <<- x + 1 })
+#         return(x)
 #     }
 # 
+#     # base trace
 #     trace_spy <- get_spy_expression()
 #     trace("comparison", trace_spy$expression, where = asNamespace("testthat"))
 #     runCompareExamples()
 #     untrace("comparison", where = asNamespace("testthat"))
-#     expect_true(trace_spy$getCount() > 1)
+#     base_trace_count <- trace_spy$getCount()
+#     expect_true(base_trace_count > 1)
 # 
-#     genthat_spy <- get_spy_expression()
-#     decorate("comparison", "testthat", enter_function = genthat_spy$fn)
+#     # genthat decorate
+#     # TODO this decoration break the runCompareExamples call
+#     decorate_exported("testthat", "comparison") 
 #     runCompareExamples()
-#     undecorate("comparison", "testthat")
-#     expect_true(genthat_spy$getCount() > 1)
+#     undecorate_all()
+#     genthat_count <- countTraces()
+#     expect_true(genthat_count > 1)
 # 
-#     expect_equal(genthat_spy$getCount(), trace_spy$getCount())
+#     expect_equal(genthat_count, base_trace_count)
 # })
 

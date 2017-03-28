@@ -41,8 +41,8 @@ parseGeneratedTest <- function(text) {
 
     structure(
         list(
-            expected.value = expected_val,
-            tested.function = tested_fn,
+            expected_value = expected_val,
+            tested_function = tested_fn,
             arguments = args
         ),
         class = "genthat_test_case"
