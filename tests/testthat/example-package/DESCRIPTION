@@ -1,4 +1,4 @@
-Package: toyProject
+Package: examplePackage
 Type: Package
 Title: Package to test genthat.
 Version: 0.1.0
