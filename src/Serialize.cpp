@@ -86,8 +86,8 @@ static bool is_syntactic_name(const char *name)
 	try 
 	{
 		auto keyword_regex = regex(keywords);
-		if (!regex_match(name, keyword_regex))
-			return false;
+		if (regex_match(name, keyword_regex))
+			return false; // is keyword
 	}
 	catch (regex_error& e)
 	{
