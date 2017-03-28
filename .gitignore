@@ -6,3 +6,4 @@
 *.so
 inst/doc
 tests/testthat/capture*
+.vs
