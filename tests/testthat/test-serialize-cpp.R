@@ -1,4 +1,3 @@
-library(genthat)
 library(testthat)
 library(datasets)
 
@@ -56,7 +55,6 @@ test_that('Big outputs should not be split into multiple strings.', {
 test_that('(deserialize . serialize) on big frame', {
     x1 <- Seatbelts
     s <- serialize_r(x1)
-    write(s, file="belts.R");
     x2 <- deserialize(s)
     expect_equal(x1, x2)
 })
@@ -66,7 +64,8 @@ test_that('Cannot serialize looped structures.', {
     e2 <- as.environment(list(b = 4))
     e1$child <- e2
     e2$child <- e1
-    s1 <- tryCatch(serialize_r(e1), error = function(e) "<error>");
-    expect_true(identical(s1, "<error>"));
+    error_thrown <- FALSE
+    tryCatch(serialize_r(e1), error = function(e) { error_thrown <<- TRUE });
+    expect_true(error_thrown);
 })
 
