@@ -64,7 +64,7 @@ extract_func_name <- function(filename, modify_characters = TRUE){
     if (grepl(".[rR]$", filename)) {
         fname <- gsub("(.*)tc_(.*)_(.*).R", "\\2", filename)
     }
-    if (fname %in% operators) {
+    if (any(fname %in% operators)) {
         fname <- "operators"
     }
     if (modify_characters){
@@ -92,7 +92,7 @@ parseFunctionNames <- function(...) {
         a <- args[[i]]
         if (is.name(a)) {
             result[[i]] <<- c(name = as.character(a), package = NA)
-        } else if (is.language(a) && length(a) == 3 && as.character(a[[1]]) %in% c(":::", "::")) {
+        } else if (is.language(a) && length(a) == 3 && any(as.character(a[[1]]) %in% c(":::", "::"))) {
             result[[i]] <<- c(name = as.character(a[[3]]), package = as.character(a[[2]]))
         } else {
             print("error")
@@ -333,6 +333,13 @@ listExportedFunctions <- function(package) {
     listEnvFunctions(env)
 }
 
+listHiddenFunctions <- function(package) {
+    pkg_namespace <- getNamespace(package)
+    all_functions <- listEnvFunctions(pkg_namespace)
+    exported_function <- listExportedFunctions(package)
+    setdiff(all_functions, exported_function)
+}
+
 add_decorated_function <- function(record) {
     cache$decorated_functions <- listAppend(
         cache$decorated_functions,
@@ -389,4 +396,11 @@ gen_cid <- function() {
     call_id <- call_id_counter$value
     assign("value", call_id + 1, call_id_counter)
     call_id
+}
+
+zipList <- function(xs, ys) {
+    ii <- min(length(xs), length(ys))
+    lapply(1:ii, function(i) {
+        list(xs[[i]], ys[[i]])
+    })
 }

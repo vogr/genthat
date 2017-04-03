@@ -8,7 +8,8 @@ context("Trace storing and retrieval")
 test_that("basic trace pushing", {
     fn1 <- function(a, b) { a + b + 1L }
 
-    decorate_function("fn1")
+    # TODO change to API function
+    decorate_function_env("fn1")
     fn1(4L, 3L)
 
     counter <- 0L
@@ -25,7 +26,8 @@ test_that("basic trace pushing", {
 test_that("tracing - names of function parameters enclosed in backticks are supported", {
     fn1 <- function(a, `b c`, `function`) { a + `b c` + `function` + 1L }
 
-    decorate_function("fn1")
+    # TODO change to API function
+    decorate_function_env("fn1")
     fn1(4L, 3L, 2L)
 
     counter <- 0L

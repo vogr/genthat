@@ -3,124 +3,55 @@
 # EXPORTED FUNCTIONS #
 ######################
 
-#' @title Returns traced version of original function.
+#' @title Decorate functions
 #'
-#' @description More sane replacement of the base::trace function.
-#' @param func function value
-#' @param func_label name that will be recorded in traces
+#' @description API function to decorate functions.
+#' Usages
+#' ------
+#' decorate_functions(fn1)
+#' decorate_functions(fn1, fn2)
+#' decorate_functions("fn1", env=environment())
+#' decorate_functions("fn1", "fn2", env=environment())
+#' decorate_functions("fn1", "fn2", package="package_name")
+#' decorate_functions(package="package_name") # all from this package
+#' decorate_functions(env=some_environment) # all from some_environment
+#' decorate_functions(package="package_name", include_hidden=TRUE) # all including hidden
+#' decorate_functions("hidden_fn1", "hidden_fn2", package="package_name", include_hidden=TRUE)
 #' @export
 #'
-decorate_function_val <- function(func, func_label) {
-    if (is.function(func) && is.character(func_label) && length(func_label) == 1) {
-        ;
-    } else {
-        stop("Invalid call of genthat::decorate_function_val()!")
-    }
-
-    new_func <- decorate_function_val__(func, func_label)
-
-    add_decorated_function(list(
-        type = "value",
-        decorated_func = new_func,
-        original_func = func
-    ))
-
-    new_func
-}
-
-#' @title Decorates function bound in environment
-#'
-#' @param func_name key of binding
-#' @param env environment containging binding
-#' @export
-#'
-decorate_function <- function(func_names, env = sys.frame(-1)) {
-    if (is.character(func_names) &&
-        is.environment(env)) {
-        ;
-    } else {
-        stop("Invalid call to genthat::decorate_function()!")
-    }
-    
-    lapply(func_names, function(func_name) {
-        original_func <- env[[func_name]]
-        new_function <- decorate_function_val__(original_func, func_name)
-        env[[func_name]] <- new_function
-
-        add_decorated_function(list(
-            type = "bound",
-            name = func_name,
-            env = env,
-            original_func = original_func
-        ))
-    })
-}
-
-#' @title Decorates package's exported functions.
-#'
-#' @param package name of package to look for function
-#' @param functions character vector of all the functions to decorate
-#' @param all decorate all the exported functions
-#' @export
-#'
-decorate_exported <- function(package, functions = NULL, ..., all = FALSE) {
-    if (is.character(package) &&
-        length(package) == 1 &&
-        is.character(functions) &&
-        !isTRUE(all)) {
-        ;
-    } else if (is.character(package) &&
-        length(package) == 1 &&
-        missing(functions) &&
-        isTRUE(all)) {
-        ;
-    } else {
-        stop("Invalid call to genthat::decorate_exported()!")
-    }
-    
-    pkg_namespace <- getNamespace(package)
-
-    if (isTRUE(all)) {
-        functions <- listExportedFunctions(package)
-    }
-
-    lapply(functions, function(func) {
-        label <- paste(package, escapeNonSyntacticName(func), sep=":::")
-        original_func <- pkg_namespace[[func]]
-        new_function <- decorate_function_val__(original_func, label)
-        overwrite_export(func, new_function, package)
-
-        add_decorated_function(list(
-            type = "exported",
-            name = func,
-            package = package,
-            original_func = original_func
-        ))
-    })
-}
-
-#' @title Decorates package's exported functions.
-#'
-#' @param package name of package
-#' @param functions character vector of all the functions to decorate
-#' @param all decorate all the exported functions
-#' @export
-#'
-decorate_hidden_functions <- function(package) {
-    if (is.character(package) && length(package) == 1) {
-        ;
-    } else {
-        stop("Invalid call to genthat::decorate_hidden_functions()!")
-    }
-
-    pkg_namespace <- getNamespace(package)
-    all_functions <- listEnvFunctions(pkg_namespace)
-    exported_function <- listExportedFunctions(package)
-    hidden_functions <- setdiff(all_functions, exported_function)
-
-    lapply(hidden_functions, function(func) {
-        decorate_function(func, env = pkg_namespace)
-    })
+decorate_functions <- function(...) {
+	args <- list(...)
+	if ("env" %in% names(args)) {
+		fnames <- unlist(args[names(args) == ""], use.names = FALSE)
+		env <- args[["env"]]
+		decorate_function_env(fnames, env = env)
+	} else if ("package" %in% names(args)) {
+		package <- args[["package"]]
+		include_hidden <- isTRUE(args[["include_hidden"]])
+		fnames <- unlist(args[names(args) == ""], use.names = FALSE)
+		if (length(fnames) == 0) {
+			decorate_exported(package, all = TRUE)
+			if (include_hidden) {
+				decorate_hidden_functions(package)
+			}
+		} else {
+			lapply(fnames, function(fname) {
+				is_exported <- fname %in% listExportedFunctions(package)
+				if (is_exported) {
+					decorate_exported(package, fname) 
+				} else {
+					decorate_function_env(fname, env = getNamespace(package))
+				}
+			})
+		}
+	} else {
+        fn_vals <- args
+        labels <- sapply(as.list(substitute(list(...))[-1]), as.character)
+        pairs <- zipList(fn_vals, labels)
+		lapply(pairs, function(pair) {
+			decorate_function_val(pair[[1]], pair[[2]])
+		})
+	}
 }
 
 #' @title Undecorate all functions.
@@ -168,6 +99,113 @@ is_decorated <- function(fn) {
 ##########################
 # NON-EXPORTED FUNCTIONS #
 ##########################
+
+#' @title Returns traced version of original function.
+#'
+#' @description More sane replacement of the base::trace function.
+#' @param func function value
+#' @param func_label name that will be recorded in traces
+#'
+decorate_function_val <- function(func, func_label) {
+    if (!is.function(func)) stop("Invalid call of genthat::decorate_function_val(): func must be a function!")
+    if (!is.character(func_label) || length(func_label) != 1) stop("Invalid call of genthat::decorate_function_val(): func_label must be a character scalar!")
+
+    new_func <- decorate_function_val__(func, func_label)
+
+    add_decorated_function(list(
+        type = "value",
+        decorated_func = new_func,
+        original_func = func
+    ))
+
+    new_func
+}
+
+#' @title Decorates function bound in environment
+#'
+#' @param func_name key of binding
+#' @param env environment containging binding
+#'
+decorate_function_env <- function(func_names, env = sys.frame(-1)) {
+    if (!is.character(func_names)) stop(paste0("Invalid call to genthat::decorate_function_env(): func_names must be a character vector (was ", typeof(func_names), ")!"))
+    if (!is.environment(env)) stop("Invalid call to genthat::decorate_function_env(): env must be an environment!")
+    
+    lapply(func_names, function(func_name) {
+        original_func <- env[[func_name]]
+        new_function <- decorate_function_val__(original_func, func_name)
+        env[[func_name]] <- new_function
+
+        add_decorated_function(list(
+            type = "bound",
+            name = func_name,
+            env = env,
+            original_func = original_func
+        ))
+    })
+}
+
+#' @title Decorates package's exported functions.
+#'
+#' @param package name of package to look for function
+#' @param functions character vector of all the functions to decorate
+#' @param all decorate all the exported functions
+#'
+decorate_exported <- function(package, functions = NULL, ..., all = FALSE) {
+    if (is.character(package) &&
+        length(package) == 1 &&
+        is.character(functions) &&
+        !isTRUE(all)) {
+        ;
+    } else if (is.character(package) &&
+        length(package) == 1 &&
+        missing(functions) &&
+        isTRUE(all)) {
+        ;
+    } else {
+        stop("Invalid call to genthat::decorate_exported()!")
+    }
+
+    pkg_namespace <- getNamespace(package)
+
+    if (isTRUE(all)) {
+        functions <- listExportedFunctions(package)
+    }
+
+    lapply(functions, function(func) {
+        label <- paste(package, escapeNonSyntacticName(func), sep=":::")
+        original_func <- pkg_namespace[[func]]
+        new_function <- decorate_function_val__(original_func, label)
+        overwrite_export(func, new_function, package)
+
+        add_decorated_function(list(
+            type = "exported",
+            name = func,
+            package = package,
+            original_func = original_func
+        ))
+    })
+}
+
+#' @title Decorates package's exported functions.
+#'
+#' @param package name of package
+#' @param functions character vector of all the functions to decorate
+#' @param all decorate all the exported functions
+#'
+decorate_hidden_functions <- function(package) {
+    if (is.character(package) && length(package) == 1) {
+        ;
+    } else {
+        stop("Invalid call to genthat::decorate_hidden_functions()!")
+    }
+
+    pkg_namespace <- getNamespace(package)
+    hidden_functions <- listHiddenFunctions(package)
+
+    lapply(hidden_functions, function(func) {
+        decorate_function_env(func, env = pkg_namespace)
+    })
+}
 
 #' @title Returns traced version of original function.
 #'

@@ -58,7 +58,7 @@ get_package_from_cran <- function(pkg_name, version, archive.dir = tempdir(), de
         }
 
         fetchedVersion <- if (missing(version)) Reduce(function(a,b) if (compareVersion(a, b) == -1) b else a, versions) else {
-            if (!(version %in% versions))
+            if (!any(version %in% versions))
                 stop("Specified version unavailable!")
             version
         }
