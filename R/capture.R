@@ -21,14 +21,11 @@
 #'
 decorate_functions <- function(...) {
 	args <- list(...)
-	if ("env" %in% names(args)) {
-		fnames <- unlist(args[names(args) == ""], use.names = FALSE)
-		env <- args[["env"]]
-		decorate_function_env(fnames, env = env)
-	} else if ("package" %in% names(args)) {
+    arg_names <- if (is.character(names(args))) names(args) else sapply(args, function(x) "")
+	if ("package" %in% arg_names) {
 		package <- args[["package"]]
 		include_hidden <- isTRUE(args[["include_hidden"]])
-		fnames <- unlist(args[names(args) == ""], use.names = FALSE)
+		fnames <- unlist(args[arg_names == ""], use.names = FALSE)
 		if (length(fnames) == 0) {
 			decorate_exported(package, all = TRUE)
 			if (include_hidden) {
@@ -44,6 +41,10 @@ decorate_functions <- function(...) {
 				}
 			})
 		}
+	} else if ("env" %in% arg_names || is.character(args[[1]])) {
+		fnames <- unlist(args[arg_names == ""], use.names = FALSE)
+		env <- if ("env" %in% arg_names) args[["env"]] else sys.frame(-1)
+		decorate_function_env(fnames, env = env)
 	} else {
         fn_vals <- args
         labels <- sapply(as.list(substitute(list(...))[-1]), as.character)

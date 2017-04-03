@@ -43,6 +43,12 @@ test_that("decorate_functions() - bound in environment", {
     expect_true(is_decorated(fn1))
 })
 
+test_that("decorate_functions() - bound in environment (default)", {
+    fn1 <- function() {}
+    decorate_functions("fn1")
+    expect_true(is_decorated(fn1))
+})
+
 test_that("decorate_functions() - list of exported functions", {
     load_all("./example-package", TRUE, export_all = FALSE, quiet = TRUE)
 
