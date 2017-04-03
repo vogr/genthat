@@ -29,7 +29,7 @@ test_that('decorate_function_val__() functionality', {
         enter_function = function(fname, args, call_id) {
             enter_got_called <<- TRUE
             expect_equal(fname, "label1")
-            expect_equal(args, list(a = 4, b = 3))
+            expect_equal(args, list(4, 3))
             expect_equal(call_id, 0)
             TRUE
         },

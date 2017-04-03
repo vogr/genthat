@@ -222,31 +222,13 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
     tracer_expr <- substitute({
         call_id <- genthat:::gen_cid()
         
-        forceArgs <- TRUE
+        call_args <- as.list(sys.call())[-1]
 
-        if (forceArgs) {
-            e <- environment()
-            arg_names <- names(as.list(match.call())[-1]) # TODO maybe call formals ?
-
-            # force evaluation of named args
-            named <- lapply(arg_names[arg_names != ""], function(name) { e[[name]] }) # TODO name "" is only for positional arguments? where are they force?
-            # force evaluation of ... args
-            dots <- if (hasDots) list(...) else list() # TODO does this force the evaluation of every element?
-
-            args <- list() # returned argument list
-            dot_counter <- 1
-            for (arg_counter in seq(1, length(arg_names))) {
-                name <- arg_names[arg_counter]
-                if (name == "") {
-                    x <- dots[[dot_counter]]
-                    dot_counter <- dot_counter + 1 
-                    args[[arg_counter]] <- x
-                } else {
-                    args[[name]] <- e[[name]]
-                }
-            }   
-        } else {
-            args <- lapply(as.list(match.call())[-1], function(e) eval.parent(e, 3))
+        # force evaluation
+        e <- environment()
+        args <- lapply(call_args, function(a) eval(a, envir = e))
+        if (!is.null(names(call_args))) {
+            names(args) <- names(call_args)
         }
 
         call_exit <- enter_function(

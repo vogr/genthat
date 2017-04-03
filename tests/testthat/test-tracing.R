@@ -16,7 +16,7 @@ test_that("basic trace pushing", {
         counter <- counter + 1L
         trace <- traces$get_next()
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "structure(list(a=4L,b=3L), .Names=c(\"a\",\"b\"))")
+        expect_equal(trace$args, "list(4L,3L)")
         expect_equal(trace$retv, "8L")
     }
     expect_equal(counter, 1)
@@ -33,7 +33,7 @@ test_that("tracing - names of function parameters enclosed in backticks are supp
         counter <- counter + 1L
         trace <- traces$get_next()
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "structure(list(a=4L,`b c`=3L,`function`=2L), .Names=c(\"a\",\"b c\",\"function\"))")
+        expect_equal(trace$args, "list(4L,3L,2L)")
         expect_equal(trace$retv, "10L")
     }
     expect_equal(counter, 1)
