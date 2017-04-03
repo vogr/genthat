@@ -35,17 +35,17 @@ fn2 <- function(b) { b + 2 }
 # STEP 1 - Decorate one or more functions so that calls to it are recorded.
 
 # a) create a traced version of a function (the original is not affected)
-fn1 <- decorate_function_val(fn1, "fn1_label")
+fn1 <- decorate_functions(fn1)
 # b) decorate a function bound in an environment
-decorate_function("fn2", env = environment())
+decorate_functions("fn2", env = environment())
+#    same as
+decorate_functions("fn2") # `env=environment()` is the default
 # c) decorate a function exported from a package
-decorate_exported("somePackage", c("exported_fn1", "exported_fn2"))
+decorate_functions("exported_fn1", "exported_fn2", package = "somePackage")
 # d) decorate all the functions a package exports
-decorate_exported("somePackage", all = TRUE)
-# e) decorate all non-exported function in package
-decorate_hidden_functions("somePackage")
-# f) to decorate a single non-exported function just call
-decorate_function("hidden_fn1", env = getNamespace("somePackage"))
+decorate_functions(package = "somePackage")
+# e) decorate all the functions in a package including non-exported ones
+decorate_functions(package = "somePackage", include_hidden = TRUE)
 
 # STEP 2 - Call some code that calls the decorated functions (this will generate the traces).
 
