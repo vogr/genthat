@@ -128,23 +128,23 @@ string escape_attrib_name(string str)
 
 string symbol_to_attrib_key(SEXP a)
 {
-    if(TAG(a) == R_DimSymbol) {
+    if(a == R_DimSymbol) {
         return ".Dim";
     }
-    else if(TAG(a) == R_DimNamesSymbol) {
+    else if(a == R_DimNamesSymbol) {
         return ".Dimnames";
     }
-    else if(TAG(a) == R_NamesSymbol) {
+    else if(a == R_NamesSymbol) {
         return ".Names";
     }
-    else if(TAG(a) == R_TspSymbol) {
+    else if(a == R_TspSymbol) {
         return ".Tsp";
     }
-    else if(TAG(a) == R_LevelsSymbol) {
+    else if(a == R_LevelsSymbol) {
         return ".Label";
     }
     else {
-        const char *tag = CHAR(PRINTNAME(TAG(a)));
+        const char *tag = CHAR(PRINTNAME(a));
         if (is_syntactic_name(tag)) {
             return string(tag);
         } else {
@@ -157,18 +157,25 @@ string symbol_to_attrib_key(SEXP a)
  * @param s is the expression we are serializing
  * @param s_str is the serialized reprezentation of s but without the attributes
  */
-string wrap_in_attributes(SEXP s, string s_str)
+string wrap_in_attributes(SEXP s, string s_str, bool wrap_just_names)
 {
     RObject protected_s(s);
     if (hasAttributes(s)) {
         string elems = "";
+        bool non_name_attr = false;
 		for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a))
         {
 			if (TAG(a) != Rf_install("srcref")) {
-                elems += ", " + symbol_to_attrib_key(a) + "=" + serialize_cpp0(CAR(a));
+                string attr_name = symbol_to_attrib_key(TAG(a));
+                elems += ", " + attr_name + "=" + serialize_cpp0(CAR(a));
+                if (attr_name != ".Names") {
+                    non_name_attr = true;
+                }
             }
 		}
-        return "structure(" + s_str + elems + ")";
+        return (non_name_attr || wrap_just_names) ?
+                    "structure(" + s_str + elems + ")" :
+                    s_str;
     } else {
         return s_str;
     }
@@ -277,7 +284,7 @@ string serialize_cpp0(SEXP s)
             ret += string(i == 0 ? "" : ",") + label + serialize_cpp0(val);
         }
         ret += ")";
-        return wrap_in_attributes(s, ret);}
+        return wrap_in_attributes(s, ret, false);}
     case LGLSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
@@ -288,7 +295,7 @@ string serialize_cpp0(SEXP s)
             string str_val = (val == NA_LOGICAL) ? "NA" : (val == 0) ? "FALSE" : "TRUE";
             elems += (i == 0 ? "" : ",") + str_val;
         }
-        return wrap_in_attributes(s, n == 0 ? "logical(0)" : n == 1 ? elems : "c(" + elems + ")"); }
+        return wrap_in_attributes(s, n == 0 ? "logical(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
     case INTSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
@@ -299,7 +306,7 @@ string serialize_cpp0(SEXP s)
             string str_val = val == NA_INTEGER ? "NA_integer_" : (to_string(val) + "L");
             elems += (i == 0 ? "" : ",") + str_val;
         }
-        return wrap_in_attributes(s, n == 0 ? "integer(0)" : n == 1 ? elems : "c(" + elems + ")"); }
+        return wrap_in_attributes(s, n == 0 ? "integer(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
     case REALSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
@@ -314,7 +321,7 @@ string serialize_cpp0(SEXP s)
             }
         }
         string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"double\")";
-        return wrap_in_attributes(s, n == 0 ? "double(0)" : decoded); }
+        return wrap_in_attributes(s, n == 0 ? "double(0)" : decoded, true); }
     case CPLXSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
@@ -338,7 +345,7 @@ string serialize_cpp0(SEXP s)
             }
         }
         string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"complex\")";
-        return wrap_in_attributes(s, n == 0 ? "complex(0)" : decoded); }
+        return wrap_in_attributes(s, n == 0 ? "complex(0)" : decoded, true); }
     case STRSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
@@ -353,9 +360,9 @@ string serialize_cpp0(SEXP s)
             }
             elems += (i == 0 ? "" : ",") + str_val;
         }
-        return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")"); }
+        return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
     case SYMSXP:
-        throw sexp_not_implemented("SYMSXP");
+        return symbol_to_attrib_key(s);
     case ENVSXP:
         if (visited_environments.find(s) != visited_environments.end()) {
             throw cycle_in_structure();

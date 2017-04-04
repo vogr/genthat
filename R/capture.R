@@ -224,12 +224,23 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         
         call_args <- as.list(sys.call())[-1]
 
-        # force evaluation
-        e <- environment()
-        args <- lapply(call_args, function(a) eval(a, envir = e))
-        if (!is.null(names(call_args))) {
-            names(args) <- names(call_args)
-        }
+        args <- tryCatch({
+            e <- environment()
+            elem_exprs <- as.character(c(lapply(call_args, function(expr) all.names(expr)), recursive = TRUE))
+            elem_exprs <- Filter(function(x) !(x %in% c("`{`")), elem_exprs)
+            elem_vals <- lapply(elem_exprs, function(name) get(name, e))
+            if (length(elem_exprs) != 0) {
+                names(elem_vals) <- elem_exprs
+            }
+
+            list(
+                call = call_args,
+                vals = elem_vals
+            )
+        }, error = function(e) {
+            print("error recording args!")
+            NULL
+        })
 
         call_exit <- enter_function(
             fname,
@@ -273,7 +284,11 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 enter_function <- function(fname, args_env, call_id) {
     if (cache$capture_arguments) {
         cache$capture_arguments <- FALSE
-        res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
+        if (is.null(args_env)) {
+            res <- list(type = "error", error_description = "Couldn't force arguments.")
+        } else {
+            res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
+        }
         cache$capture_arguments <- TRUE
         if (typeof(res) != "list") { # success # TODO WHY can't this be res == 0 ?
             TRUE

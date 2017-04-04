@@ -29,7 +29,8 @@ test_that('decorate_function_val__() functionality', {
         enter_function = function(fname, args, call_id) {
             enter_got_called <<- TRUE
             expect_equal(fname, "label1")
-            expect_equal(args, list(4, 3))
+            expect_equal(args$call, list(4, 3))
+            expect_equal(args$vals, list())
             expect_equal(call_id, 0)
             TRUE
         },
@@ -70,7 +71,7 @@ test_that("exitFunction_cpp positive", {
     expect_type(res, "list")
     expect_equal(res$type, "trace")
     expect_equal(res$func, "fn1")
-    expect_equal(res$args, "structure(list(a=42L), .Names=\"a\")")
+    expect_equal(res$args, "list(a=42L)")
     expect_equal(res$retv, "1337L")
 })
 
