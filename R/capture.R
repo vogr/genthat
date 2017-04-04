@@ -227,7 +227,8 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         args <- tryCatch({
             e <- environment()
             elem_exprs <- as.character(c(lapply(call_args, function(expr) all.names(expr)), recursive = TRUE))
-            elem_exprs <- Filter(function(x) !(x %in% c("`{`")), elem_exprs)
+            elem_exprs <- Filter(function(x) !(x %in% c("`{`", "+")), elem_exprs) # TODO other non recorded vals
+            elem_exprs <- unique(elem_exprs)
             elem_vals <- lapply(elem_exprs, function(name) get(name, e))
             if (length(elem_exprs) != 0) {
                 names(elem_vals) <- elem_exprs

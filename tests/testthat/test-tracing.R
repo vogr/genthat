@@ -29,17 +29,15 @@ test_that("basic trace pushing", {
 
     x <- 42L
     y <- 15L
-    fn1(x, y)
-    #fn1(x, y + x)
+    fn1(x, y + x)
 
     counter <- 0L
     while (traces$has_next()) {
         counter <- counter + 1L
         trace <- traces$get_next()
-        print(trace)
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "list(call=list(x,y),vals=list(x=42L,y=15L))")
-        expect_equal(trace$retv, "58L")
+        expect_equal(trace$args, "list(call=list(quote(x),quote(y+x)),vals=list(x=42L,y=15L))")
+        expect_equal(trace$retv, "100L")
     }
     expect_equal(counter, 1)
 })

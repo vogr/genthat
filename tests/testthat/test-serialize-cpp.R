@@ -69,3 +69,49 @@ test_that('Cannot serialize looped structures.', {
     expect_true(error_thrown);
 })
 
+test_that('Can serialize symbols', {
+    symbol1 <- quote(x)
+    s <- serialize_r(symbol1);
+    expect_true(is.character(s))
+    expect_equal(s, "quote(x)")
+    symbol2 <- deserialize(s);
+    expect_true(identical(symbol1, symbol2));
+})
+
+test_that('Can serialize calls', {
+    call1 <- quote(f(x,y))
+    s <- serialize_r(call1);
+    expect_true(is.character(s))
+    expect_equal(s, "quote(f(x,y))")
+    call2 <- deserialize(s);
+    expect_true(identical(call1, call2));
+})
+
+test_that('Can serialize infix calls - symbols', {
+    call1 <- quote(x + y)
+    s <- serialize_r(call1);
+    expect_true(is.character(s))
+    expect_equal(s, "quote(x+y)")
+    call2 <- deserialize(s);
+    expect_true(identical(call1, call2));
+})
+
+test_that('Can serialize infix calls - ints', {
+    call1 <- quote(x + 5L)
+    s <- serialize_r(call1);
+    expect_true(is.character(s))
+    expect_equal(s, "quote(x+5L)")
+    call2 <- deserialize(s);
+    expect_true(identical(call1, call2));
+})
+
+test_that('Can serialize infix calls - doubles', {
+    x <- 4
+    call1 <- quote(x + 5)
+    s <- serialize_r(call1);
+    expect_true(is.character(s))
+    expect_equal(s, "quote(x+readBin(as.raw(c(0,0,0,0,0,0,0x14,0x40)), n=1, \"double\"))")
+    call2 <- deserialize(s);
+    # expect_true(identical(call1, call2)); -- this one is not possible to have
+    expect_true(identical(eval(call1), eval(call2)));
+})

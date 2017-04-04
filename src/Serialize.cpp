@@ -264,6 +264,45 @@ static string serialize_env(SEXP s)
     return "as.environment(list(" + elems + "))";
 }
 
+bool is_infix(string func)
+{
+    if (func == "+") { // TODO other non-percent-prefixed infix operators
+        return true;
+    } else if (func[0] == '%') {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+string serialize_lang_subsexp(SEXP s)
+{
+    RObject protected_s(s);
+    /**
+     * can be one of:
+     * - lang (e.g. c(2,3))
+     * - symbol (e.g. x)
+     * - scalar literal (e.g. 5) -- TODO implement all literals
+     */
+    switch (TYPEOF(s)) {
+    case SYMSXP:
+        return string(CHAR(PRINTNAME(s)));
+    case INTSXP: {
+        int val = INTEGER(s)[0];
+        return val == NA_INTEGER ? "NA_integer_" : (to_string(val) + "L"); }
+    case REALSXP: {
+        double val = REAL(s)[0];
+        string elems = "";
+        for (int j = 0; j < sizeof(double); j++)
+        {
+            string str_val = char_to_hex(((unsigned char *) &val)[j]);
+            elems += (j == 0 ? "" : ",") + str_val;
+        }
+        return "readBin(as.raw(c(" + elems + ")), n=1, \"double\")"; }
+    default:
+        throw sexp_not_implemented("serialize_lang_subsexp unknown");
+    }
+}
 
 string serialize_cpp0(SEXP s)
 {
@@ -271,7 +310,7 @@ string serialize_cpp0(SEXP s)
     case NILSXP:
         return "NULL";
     case VECSXP: { /* lists */
-        RObject protected_s(s);
+        RObject protected_s(s); // TODO push this above switch
         int n = XLENGTH(s);
         string ret = "list(";
         SEXP names = Rf_getAttrib(s, R_NamesSymbol);
@@ -361,14 +400,16 @@ string serialize_cpp0(SEXP s)
             elems += (i == 0 ? "" : ",") + str_val;
         }
         return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
-    case SYMSXP:
-        return symbol_to_attrib_key(s);
-    case ENVSXP:
+    case SYMSXP: {
+        RObject protected_s(s);
+        return "quote(" + string(CHAR(PRINTNAME(s))) + ")"; }
+    case ENVSXP: {
+        RObject protected_s(s);
         if (visited_environments.find(s) != visited_environments.end()) {
             throw cycle_in_structure();
         }
         visited_environments.emplace(s);
-        return serialize_env(s);
+        return serialize_env(s); }
     case SPECIALSXP:
         throw sexp_not_implemented("SPECIALSXP");
     case BUILTINSXP:
@@ -383,8 +424,34 @@ string serialize_cpp0(SEXP s)
         throw sexp_not_implemented("CLOSXP");
     case LISTSXP: /* pairlists */
         throw sexp_not_implemented("LISTSXP");
-    case LANGSXP:
-        throw sexp_not_implemented("LANGSXP");
+    case LANGSXP: {
+        RObject protected_s(s);
+        string func = serialize_lang_subsexp(CAR(s)); // TODO func val
+        if (is_infix(func)) {
+            SEXP left = CAR(CDR(s));
+            SEXP right = CAR(CDR(CDR(s)));
+            string call = serialize_lang_subsexp(left) + func + serialize_lang_subsexp(right);
+            return string("quote(") + call + string(")");
+        } else {
+            bool first = true;
+            string args = "";
+            for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
+            {
+                string arg = serialize_lang_subsexp(CAR(a));
+                args += (first ? string("") : string(",")) + arg; // TODO  arg name
+                first = false;
+                /*
+                if (TAG(a) != Rf_install("srcref")) {
+                    string attr_name = symbol_to_attrib_key(TAG(a));
+                    elems += ", " + attr_name + "=" + serialize_cpp0(CAR(a));
+                    if (attr_name != ".Names") {
+                        non_name_attr = true;
+                    }
+                }
+                */
+            }
+            return string("quote(") + func + string("(") + args + string("))");
+        } } 
     case DOTSXP:
         throw sexp_not_implemented("DOTSXP");
     case CHARSXP:

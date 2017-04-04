@@ -10,13 +10,14 @@ test_that("generate_tc() basic usage", {
     trace <- list(
         type = "trace",
         func = "add",
-        args = "list(a = 3L, b = 4L)",
+        args = "list(call=list(a = 3L, b = 4L), vals())",
         retv = "8L"
     )
 
     test_case <- generate_tc(trace)
     expect_equal(test_case$type, "testcase");
     expect_match(test_case$source, "^test_that\\(");
+    print(test_case)
 })
 
 test_that("gen_tests() basic usage", {
