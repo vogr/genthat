@@ -271,6 +271,29 @@ test_pkg_env <- function(package) {
     parent = parent.env(getNamespace(package)))
 }
 
+run_test_case <- function(test_case_source, env) {
+    success <- TRUE
+    mock_env <- as.environment(list(
+        library = noop,
+        context = noop,
+        expect_equal = function(a, b) { success <<- success && isTRUE(all.equal(a,b)) },
+        expect_true = noop,
+        expect_false = noop,
+        test_that = function(desc, expr) {
+            tryCatch({
+                eval(expr, envir = mock_env)
+            }, error = function(e) { print(e); success <<- FALSE }, warning = noop)
+        }
+    ))
+    env <- as.environment(env)
+    parent.env(env) <- globalenv()
+    parent.env(mock_env) <- env
+    tryCatch({
+        eval(parse(text=test_case_source), envir = mock_env)
+    }, error = noop, warning = noop)
+    success
+}
+
 run_test_file <- function(package, path) {
     message(paste0("\nrunning tesfile: ", path, " for package: ", package, "\n"))
     mock_env <- as.environment(list(
@@ -398,9 +421,18 @@ gen_cid <- function() {
     call_id
 }
 
+count_to <- function(n) {
+    if (n == 0) integer(0) else seq.int(1,n)
+}
+
 zipList <- function(xs, ys) {
     ii <- min(length(xs), length(ys))
-    lapply(1:ii, function(i) {
+    lapply(count_to(ii), function(i) {
         list(xs[[i]], ys[[i]])
     })
+}
+
+lapply2 <- function(xs, fn) {
+    pairs <- zipList(xs, names(xs))
+    lapply(pairs, function(pair) fn(pair[[1]], pair[[2]]))
 }

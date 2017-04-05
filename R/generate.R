@@ -60,11 +60,18 @@ generate_tc <- function(trace) {
   args <- trace$args
   retv <- trace$retv
 
+  # args <=> list(call=list(...),vals=list(...))
+  trace_args <- parse(text = args)[[1]]
+  call_exprs <- as.list(trace_args[[2]])[-1]
+  call_vals <- as.list(trace_args[[3]])[-1]
+
   warnings <- list()
   error <- NULL
   threw_error <- FALSE
 
-  if (isAccessibleFunction(func)) {
+  if (FALSE) {
+  # TODO reenable
+  #if (isAccessibleFunction(func)) {
       pkgName <- sub("^(.*):::.*$", "\\1", func)
       fn <- eval(parse(text=func))
       pargs <- deserialize(args)
@@ -105,12 +112,18 @@ generate_tc <- function(trace) {
       }
   }
 
-  # strip 'list(' & ')' from args
-  callSource <- paste0(func, "(", substr(args, 6, nchar(args, type="bytes") - 1), ")")
+  assignments <- lapply2(call_vals, function(val, name) paste0("\t", name, " <- ", as.character(val), "\n"))
+  val_section <- paste(assignments, collapse="")
+  call_section <- paste0(func, "(", paste(sapply(call_exprs, as.character), collapse=", "), ")")
 
   test_body <- concat(
+      "\t# expected return value\n",
       "\texpected <- ", retv, "\n",
-      "\texpect_equal(", callSource, ", expected)\n"
+      "\n",
+      "\t# variables used in arguments\n",
+      val_section,
+      "\n",
+      "\texpect_equal(", call_section, ", expected)\n"
   )
 
   list(
