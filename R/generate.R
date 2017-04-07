@@ -144,10 +144,12 @@ generate_tc <- function(trace) {
 #' @param output_dir Directory to which the tests should be generated.
 #' @export
 gen_tests <- function(output_dir = "generated_tests") {
-    if (missing(output_dir)) {
-        if (!dir.create(out)) {
+    if (missing(output_dir) && !dir.exists(output_dir)) {
+        if (!dir.create(output_dir)) {
             stop("Couldn't create output dir!")
         }
+    } else if (!dir.exists(output_dir)) {
+        stop(paste0("Output dir (", output_dir, ") does not exist"))
     }
 
     n_success <- 0

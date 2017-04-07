@@ -245,8 +245,12 @@ run_generated_tests <-
         dir
     ) {
 
-    test_files <- Sys.glob(file.path(dir, "/*/test-*.R"))
+    test_files <- Sys.glob(file.path(dir, "/tc-*.R"))
     results <- list()
+
+    if (length(test_files) == 0)
+        warning("No tests found");
+
     for (f in test_files) {
         retCode <- system(paste0("Rscript ", f))
         results[[f]] <- list(
