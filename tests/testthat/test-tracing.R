@@ -22,6 +22,23 @@ test_that("basic trace pushing", {
     expect_equal(counter, 1)
 })
 
+test_that("basic trace pushing - non-syntactic names", {
+    `for if` <- function(a, b) { a + b + 1L }
+
+    decorate_functions("for if")
+    `for if`(4L, 3L)
+
+    counter <- 0L
+    while (traces$has_next()) {
+        counter <- counter + 1L
+        trace <- traces$get_next()
+        expect_equal(trace$func, "for if")
+        expect_equal(trace$args, "list(call=list(4L,3L),vals=list())")
+        expect_equal(trace$retv, "8L")
+    }
+    expect_equal(counter, 1)
+})
+
 test_that("basic trace pushing", {
     fn1 <- function(a, b) { a + b + 1L }
 
@@ -60,7 +77,7 @@ test_that("tracing - names of function parameters enclosed in backticks are supp
 })
 
 test_that("tracing - basic tracing of formula", {
-    fn1 <- function(formula) { terms(formula)[[1]] }
+    fn1 <- function(formula) { terms(formula) }
 
     decorate_functions("fn1")
     fn1(x ~ y)
@@ -71,8 +88,8 @@ test_that("tracing - basic tracing of formula", {
         trace <- traces$get_next()
 
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "list(call=list(quote(`~`(x,y))),vals=list())")
-        expect_equal(trace$retv, "quote(`~`(x,y))")
+        expect_equal(trace$args, "list(call=list(quote(x~y)),vals=list())")
+        expect_equal(trace$retv, "quote(x~y)")
     }
     expect_equal(counter, 1)
 })

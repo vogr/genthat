@@ -264,15 +264,17 @@ static string serialize_env(SEXP s)
     return "as.environment(list(" + elems + "))";
 }
 
+bool in_array(const std::string &value, const std::vector<string> &array)
+{
+	return std::find(array.begin(), array.end(), value) != array.end();
+}
+
 bool is_infix(string func)
 {
-    if (func == "+") { // TODO other non-percent-prefixed infix operators
-        return true;
-    } else if (func[0] == '%') {
-        return true;
-    } else {
-        return false;
-    }
+	vector<string> builtIn{ "!", "!=", ":", "::", ":::", "-", "|", "||", "/", "(", "[", "[[", "[[<-", "[<-", "<",
+		"<-", "<<-", "<=", ">", ">=", "{", "&", "&&", "$", "$<-", "@", "@<-", "=", "==", "^", "+", "*", "~" };
+
+	return in_array(func, builtIn) || func[0] == '%';
 }
 
 string serialize_lang_subsexp(SEXP s)
