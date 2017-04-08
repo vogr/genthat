@@ -224,11 +224,27 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         
         call_args <- as.list(sys.call())[-1]
 
+        is.formula <- function(x) is.call(x) && as.character(x[[1]]) == "~"
+
+        get_exprs_from_args <- function(args, args_filter) {
+            filtered <- Filter(args_filter, args)
+            exprs <- as.character(c(lapply(filtered, function(x) all.names(x)), recursive = TRUE))
+            exprs <- Filter(function(x)!x %in% genthat:::operators, exprs)
+            unique(exprs)
+        }
+
         args <- tryCatch({
             e <- environment()
-            elem_exprs <- as.character(c(lapply(call_args, function(expr) all.names(expr)), recursive = TRUE))
-            elem_exprs <- Filter(function(x) !(x %in% c("`{`", "+")), elem_exprs) # TODO other non recorded vals
-            elem_exprs <- unique(elem_exprs)
+
+            #separate processing of optional expressions (e.g. exprs inside formulas)
+            optional_exprs <- get_exprs_from_args(call_args, function(x) is.formula(x))
+            required_exprs <- get_exprs_from_args(call_args, function(x) !is.formula(x))
+
+            #optional exprs which can be recorded
+            optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))
+            optional_exprs <- Filter(optional_filter, optional_exprs)
+
+            elem_exprs <- c(required_exprs, optional_exprs)
             elem_vals <- lapply(elem_exprs, function(name) get(name, e))
             if (length(elem_exprs) != 0) {
                 names(elem_vals) <- elem_exprs
@@ -240,6 +256,7 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
             )
         }, error = function(e) {
             print("error recording args!")
+            print(e)
             NULL
         })
 
