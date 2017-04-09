@@ -58,3 +58,21 @@ test_that("tracing - names of function parameters enclosed in backticks are supp
     }
     expect_equal(counter, 1)
 })
+
+test_that("tracing - basic tracing of formula", {
+    fn1 <- function(formula) { terms(formula)[[1]] }
+
+    decorate_functions("fn1")
+    fn1(x ~ y)
+
+    counter <- 0L
+    while (traces$has_next()) {
+        counter <- counter + 1L
+        trace <- traces$get_next()
+
+        expect_equal(trace$func, "fn1")
+        expect_equal(trace$args, "list(call=list(quote(`~`(x,y))),vals=list())")
+        expect_equal(trace$retv, "quote(`~`(x,y))")
+    }
+    expect_equal(counter, 1)
+})
