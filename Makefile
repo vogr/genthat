@@ -18,3 +18,13 @@ check: build
 test:
 	Rscript tests/testthat.R
 
+build-dev:
+	cd ..; \
+	R CMD build $(PKGSRC) --no-manual --no-build-vignettes
+
+install-dev: build-dev
+	cd ..; \
+	R CMD INSTALL $(PKGSRC) --no-multiarch --with-keep.source
+
+test-dev: install-dev
+	Rscript tests/testthat.R
