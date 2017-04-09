@@ -7,7 +7,7 @@ context("Running testcases generated from traces")
 
 test_that("gen_tests() and run_generated_tests() basic usage", {
     with_tempdir(function(dir) {
-    	fn1 <- function(a) { a + 1 }
+        fn1 <- function(a) { a + 1 }
 		fn1 <- decorate_function_val(fn1, "fn1")
 		fn1(42)
 		undecorate_all()
@@ -21,6 +21,6 @@ test_that("gen_tests() and run_generated_tests() basic usage", {
 
 		res <- run_generated_tests("generated_tests")
 		expect_equal(length(res), 1)
-		expect_true(res[[1]]$passed)        
+		expect_true(res[[1]]$passed)
     })
 })
