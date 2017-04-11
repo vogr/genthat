@@ -129,6 +129,7 @@ generate_tc <- function(trace) {
   list(
     type = "testcase",
     source = concat(
+      "library(testthat)\n",
       "test_that(", deparse(func), ", {\n",
       test_body,
       "})"
