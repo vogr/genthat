@@ -19,8 +19,8 @@ test_that("gen_tests() and run_generated_tests() basic usage", {
         files <- list.files(dir, no.. = TRUE)
         expect_match(files, c("tc-0.R"));
 
-		res <- run_generated_tests("generated_tests")
-		expect_equal(length(res), 1)
-		expect_true(res[[1]]$passed)        
+        res <- run_generated_tests("generated_tests")
+        expect_equal(length(res), 1)
+        expect_true(res[[1]]$passed)        
     })
 })
