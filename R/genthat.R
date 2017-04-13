@@ -110,9 +110,10 @@ gen_from_function <-
 run_package <-
     function(
         package = ".",
-        include_tests = FALSE,
-        include_vignettes = FALSE,
-        include_man_pages = FALSE
+        include_tests = TRUE,
+        include_vignettes = TRUE,
+        include_man_pages = TRUE,
+        quiet = FALSE
     ) {
 
     pkg <- devtools::as.package(package)
@@ -123,7 +124,7 @@ run_package <-
         vdir <- info[,2]
         vfiles <- info[,6]
         p <- file.path(vdir, "doc", vfiles)
-        if (verbose) message(paste("Running vignettes (", length(vfiles), "files)\n"))
+        if (!quiet) message(paste("Running vignettes (", length(vfiles), "files)\n"))
         # vignettes are not expected to be runnable, silence errors
         invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
     }
@@ -143,7 +144,14 @@ run_package <-
     if (include_tests)
     {
         message("Running package tests\n")
-        run_package_tests(package)
+        if (devtools::use_testthat(package)) {
+            test_path <- devtools:::find_test_dir(package)
+            testthat::test_dir(test_path)
+        } else if (file.exists(file.path(package, "tests"))) {
+            run_R_tests(package)
+        } else {
+            message("Package has no tests!")
+        }
     }
 }
 
@@ -164,9 +172,9 @@ gen_from_package <-
     function(
         package = ".",
         output_dir = "generated_tests",
-        include_tests = FALSE,
-        include_vignettes = FALSE,
-        include_man_pages = FALSE
+        include_tests = TRUE,
+        include_vignettes = TRUE,
+        include_man_pages = TRUE
     ) {
     pkg <- as.package(package)
     load_all(package, export_all = FALSE, quiet = TRUE)

@@ -92,6 +92,7 @@ is_decorated <- function(fn) {
             FALSE
         } else {
             tracer_expr <- b[[2]]
+            # TODO: make a global constant
             isTRUE(attr(tracer_expr, 'isGenthatTracerExpression'))
         }
     }
@@ -151,6 +152,7 @@ decorate_function_env <- function(func_names, env = sys.frame(-1)) {
 #' @param functions character vector of all the functions to decorate
 #' @param all decorate all the exported functions
 #'
+#' TODO: there should not be any functions - instead the ...
 decorate_exported <- function(package, functions = NULL, ..., all = FALSE) {
     if (is.character(package) &&
         length(package) == 1 &&
@@ -221,11 +223,20 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 
     tracer_expr <- substitute({
         call_id <- genthat:::gen_cid()
-        
-        call_args <- as.list(sys.call())[-1]
+        call_args <- as.list(match.call())[-1]
 
-        # force evaluation
-        e <- environment()
+        # force evaluation of function arguments so we can record
+        # the evaluation must be in the parent environment
+        e <- new.env(parent=parent.frame())
+
+        # we need to handle ...
+        ## browser()
+        ## dots <- match("...", call_args)
+        ## if (!is.na(dots)) {
+        ##     call_args <- append(call_args, list(...), after=dots)
+        ##     call_args <- call_args[-dots]
+        ## }
+        
         args <- lapply(call_args, function(a) eval(a, envir = e))
         if (!is.null(names(call_args))) {
             names(args) <- names(call_args)
@@ -247,13 +258,27 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         }
     }, as.environment(list(
         fname = func_label,
-        hasDots = "..." %in% names(formals(func)),
-        enter_function = if (!missing(enter_function)) enter_function else genthat:::enter_function,
+        enter_function = {
+            if (!missing(enter_function)) {
+                enter_function
+            } else {
+                genthat:::enter_function
+            }
+        },
         # the default exit_function is dependent on the state set by the default enter_function
         # so when an enter_function is passed by the user exit_function defaults to noop
-        exit_function = if (!missing(exit_function)) exit_function else if (!missing(enter_function)) noop else genthat:::exit_function
+        exit_function = {
+            if (!missing(exit_function)) {
+                exit_function
+            } else if (!missing(enter_function)) {
+                noop
+            } else {
+                genthat:::exit_function
+            }
+        }
     )))
 
+    # TODO: make this a constant
     attr(tracer_expr, 'isGenthatTracerExpression') <- TRUE
 
     body(func) <- substitute({ tracer; original_body }, list(tracer = tracer_expr, original_body = body(func)));
@@ -261,7 +286,7 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
     func
 }
 
-#' @title Write down capture information
+#'  Write down capture information
 #'
 #' @description This function is respinsible for writing down capture information for decorated function calls.
 #' @param fname function name

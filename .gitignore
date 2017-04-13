@@ -8,3 +8,8 @@ inst/doc
 tests/testthat/capture*
 .vs
 src/genthat.dll
+tmp
+.idea
+00check.log
+genthat_*.tar.gz
+TAGS

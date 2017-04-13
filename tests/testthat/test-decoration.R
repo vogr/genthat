@@ -1,49 +1,118 @@
-
 library(testthat)
 library(devtools)
 
 source("./utils.R")
 
+# TODO: move into utils
+
+# saves the values of parent function's arguments into an environment
+# we want to separate it from the `save_calling_args_fun` to enable easy debugging
+save_calling_args <- function(env, names) {
+    args <- as.list(sys.call(-1))[-1]
+    e <- new.env(parent=parent.frame(2))
+    args <- lapply(args, function(x) eval(x, envir=e))
+    names(args) <- names
+
+    args$return_value <- returnValue()
+
+    l <- paste0("c", length(env) + 1)
+    assign(l, args, envir=env)
+}
+
+# returns a function that will save parent function's arguments into an environment
+save_calling_args_fun <- function(env, ...) {
+    names <- c(...)
+    
+    function(...) {
+        save_calling_args(env, names)
+        TRUE
+    }
+}
+
 context("Function decoration")
 
 test_that('is_decorated FALSE cases.', {
-    expect_false(is_decorated(function() {}))
-    expect_false(is_decorated(function() 5))
-    expect_false(is_decorated(function(x) x + 1))
-    expect_false(is_decorated(function(x) { print(x); x + 1 }))
-})
+    fn <- function() {}
 
-test_that('is_decorated TRUE case', {
+    expect_false(is_decorated(function() {}))
+    expect_false(is_decorated(fn))
+
+    expect_true(is_decorated(decorate_function_val(fn, "f_label")))
     expect_true(is_decorated(decorate_function_val(function() {}, "f_label")))
 })
 
 test_that('decorate_function_val__() functionality', {
-    fn1 <- function(a, b) { a + b + 1 }
+    fn <- function(a, b) { a + b + 1 }
 
-    enter_got_called <- FALSE
-    exit_got_called <- FALSE
+    enter <- new.env()
+    exit <- new.env()
 
-    fn1 <- genthat:::decorate_function_val__(
-        fn1,
-        "label1",
-        enter_function = function(fname, args, call_id) {
-            enter_got_called <<- TRUE
-            expect_equal(fname, "label1")
-            expect_equal(args, list(4, 3))
-            expect_equal(call_id, 0)
-            TRUE
-        },
-        exit_function = function(call_id) {
-            exit_got_called <<- TRUE
-            expect_equal(call_id, 0)
-            expect_equal(returnValue(), 8)
-        }
-    )
+    decorated <-
+        genthat:::decorate_function_val__(
+                      fn,
+                      "label1",
+                      enter_function=save_calling_args_fun(enter, "fname", "args", "call_id"),
+                      exit_function=save_calling_args_fun(exit, "call_id"))
 
-    fn1(4, 3)
+    decorated(4, 3)
 
-    expect_true(enter_got_called)
-    expect_true(exit_got_called)
+    expect_equal(enter$c1$fname, "label1")
+    expect_equal(enter$c1$args, list(a=4, b=3))
+    expect_equal(enter$c1$call_id, 0)
+    
+    expect_equal(exit$c1$call_id, 0)
+    expect_equal(exit$c1$return_value, 8)
+})
+
+test_that('decorate_function_val__() evaluates its arguments in the correct environment', {
+    v <- 10
+    fn <- function(a, b) { a + b + v}
+
+    expect_equal(fn(1, 2), 13)
+    
+    enter <- new.env()
+    exit <- new.env()
+
+    decorated <-
+        genthat::decorate_function_val__(
+                     fn,
+                     "label1",
+                     enter_function=save_calling_args_fun(enter, "fname", "args", "call_id"),
+                     exit_function=save_calling_args_fun(exit, "call_id"))
+
+    decorated(1, 2)
+
+    expect_equal(enter$c1$args, list(a=1, b=2))
+    expect_equal(enter$c1$fname, "label1")
+    
+    expect_equal(exit$c1$return_value, 13)
+})
+
+test_that('decorate_function_val__() works with ...', {
+    fn <- function(a, ...) { sum(c(a, ...)) }
+    m <- matrix(1:6, ncol=3)
+
+    expect_equal(apply(m, 1, fn, a=10), c(19, 22))
+    
+    enter <- new.env()
+    exit <- new.env()
+
+    decorated <-
+        genthat::decorate_function_val__(
+                     fn,
+                     "label1",
+                     enter_function=save_calling_args_fun(enter, "fname", "args", "call_id"),
+                     exit_function=save_calling_args_fun(exit, "call_id"))
+
+    expect_equal(apply(m, 1, decorated, a=10), c(19, 22))
+
+    expect_equal(enter$c1$args, list(a=10, c(1, 3, 5)))
+    expect_equal(enter$c1$fname, "label1")
+    expect_equal(exit$c1$return_value, 19)
+
+    expect_equal(enter$c2$args, list(a=10, c(2, 4, 6)))
+    expect_equal(enter$c2$fname, "label1")
+    expect_equal(exit$c2$return_value, 22)
 })
 
 enterFunction_cpp <- function(name, args, call_id) { .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", name, args, call_id) }
@@ -70,7 +139,7 @@ test_that("exitFunction_cpp positive", {
     expect_type(res, "list")
     expect_equal(res$type, "trace")
     expect_equal(res$func, "fn1")
-    expect_equal(res$args, "structure(list(a=42L), .Names=\"a\")")
+    expect_equal(res$args, "list(a=42L)")
     expect_equal(res$retv, "1337L")
 })
 

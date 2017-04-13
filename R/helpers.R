@@ -223,6 +223,11 @@ escapeNonSyntacticName <- function(name) {
 
 force_rebind <- function(what, value, env) {
     sym <- as.name(what)
+
+    if (!exists(what, envir=env, inherits=FALSE)) {
+        return()
+    }
+    
     .Internal(unlockBinding(sym, env))
     assign(what, value, env)
     .Internal(lockBinding(sym, env))
@@ -271,35 +276,10 @@ test_pkg_env <- function(package) {
     parent = parent.env(getNamespace(package)))
 }
 
-run_test_file <- function(package, path) {
-    message(paste0("\nrunning tesfile: ", path, " for package: ", package, "\n"))
-    mock_env <- as.environment(list(
-        library = noop,
-        context = noop,
-        expect_equal = noop,
-        expect_true = noop,
-        expect_false = noop,
-        test_that = function(desc, expr) {
-            tryCatch({
-                eval(expr, envir = mock_env)
-            }, error = noop, warning = noop)
-        }
-    ))
-    parent.env(mock_env) <- test_pkg_env(package)
-    tryCatch({
-        eval(parse(path), envir = mock_env)
-    }, error = noop, warning = noop)
-    invisible()
-}
-
 run_package_tests <- function(src_root) {
-    if (package_uses_testthat(src_root)) {
-        package <- devtools::as.package(src_root)
-        test_path <- file.path(src_root, "tests", "testthat")
-        paths <- list.files(test_path, no.. = TRUE)
-        lapply(paths, function(path) {
-            run_test_file(package$package, file.path(test_path, path))
-        })
+    if (devtools::use_testthat(src_root)) {
+        test_path <- devtools:::find_test_dir(src_root)
+        testthat::test_dir(test_path)
     } else if (file.exists(file.path(src_root, "tests"))) {
         run_R_tests(src_root)
     } else {
@@ -307,10 +287,6 @@ run_package_tests <- function(src_root) {
     }
 }
 
-package_uses_testthat <- function(package_dir) {
-    test_path <- file.path(package_dir, "tests", "testthat")
-    file.exists(test_path)
-}
 
 #' @title Appends x to list lst
 #'

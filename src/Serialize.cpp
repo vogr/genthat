@@ -85,13 +85,13 @@ static bool is_syntactic_name(const char *name)
 
 	try 
 	{
-		auto keyword_regex = regex(keywords);
-		if (regex_match(name, keyword_regex))
-			return false;
+          auto keyword_regex = regex(keywords);
+          if (regex_match(name, keyword_regex))
+            return false;
 	}
 	catch (regex_error& e)
 	{
-		throw serialization_error("keyword regex failed with code: " + e.code());
+          throw serialization_error("keyword regex failed with code: " + std::to_string(e.code()));
 	}
 
 	try
@@ -101,7 +101,7 @@ static bool is_syntactic_name(const char *name)
 	}
 	catch (regex_error& e)
 	{
-		throw serialization_error("syntactic name regex failed with code: " + e.code());
+          throw serialization_error("syntactic name regex failed with code: " + std::to_string(e.code()));
 	}
 }
 
@@ -159,7 +159,6 @@ string symbol_to_attrib_key(SEXP a)
  */
 string wrap_in_attributes(SEXP s, string s_str)
 {
-    RObject protected_s(s);
     if (hasAttributes(s)) {
         string elems = "";
 		for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a))
@@ -277,7 +276,15 @@ string serialize_cpp0(SEXP s)
             ret += string(i == 0 ? "" : ",") + label + serialize_cpp0(val);
         }
         ret += ")";
-        return wrap_in_attributes(s, ret);}
+
+        // do not wrap if the only attribute is names
+        vector<string> attrs = protected_s.attributeNames();
+        if (attrs.size() == 1 && attrs.at(0) == as<string>(PRINTNAME(R_NamesSymbol))) {
+          return ret;
+        } else {
+          return wrap_in_attributes(s, ret);
+        }
+    }
     case LGLSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
