@@ -93,3 +93,24 @@ test_that("tracing - basic tracing of formula", {
     }
     expect_equal(counter, 1)
 })
+
+test_that("tracing - basic tracing of lm formula", {
+    lm.coeff <- function(m, d) lm(m, d)$coeff
+
+    decorate_functions("lm.coeff")
+    
+    l <- list(x=10L, y=20L) #cannot be inlined due to tracing bug
+    lm.coeff(x ~ y, l)
+
+    counter <- 0L
+    while (traces$has_next()) {
+        counter <- counter + 1L
+        trace <- traces$get_next()
+
+        expect_equal(trace$func, "lm.coeff")
+        expect_equal(trace$args, "list(call=list(quote(x~y),quote(l)),vals=list(l=list(x=10L,y=20L)))")
+        expect_match(trace$retv, "^structure\\(readBin\\(as.raw\\(c\\(0,0,0,0,0,0,0x24,0x40,0xa2,0x7,0,0,0,0,0xf0,0x7f\\)\\)")
+    }
+    expect_equal(counter, 1)
+})
+
