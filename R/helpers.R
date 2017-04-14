@@ -221,15 +221,17 @@ escapeNonSyntacticName <- function(name) {
     }
 }
 
-force_rebind <- function(what, value, env) {
-    sym <- as.name(what)
-
-    if (!exists(what, envir=env, inherits=FALSE)) {
+force_rebind <- function(name, value, env) {
+    if (!exists(name, envir=env, inherits=FALSE)) {
+        cat("Not found ", name, "in", environmentName(env), "\n")
         return()
     }
+
+    cat("Redbinding ", name, "in", environmentName(env), "\n")
     
+    sym <- as.name(name)
     .Internal(unlockBinding(sym, env))
-    assign(what, value, env)
+    assign(name, value, env)
     .Internal(lockBinding(sym, env))
 }
 
@@ -275,18 +277,6 @@ test_pkg_env <- function(package) {
   list2env(as.list(getNamespace(package), all.names = TRUE),
     parent = parent.env(getNamespace(package)))
 }
-
-run_package_tests <- function(src_root) {
-    if (devtools::use_testthat(src_root)) {
-        test_path <- devtools:::find_test_dir(src_root)
-        testthat::test_dir(test_path)
-    } else if (file.exists(file.path(src_root, "tests"))) {
-        run_R_tests(src_root)
-    } else {
-        message("Package has no tests!")
-    }
-}
-
 
 #' @title Appends x to list lst
 #'

@@ -176,8 +176,9 @@ gen_from_package <-
         include_vignettes = TRUE,
         include_man_pages = TRUE
     ) {
-    pkg <- as.package(package)
-    load_all(package, export_all = FALSE, quiet = TRUE)
+        pkg <- devtools::as.package(package)
+        # why was there export_all = FALSE
+    env <- devtools::load_all(pkg, quiet = TRUE)$env
     decorate_exported(pkg$package, all = TRUE)
     decorate_hidden_functions(pkg$package)
     run_package(
