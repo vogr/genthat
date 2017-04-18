@@ -228,11 +228,16 @@ force_rebind <- function(name, value, env) {
     }
 
     cat("Redbinding ", name, "in", environmentName(env), "\n")
-    
-    sym <- as.name(name)
-    .Internal(unlockBinding(sym, env))
+
+    was_locked <- FALSE
+    if (bindingIsLocked(name, env)) {
+        unlockBinding(sym, env)
+        was_locked <- TRUE
+    }
     assign(name, value, env)
-    .Internal(lockBinding(sym, env))
+    if (was_locked) {
+        lockBinding(sym, env)
+    }
 }
 
 getImportsEnvironment <- function(pkgName) {

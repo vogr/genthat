@@ -115,6 +115,52 @@ test_that('decorate_function_val__() works with ...', {
     expect_equal(exit$c2$return_value, 22)
 })
 
+test_that("decoration for S3 functions", {
+    fn <- function(x) {
+        UseMethod("fn", x)
+    }
+
+    fn.foo <- function(x) {
+        x + 1
+    }
+
+    fn.bar <- function(x) {
+        x + 2
+    }
+
+    foo <- structure(1, class = "foo")
+    bar <- structure(2, class = "bar")
+
+    expect_equal(fn(foo), structure(2, class="foo"))
+    expect_equal(fn(bar), structure(4, class="bar"))
+    
+    enter <- new.env()
+    exit <- new.env()
+
+    decorated <-
+        genthat::decorate_function_val__(
+                     fn,
+                     "label1",
+                     enter_function=save_calling_args_fun(enter, "fname", "args", "call_id"),
+                     exit_function=save_calling_args_fun(exit, "call_id"))
+
+    expect_equal(decorated(foo), structure(2, class="foo"))
+    expect_equal(decorated(bar), structure(4, class="bar"))
+
+    expect_equal(enter$c1$args, list(x=structure(1, class="foo")))
+    expect_equal(enter$c1$fname, "label1")
+    expect_equal(exit$c1$return_value, structure(2, class="foo"))
+
+    expect_equal(enter$c2$args, list(x=structure(2, class="bar")))
+    expect_equal(enter$c2$fname, "label1")
+    expect_equal(exit$c2$return_value, structure(4, class="bar"))
+})
+
+## TODO: test decorating just one of the S3 function
+## TODO: test decorating all S3 functions
+
+## TODO: can we decorate builtins?
+## TODO: shall we prevent decorating specials?
 enterFunction_cpp <- function(name, args, call_id) { .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", name, args, call_id) }
 exitFunction_cpp <- function(call_id, retv) { .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, retv) }
 

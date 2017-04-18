@@ -107,52 +107,46 @@ gen_from_function <-
 #' @param verbose Prints additional information.
 #' @export
 #'
-run_package <-
-    function(
-        package = ".",
-        include_tests = TRUE,
-        include_vignettes = TRUE,
-        include_man_pages = TRUE,
-        quiet = FALSE
-    ) {
+run_package <- function(package = ".", include_tests = FALSE, include_vignettes = FALSE,
+                       include_man_pages = TRUE, envir = new.env(parent = globalenv()), quiet = FALSE) {
 
-    pkg <- devtools::as.package(package)
+  pkg <- devtools::as.package(package)
 
-    if (include_vignettes)
-    {
-        info <- tools::getVignetteInfo(package = pkg$package)
-        vdir <- info[,2]
-        vfiles <- info[,6]
-        p <- file.path(vdir, "doc", vfiles)
-        if (!quiet) message(paste("Running vignettes (", length(vfiles), "files)\n"))
-        # vignettes are not expected to be runnable, silence errors
-        invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
+  if (include_vignettes) {
+    info <- tools::getVignetteInfo(package = pkg$package)
+    vdir <- info[,2]
+    vfiles <- info[,6]
+    p <- file.path(vdir, "doc", vfiles)
+    if (!quiet) message(paste("Running vignettes (", length(vfiles), "files)\n"))
+    # vignettes are not expected to be runnable, silence errors
+    invisible(tryCatch(sapply(p, source), error=function(x) invisible()))
+  }
+  
+  if (include_man_pages) {
+    # run package examples
+    manPath <- file.path(package, "man")
+    examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
+    if (length(examples) != 0) {
+      message(paste("Running examples (", length(examples), "man files)\n"))
+      for (f in examples) {
+        code <- example_code(file.path(manPath, f))
+        tryCatch(eval(parse(text = code)), error=function(x) print(x))
+      }
     }
-    if (include_man_pages)
-    {
-        # run package examples
-        manPath <- file.path(package, "man")
-        examples <- list.files(manPath, pattern = "\\.[Rr]d$", no.. = T)
-        if (length(examples) != 0) {
-            message(paste("Running examples (", length(examples), "man files)\n"))
-            for (f in examples) {
-                code <- example_code(file.path(manPath, f))
-                tryCatch(eval(parse(text = code)), error=function(x) print(x))
-            }
-        }
+  }
+  
+  if (include_tests) {
+    message("Running package tests\n")
+    if (devtools::use_testthat(package)) {
+      test_path <- devtools:::find_test_dir(package)
+      # TODO: what is the difference between test_dir and test_package
+      testthat::test_dir(test_path, env=envir)
+    } else if (file.exists(file.path(package, "tests"))) {
+      run_R_tests(package)
+    } else {
+      message("Package has no tests!")
     }
-    if (include_tests)
-    {
-        message("Running package tests\n")
-        if (devtools::use_testthat(package)) {
-            test_path <- devtools:::find_test_dir(package)
-            testthat::test_dir(test_path)
-        } else if (file.exists(file.path(package, "tests"))) {
-            run_R_tests(package)
-        } else {
-            message("Package has no tests!")
-        }
-    }
+  }
 }
 
 #' @title Generates tests for a package by running the code associated with it.
@@ -168,27 +162,28 @@ run_package <-
 #' @param verbose Prints additional information.
 #' @export
 #'
-gen_from_package <-
-    function(
-        package = ".",
-        output_dir = "generated_tests",
-        include_tests = TRUE,
-        include_vignettes = TRUE,
-        include_man_pages = TRUE
-    ) {
-        pkg <- devtools::as.package(package)
-        # why was there export_all = FALSE
-    env <- devtools::load_all(pkg, quiet = TRUE)$env
-    decorate_exported(pkg$package, all = TRUE)
-    decorate_hidden_functions(pkg$package)
-    run_package(
-        package,
-        include_tests = include_tests,
-        include_vignettes = include_vignettes,
-        include_man_pages = include_man_pages
-    )
-    undecorate_all()
-    gen_tests(output_dir = output_dir)
+gen_from_package <- function(package = ".", output_dir = "generated_tests",
+                            include_tests = TRUE, include_vignettes = TRUE,
+                            include_man_pages = TRUE) {
+  
+  pkg <- devtools::as.package(package)
+  # this should be in a separate namespace
+  devtools::install_deps(package, dependencies=c("Depends", "Imports", "LinkingTo", "Suggests"))
+  # TODO: why was there export_all = FALSE
+  env <- devtools::load_all(pkg, quiet = TRUE)$env
+  
+  # undecorate only what has been decorated
+  on.exit(undecorate_all())
+  decorate_exported(pkg$package, all = TRUE)
+  decorate_hidden_functions(pkg$package)
+  run_package(
+    package,
+    include_tests = include_tests,
+    include_vignettes = include_vignettes,
+    include_man_pages = include_man_pages,
+    envir = env)
+  
+  gen_tests(output_dir = output_dir)
 }
 
 #' @title Generate tests for given code
@@ -213,7 +208,7 @@ gen_from_code <-
     stop_capture_all()
     generate(output_dir, root = trace_dir)
     invisible()
-}
+  }
 
 #' @title Generate tests for give source
 #' @description Generates tests by running given source file.
