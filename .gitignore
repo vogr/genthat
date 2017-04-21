@@ -13,4 +13,5 @@ tmp
 00check.log
 genthat_*.tar.gz
 TAGS
+generated_tests
 man
