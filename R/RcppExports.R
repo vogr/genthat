@@ -21,8 +21,8 @@ exitFunction_cpp <- function(call_id, retv_env) {
     .Call('genthat_exitFunction_cpp', PACKAGE = 'genthat', call_id, retv_env)
 }
 
-reassign_function <- function(name, env, fn, new_fn) {
-    .Call('genthat_reassign_function', PACKAGE = 'genthat', name, env, fn, new_fn)
+reassign_function <- function(target_fun, new_fun) {
+    .Call('genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }
 
 create_duplicate <- function(x) {

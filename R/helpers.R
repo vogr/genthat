@@ -459,8 +459,8 @@ get_function_name <- function(name) {
     
     x <- strsplit(name, ":")[[1]]
     if (length(x) == 1) {
-        x[1]
+        list(package=NULL, name=x[1])
     } else {
-        c(x[1], x[length(x)])
-    }
+        list(package=x[1], name=x[length(x)])
+    }    
 }

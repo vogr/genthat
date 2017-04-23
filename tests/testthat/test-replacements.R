@@ -1,5 +1,16 @@
 context("replacements")
 
+test_that("reassigns replaces function body and add attributes", {
+    f <- function(a,b) {a+b}
+    g <- function(a,b) {a-b}
+    attr(g, "a") <- TRUE
+
+    reassign_function(f, g)
+    
+    expect_equal(f(1, 2), -1)
+    expect_equal(attr(f, "a"), TRUE)
+})
+
 test_that("remove_replacement", {
     f <- function() {}
     

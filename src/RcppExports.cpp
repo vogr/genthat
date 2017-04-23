@@ -63,16 +63,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // reassign_function
-SEXP reassign_function(SEXP name, SEXP env, SEXP fn, SEXP new_fn);
-RcppExport SEXP genthat_reassign_function(SEXP nameSEXP, SEXP envSEXP, SEXP fnSEXP, SEXP new_fnSEXP) {
+SEXP reassign_function(SEXP target_fun, SEXP new_fun);
+RcppExport SEXP genthat_reassign_function(SEXP target_funSEXP, SEXP new_funSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type name(nameSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type fn(fnSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type new_fn(new_fnSEXP);
-    rcpp_result_gen = Rcpp::wrap(reassign_function(name, env, fn, new_fn));
+    Rcpp::traits::input_parameter< SEXP >::type target_fun(target_funSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type new_fun(new_funSEXP);
+    rcpp_result_gen = Rcpp::wrap(reassign_function(target_fun, new_fun));
     return rcpp_result_gen;
 END_RCPP
 }

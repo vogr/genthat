@@ -4,17 +4,14 @@
 #include <R_ext/Error.h>
 
 // [[Rcpp::export]]
-SEXP reassign_function(SEXP name, SEXP env, SEXP fn, SEXP new_fn)
+SEXP reassign_function(SEXP target_fun, SEXP new_fun)
 {
-  if (TYPEOF(name) != SYMSXP) error("name must be a symbol");
-  if (TYPEOF(env) != ENVSXP) error("env must be an environment");
-  if (TYPEOF(fn) != CLOSXP) error("fn must be a function");
-  if (TYPEOF(new_fn) != CLOSXP) error("new_fn must be a function");
+  if (TYPEOF(target_fun) != CLOSXP) error("target_fun must be a function");
+  if (TYPEOF(new_fun) != CLOSXP) error("new_fun must be a function");
 
-  //  SET_FORMALS(fn, FORMALS(new_fn));
-  SET_BODY(fn, BODY(new_fn));
-  //  SET_CLOENV(fn, CLOENV(new_fn));
-  DUPLICATE_ATTRIB(fn, new_fn);
+  //  TODO: check if the formals are the same
+  SET_BODY(target_fun, BODY(new_fun));
+  DUPLICATE_ATTRIB(target_fun, new_fun);
 
   return R_NilValue;
 }

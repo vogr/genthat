@@ -3,7 +3,7 @@
 #' @export
 #'
 undecorate_all <- function() {
-
+    # TODO: implement
 }
 
 #' @title Tells you whether the given function is a result of genthat's function decoration.
@@ -47,20 +47,21 @@ get_function_name_str <- function(name, fun) {
     pkg_name <- environmentName(env)
 
     names <- get_function_name(name)
-    if (length(names) == 1) {
-        paste0(pkg_name, ":::", names)
+    if (is.null(names$package)) {
+        paste0(pkg_name, ":::", names$name)
     } else {
         # TODO: test
-        if (nchar(pkg_name) > 0 && names[1] != pkg_name) {
+        if (nchar(pkg_name) > 0 && names$package != pkg_name) {
             warning("Mismatch with name and environment. Function ", name, " is defined in ", pkg_name)
         }
         name
     }
 }
 
+##' @name decorate_and_replace
+##' @title 
 ##' @param funs a list of name, fun pairs for all functions to be decorated and replaced
-##' @return 
-##' @author Filip Krikava
+##' @return named list of new functions
 decorate_and_replace <- function(funs) {
     stopifnot(is.list(funs))
     stopifnot(!is.null(names(funs)))
@@ -89,7 +90,7 @@ decorate_and_replace <- function(funs) {
         )
     })
 
-    lapply(replacements, do.call, what=replace)
+    lapply(replacements, function(x) reassign_function(x$fun, x$new_fun))
     lapply(replacements, add_replacement)
     
     lapply(replacements, `[[`, "new_fun")
@@ -134,26 +135,7 @@ reset_functions <- function(...) {
 reset_function <- function(name) {
     r <- remove_replacement(name)
 
-    replace(name=r$name, env=r$env, fun=r$fun, new_fun=r$orig_fun)
-}
-
-replace <- function(name, env, orig_fun, fun, new_fun) {
-    stopifnot(is.character(name))
-    stopifnot(is.environment(env))
-    stopifnot(is.function(fun))
-    stopifnot(is.function(new_fun))
-
-    # TODO: debug option
-    message("Replacing: ", name)
-
-    fun_name <- strsplit(name, split=":")[[1]]
-    fun_name <- fun_name[length(fun_name)]
-
-    # TODO: clean the function interface
-    # TODO: us ethe create function
-    .Call("genthat_reassign_function", PACKAGE="genthat", as.name(fun_name), env, fun, new_fun)
-
-    invisible(NULL)
+    reassign_function(r$fun, r$orig_fun)
 }
 
 add_function_hook <- function(fun, hook) {
