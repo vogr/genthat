@@ -6,14 +6,14 @@
 
 using namespace Rcpp;
 
-// serialize_r
-SEXP serialize_r(SEXP s);
-RcppExport SEXP genthat_serialize_r(SEXP sSEXP) {
+// serialize_cpp
+string serialize_cpp(SEXP s);
+RcppExport SEXP genthat_serialize_cpp(SEXP sSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type s(sSEXP);
-    rcpp_result_gen = Rcpp::wrap(serialize_r(s));
+    rcpp_result_gen = Rcpp::wrap(serialize_cpp(s));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -59,6 +59,31 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type call_id(call_idSEXP);
     Rcpp::traits::input_parameter< SEXP >::type retv_env(retv_envSEXP);
     rcpp_result_gen = Rcpp::wrap(exitFunction_cpp(call_id, retv_env));
+    return rcpp_result_gen;
+END_RCPP
+}
+// reassign_function
+SEXP reassign_function(SEXP name, SEXP env, SEXP fn, SEXP new_fn);
+RcppExport SEXP genthat_reassign_function(SEXP nameSEXP, SEXP envSEXP, SEXP fnSEXP, SEXP new_fnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type fn(fnSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type new_fn(new_fnSEXP);
+    rcpp_result_gen = Rcpp::wrap(reassign_function(name, env, fn, new_fn));
+    return rcpp_result_gen;
+END_RCPP
+}
+// create_duplicate
+SEXP create_duplicate(SEXP x);
+RcppExport SEXP genthat_create_duplicate(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(create_duplicate(x));
     return rcpp_result_gen;
 END_RCPP
 }

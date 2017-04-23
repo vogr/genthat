@@ -217,6 +217,8 @@ string to_string_literal(const char *x)
 
 set<SEXP> visited_environments;
 
+// [[Rcpp::export]]
+
 string serialize_cpp(SEXP s)
 {
     visited_environments.clear();
@@ -401,15 +403,3 @@ string serialize_cpp0(SEXP s)
         throw sexp_not_implemented("unknown");
     }
 }
-
-// [[Rcpp::export]]
-SEXP serialize_r(SEXP s)
-{
-    try {
-        string str_rep = serialize_cpp(s);
-        return Rf_mkString(str_rep.c_str());
-    } catch(sexp_not_implemented e) {
-        Rf_error(e.to_string().c_str());
-    }
-}
-

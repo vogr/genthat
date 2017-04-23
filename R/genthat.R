@@ -1,12 +1,9 @@
-
-genthat_init <- function(package_name = NULL, capture_dir = "capture") {
-    cache$package_name <- package_name
-    cache$capture_dir <- capture_dir
-    cache$capture_num <- 0
-    cache$decorated <- new.env()
-    cache$call_id_counter <- as.environment(list(value = 0))
-    cache$capture_arguments <- TRUE
-}
+#' genthat: A framework for automatic test-case generation from client code
+#'
+#' @docType package
+#' @name genthat
+#' @useDynLib genthat
+NULL
 
 #' @title Adds regression tests to specified package.
 #'
@@ -162,28 +159,108 @@ run_package <- function(package = ".", include_tests = FALSE, include_vignettes 
 #' @param verbose Prints additional information.
 #' @export
 #'
-gen_from_package <- function(package = ".", output_dir = "generated_tests",
-                            include_tests = TRUE, include_vignettes = TRUE,
-                            include_man_pages = TRUE) {
-  
-  pkg <- devtools::as.package(package)
-  # this should be in a separate namespace
-  devtools::install_deps(package, dependencies=c("Depends", "Imports", "LinkingTo", "Suggests"))
-  # TODO: why was there export_all = FALSE
-  env <- devtools::load_all(pkg, quiet = TRUE)$env
-  
-  # undecorate only what has been decorated
-  on.exit(undecorate_all())
-  decorate_exported(pkg$package, all = TRUE)
-  decorate_hidden_functions(pkg$package)
-  run_package(
-    package,
-    include_tests = include_tests,
-    include_vignettes = include_vignettes,
-    include_man_pages = include_man_pages,
-    envir = env)
-  
-  gen_tests(output_dir = output_dir)
+gen_from_package <- function(package=".", output_dir="generated_tests",
+                            type=c("tests", "vignettes", "examples"),
+                            clean=FALSE, quiet=FALSE) {
+    
+    pkg <- devtools::as.package(package)
+
+    if (missing(type)) {
+        type <- "tests"
+    }
+    
+    tmp_lib <- tempfile("R_LIBS")
+    stopifnot(dir.create(tmp_lib))
+
+    if (isTRUE(clean)) {
+        on.exit({
+            clean_objects(pkg$path)
+        }, add=TRUE)
+    }
+
+    utils::install.packages(
+               repos=NULL,
+               lib=tmp_lib,
+               pkg$path,
+               type="source",
+               dependencies=c("Depends", "Imports", "LinkingTo", "Suggests"),
+               INSTALL_opts=c("--example", # TODO: only if we need it
+                   "--install-tests", # TODO: only if we need it
+                   "--with-keep.source",
+                   "--no-multiarch"),
+               quiet=quiet)
+
+    libs <- env_path(tmp_lib, .libPaths())
+    pkg_dir <- file.path(tmp_lib, pkg$package)
+    genthat_output <- file.path(pkg_dir, "genthat.RDS")
+    
+    add_package_hook(
+        pkg$package,
+        tmp_lib,
+        on_load=substitute({
+            message("Invoking genthat package loading hook")
+            install.packages(repos=NULL, type="source", pkgs=GENTHAT_PATH)
+            genthat::decorate_environment(ns)
+        }, list(GENTHAT_PATH=find.package("genthat"))),
+        on_gc_finalizer=substitute({
+            saveRDS(genthat:::cache, file=GENTHAT_OUTPUT)
+        }, list(GENTHAT_OUTPUT=genthat_output))
+    )
+
+    # TODO: debug trace
+    #cat(paste0(readLines(file.path(pkg_dir,"R","stringr")), collapse="\n"))
+    
+    withr::with_envvar(c(R_LIBS=libs, R_LIBS_USER=libs, R_LIBS_SITE=libs), {
+        ## if ("vignettes" %in% type) {
+        ##     type <- type[type != "vignettes"]
+        ##     run_vignettes(pkg, tmp_lib)
+        ## }
+
+        ## if ("examples" %in% type) {
+        ##     type <- type[type != "examples"]
+        ##     # testInstalledPackage explicitly sets R_LIBS="" on windows, and does
+        ##     # not restore it after, so we need to reset it ourselves.
+        ##     withr::with_envvar(c(R_LIBS = Sys.getenv("R_LIBS")), {
+        ##         result <- tools::testInstalledPackage(pkg$package, outDir = pkg_dir, types = "examples", lib.loc = tmp_lib) # TODO: add ...
+        ##         if (result != 0L) {
+        ##             show_failures(pkg_dir)
+        ##         }
+        ##     })
+        ## }
+
+        if ("tests" %in% type) {
+            result <- tools::testInstalledPackage(pkg$package, outDir=pkg_dir, types="tests", lib.loc=tmp_lib) # TODO: add ...
+
+            if (!quiet) {           
+                out <- file.path(pkg_dir, paste0(pkg$package, "-tests"), "testthat.Rout")
+                if (file.exists(out)) cat(paste0(readLines(out), collapse="\n"))
+            }
+            
+            if (result != 0L) {
+                show_failures(pkg_dir)
+            }
+        }
+
+#            f <- file.path(pkg_dir, "stringr-tests", "testthat.Rout.fail")
+#            if (file.exists(f)) cat(paste0(readLines(f), collapse="\n"))
+
+    })
+
+    if (!file.exists(genthat_output)) {
+        stop("genthat output does not exist ", genthat_output)
+    }
+    
+    output <- readRDS(genthat_output)
+    stopifnot(is.environment(output))
+
+    tests <- gen_tests(output$traces, output_dir)
+
+    list(
+        traces=length(output$traces),
+        errors=length(filter(output$traces, is, class2="genthat_trace_error")),
+        tests=tests,
+        pkg_dir=if (!clean) pkg_dir else NA
+    )
 }
 
 #' @title Generate tests for given code

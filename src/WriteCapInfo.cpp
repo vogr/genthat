@@ -82,15 +82,15 @@ SEXP enterFunction_cpp (CharacterVector fname, SEXP args_list, SEXP call_id)
     string args;
     try {
         args = serialize_cpp(args_list);
-    } catch (serialization_error e) {
-        return makeError("<unserializable: " + e.msg + ">");
+    } catch (serialization_error &e) {
+        forward_exception_to_r(e);
     }
 
     //cout << "called :" << fname << "()" << endl;
     //cout << "with args :" << args << endl;
     cached_args.emplace(as<int>(call_id), make_pair(as<string>(fname), args));
 
-    return Rf_ScalarInteger(0); // signals success
+    return Rf_ScalarLogical(true);
 }
 
 // [[Rcpp::export]]
@@ -111,8 +111,8 @@ SEXP exitFunction_cpp (SEXP call_id, SEXP retv_env)
     string retv;
     try {
         retv = serialize_cpp(retv_env);
-    } catch (serialization_error e) {
-        return makeError("<unserializable: " + e.msg + ">");
+    } catch (serialization_error &e) {
+      forward_exception_to_r(e);
     }
 
     return List::create(

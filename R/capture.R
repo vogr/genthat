@@ -1,338 +1,228 @@
-
-######################
-# EXPORTED FUNCTIONS #
-######################
-
-#' @title Decorate functions
-#'
-#' @description API function to decorate functions.
-#' Usages
-#' ------
-#' decorate_functions(fn1)
-#' decorate_functions(fn1, fn2)
-#' decorate_functions("fn1", env=environment())
-#' decorate_functions("fn1", "fn2", env=environment())
-#' decorate_functions("fn1", "fn2", package="package_name")
-#' decorate_functions(package="package_name") # all from this package
-#' decorate_functions(env=some_environment) # all from some_environment
-#' decorate_functions(package="package_name", include_hidden=TRUE) # all including hidden
-#' decorate_functions("hidden_fn1", "hidden_fn2", package="package_name", include_hidden=TRUE)
-#' @export
-#'
-decorate_functions <- function(...) {
-	args <- list(...)
-    arg_names <- if (is.character(names(args))) names(args) else sapply(args, function(x) "")
-	if ("package" %in% arg_names) {
-		package <- args[["package"]]
-		include_hidden <- isTRUE(args[["include_hidden"]])
-		fnames <- unlist(args[arg_names == ""], use.names = FALSE)
-		if (length(fnames) == 0) {
-			decorate_exported(package, all = TRUE)
-			if (include_hidden) {
-				decorate_hidden_functions(package)
-			}
-		} else {
-			lapply(fnames, function(fname) {
-				is_exported <- fname %in% listExportedFunctions(package)
-				if (is_exported) {
-					decorate_exported(package, fname) 
-				} else {
-					decorate_function_env(fname, env = getNamespace(package))
-				}
-			})
-		}
-	} else if ("env" %in% arg_names || is.character(args[[1]])) {
-		fnames <- unlist(args[arg_names == ""], use.names = FALSE)
-		env <- if ("env" %in% arg_names) args[["env"]] else sys.frame(-1)
-		decorate_function_env(fnames, env = env)
-	} else {
-        fn_vals <- args
-        labels <- sapply(as.list(substitute(list(...))[-1]), as.character)
-        pairs <- zipList(fn_vals, labels)
-		lapply(pairs, function(pair) {
-			decorate_function_val(pair[[1]], pair[[2]])
-		})
-	}
-}
-
 #' @title Undecorate all functions.
 #'
-#' @description Undecorate all functions.
-#' Functions decorated through `decorate_function_val()` are not undecorated.
 #' @export
 #'
 undecorate_all <- function() {
-    lapply(cache$decorated_functions, function(decorated_fun) {
-        if (decorated_fun$type == "value") {
-            ; # do nothing
-        } else if (decorated_fun$type == "bound") {
-            env <- decorated_fun$env
-            name <- decorated_fun$name
-            env[[name]] <- decorated_fun$original_func
-        } else if (decorated_fun$type == "exported") {
-            package <- decorated_fun$package
-            name <- decorated_fun$name
-            overwrite_export(name, decorated_fun$original_func, package)
-        }
-    })
-    cache$decorated_functions <- list()
+
 }
 
-#' @title Tells you whether the function is a result of genthat's function decoration.
+#' @title Tells you whether the given function is a result of genthat's function decoration.
 #'
-#' @param fn function value
+#' @param fun function value
 #' @export
 #'
-is_decorated <- function(fn) {
-    if (typeof(fn) != "closure") {
-        FALSE
-    } else {
-        b <- body(fn)
-        if (length(b) != 3) {
-            FALSE
-        } else {
-            tracer_expr <- b[[2]]
-            # TODO: make a global constant
-            isTRUE(attr(tracer_expr, 'isGenthatTracerExpression'))
-        }
-    }
-}
-
-##########################
-# NON-EXPORTED FUNCTIONS #
-##########################
-
-#' @title Returns traced version of original function.
-#'
-#' @description More sane replacement of the base::trace function.
-#' @param func function value
-#' @param func_label name that will be recorded in traces
-#'
-decorate_function_val <- function(func, func_label) {
-    if (!is.function(func)) stop("Invalid call of genthat::decorate_function_val(): func must be a function!")
-    if (!is.character(func_label) || length(func_label) != 1) stop("Invalid call of genthat::decorate_function_val(): func_label must be a character scalar!")
-
-    new_func <- decorate_function_val__(func, func_label)
-
-    add_decorated_function(list(
-        type = "value",
-        decorated_func = new_func,
-        original_func = func
-    ))
-
-    new_func
-}
-
-#' @title Decorates function bound in environment
-#'
-#' @param func_name key of binding
-#' @param env environment containging binding
-#'
-decorate_function_env <- function(func_names, env = sys.frame(-1)) {
-    if (!is.character(func_names)) stop(paste0("Invalid call to genthat::decorate_function_env(): func_names must be a character vector (was ", typeof(func_names), ")!"))
-    if (!is.environment(env)) stop("Invalid call to genthat::decorate_function_env(): env must be an environment!")
+is_decorated <- function(fun) {
+    stopifnot(is.function(fun))
     
-    lapply(func_names, function(func_name) {
-        original_func <- env[[func_name]]
-        new_function <- decorate_function_val__(original_func, func_name)
-        env[[func_name]] <- new_function
-
-        add_decorated_function(list(
-            type = "bound",
-            name = func_name,
-            env = env,
-            original_func = original_func
-        ))
-    })
+    isTRUE(attr(fun, "genthat"))
 }
 
-#' @title Decorates package's exported functions.
-#'
-#' @param package name of package to look for function
-#' @param functions character vector of all the functions to decorate
-#' @param all decorate all the exported functions
-#'
-#' TODO: there should not be any functions - instead the ...
-decorate_exported <- function(package, functions = NULL, ..., all = FALSE) {
-    if (is.character(package) &&
-        length(package) == 1 &&
-        is.character(functions) &&
-        !isTRUE(all)) {
-        ;
-    } else if (is.character(package) &&
-        length(package) == 1 &&
-        missing(functions) &&
-        isTRUE(all)) {
-        ;
+#' @export
+decorate_environment <- function(envir) {
+    stopifnot(is.environment(envir))
+
+    # TODO: is the all.names actually correct?
+    names <- ls(envir, all.names=TRUE)
+    vals <- lapply(names, get, envir=envir)
+    names(vals) <- names
+    
+    funs <- filter(vals, is.function)
+
+    decorate_and_replace(funs)
+}
+
+#' @export
+decorate_functions <- function(...) {
+    dots <- substitute(list(...))[-1]
+    names <- sapply(dots, deparse)
+    funs <- list(...)
+    
+    names(funs) <- names
+    
+    decorate_and_replace(funs)
+}
+
+get_function_name_str <- function(name, fun) {
+    env <- environment(fun)
+    pkg_name <- environmentName(env)
+
+    names <- get_function_name(name)
+    if (length(names) == 1) {
+        paste0(pkg_name, ":::", names)
     } else {
-        stop("Invalid call to genthat::decorate_exported()!")
+        # TODO: test
+        if (nchar(pkg_name) > 0 && names[1] != pkg_name) {
+            warning("Mismatch with name and environment. Function ", name, " is defined in ", pkg_name)
+        }
+        name
     }
-
-    pkg_namespace <- getNamespace(package)
-
-    if (isTRUE(all)) {
-        functions <- listExportedFunctions(package)
-    }
-
-    lapply(functions, function(func) {
-        label <- paste(package, escapeNonSyntacticName(func), sep=":::")
-        original_func <- pkg_namespace[[func]]
-        new_function <- decorate_function_val__(original_func, label)
-        overwrite_export(func, new_function, package)
-
-        add_decorated_function(list(
-            type = "exported",
-            name = func,
-            package = package,
-            original_func = original_func
-        ))
-    })
 }
 
-#' @title Decorates package's exported functions.
-#'
-#' @param package name of package
-#' @param functions character vector of all the functions to decorate
-#' @param all decorate all the exported functions
-#'
-decorate_hidden_functions <- function(package) {
-    if (is.character(package) && length(package) == 1) {
-        ;
-    } else {
-        stop("Invalid call to genthat::decorate_hidden_functions()!")
-    }
-
-    pkg_namespace <- getNamespace(package)
-    hidden_functions <- listHiddenFunctions(package)
-
-    lapply(hidden_functions, function(func) {
-        decorate_function_env(func, env = pkg_namespace)
-    })
-}
-
-#' @title Returns traced version of original function.
-#'
-#' @description More sane replacement of the base::trace function.
-#' @param func function value
-#' @param func_label name that will be recorded in traces
-#' @param enter_function name that will be recorded in traces
-#' @param exit_function name that will be recorded in traces
-#'
-decorate_function_val__ <- function(func, func_label, enter_function, exit_function) {
-    if (is_decorated(func)) return(func) #stop("Trying to decorate already decorated function!")
-
-    tracer_expr <- substitute({
-        call_id <- genthat:::gen_cid()
-        call_args <- as.list(match.call())[-1]
-
-        # force evaluation of function arguments so we can record
-        # the evaluation must be in the parent environment
-        e <- new.env(parent=parent.frame())
-
-        # we need to handle ...
-        ## browser()
-        ## dots <- match("...", call_args)
-        ## if (!is.na(dots)) {
-        ##     call_args <- append(call_args, list(...), after=dots)
-        ##     call_args <- call_args[-dots]
-        ## }
+##' @param funs a list of name, fun pairs for all functions to be decorated and replaced
+##' @return 
+##' @author Filip Krikava
+decorate_and_replace <- function(funs) {
+    stopifnot(is.list(funs))
+    stopifnot(!is.null(names(funs)))
         
-        args <- lapply(call_args, function(a) eval(a, envir = e))
-        if (!is.null(names(call_args))) {
-            names(args) <- names(call_args)
+    funs <- zip(name=names(funs), fun=funs)
+    
+    replacements <- lapply(funs, function(x) {
+        # TODO: test
+        if (!is.function(x$fun)) {
+            stop(x$name, ": not a function")
         }
 
-        call_exit <- enter_function(
-            fname,
-            args,
-            call_id
+        # TODO: test
+        if (is_empty_str(x$name)) {
+            stop(x$fun, ": does not have name")
+        }
+
+        # TODO: inline
+        name <- get_function_name_str(x$name, x$fun)
+        d <- create_duplicate(x$fun)
+        create_replacement(
+            name=name,
+            env=environment(x$fun),
+            # TODO: useDynlib
+            orig_fun=d,
+            fun=x$fun,
+            new_fun=decorate_function(name=name, fun=x$fun)
         )
+    })
 
-        if (call_exit) {
-            exit_expr <- substitute({
-                exit_function(c)
-            }, list(
-                c = call_id
-            ))
-            on.exit(eval(exit_expr))
-        }
-    }, as.environment(list(
-        fname = func_label,
-        enter_function = {
-            if (!missing(enter_function)) {
-                enter_function
-            } else {
-                genthat:::enter_function
-            }
-        },
-        # the default exit_function is dependent on the state set by the default enter_function
-        # so when an enter_function is passed by the user exit_function defaults to noop
-        exit_function = {
-            if (!missing(exit_function)) {
-                exit_function
-            } else if (!missing(enter_function)) {
-                noop
-            } else {
-                genthat:::exit_function
-            }
-        }
-    )))
-
-    # TODO: make this a constant
-    attr(tracer_expr, 'isGenthatTracerExpression') <- TRUE
-
-    body(func) <- substitute({ tracer; original_body }, list(tracer = tracer_expr, original_body = body(func)));
-
-    func
+    lapply(replacements, do.call, what=replace)
+    lapply(replacements, add_replacement)
+    
+    lapply(replacements, `[[`, "new_fun")
 }
 
-#'  Write down capture information
-#'
-#' @description This function is respinsible for writing down capture information for decorated function calls.
-#' @param fname function name
-#' @param args_env environment to read arguments to function call from
-#' @seealso Decorate
-#' @useDynLib genthat
-#' @importFrom Rcpp evalCpp
-#'
-enter_function <- function(fname, args_env, call_id) {
-    if (cache$capture_arguments) {
-        cache$capture_arguments <- FALSE
-        res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
-        cache$capture_arguments <- TRUE
-        if (typeof(res) != "list") { # success # TODO WHY can't this be res == 0 ?
-            TRUE
-        } else {
-            error_description <- res$error_description
-            push_trace(res)
-            FALSE
-        }
-    } else {
-        FALSE
+decorate_function <- function(name, fun,
+                             .entry=substitute(genthat:::on_function_entry),
+                             .exit=substitute(genthat:::on_function_exit)) {
+    stopifnot(is.character(name))
+    stopifnot(is.function(fun))
+
+    if (is_decorated(fun)) {
+        return(fun)
     }
+
+    # TODO: should we also wrap the whole function in a try/catch
+    # and record erros/warnings?
+    new_fun <- add_function_hook(fun, substitute({
+        `__call_id` <- genthat:::get_next_call_id() 
+        if (ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1])) {                    
+            on.exit(EXIT(call_id=`__call_id`, retv=returnValue()))
+        }
+    }, list(NAME=name, ENTRY=.entry, EXIT=.exit)))
+
+    # replace environment so the new function can actually run
+    environment(new_fun) <- environment(fun)
+    # tag so we do not create decorations of decorations
+    attr(new_fun, "genthat") <- TRUE
+    new_fun
 }
 
-#' @title Write down capture information
-#'
-#' @description This function is respinsible for writing down capture information for decorated function calls.
-#' @param fname function name
-#' @param args_env environment to read arguments to function call from
-#' @seealso Decorate
-#' @useDynLib genthat
-#' @importFrom Rcpp evalCpp
-#'
-exit_function <- function(call_id) {
-    if (cache$capture_arguments) {
-        cache$capture_arguments <- FALSE
-        res <- .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
-        cache$capture_arguments <- TRUE
-        push_trace(res)
+# TODO: move to replacements
+
+#' @export
+reset_functions <- function(...) {
+    dots <- substitute(list(...))[-1]
+    names <- sapply(dots, deparse)
+    
+    lapply(names, reset_function)
+}
+
+reset_function <- function(name) {
+    r <- remove_replacement(name)
+
+    replace(name=r$name, env=r$env, fun=r$fun, new_fun=r$orig_fun)
+}
+
+replace <- function(name, env, orig_fun, fun, new_fun) {
+    stopifnot(is.character(name))
+    stopifnot(is.environment(env))
+    stopifnot(is.function(fun))
+    stopifnot(is.function(new_fun))
+
+    # TODO: debug option
+    message("Replacing: ", name)
+
+    fun_name <- strsplit(name, split=":")[[1]]
+    fun_name <- fun_name[length(fun_name)]
+
+    # TODO: clean the function interface
+    # TODO: us ethe create function
+    .Call("genthat_reassign_function", PACKAGE="genthat", as.name(fun_name), env, fun, new_fun)
+
+    invisible(NULL)
+}
+
+add_function_hook <- function(fun, hook) {
+    stopifnot(is.function(fun))
+    stopifnot(is.language(hook))
+    
+    # TODO: get rid of the ifs
+    body <- substitute({
+        HOOK
+        BODY
+    }, list(HOOK=hook, BODY=body(fun)))
+
+    eval(call("function", as.pairlist(formals(fun)), body), parent.frame())
+}
+
+on_function_entry <- function(call_id, name, args) {
+    parent <- new.env(parent=parent.frame(2)) # 2 means 2 generations back
+
+    # TODO: different name - not cache
+    if (!cache$capture_arguments) {
+        return(FALSE)
     }
+
+    # TODO: no need for function(x)
+    args_vals <- lapply(args, function(x) eval(x, envir=parent))
+
+    tryCatch({
+        cache$capture_arguments <- FALSE
+
+        args_str <- lapply(args, serialize_value)
+        set_call_trace(call_id, create_trace(name, args_str))
+        
+        return(TRUE)
+    }, error=function(e) {
+        set_call_trace(call_id, create_trace_error(name, args_vals, format(e)))
+        return(FALSE)
+    }, finally={
+        cache$capture_arguments <- TRUE
+    })
 }
 
-#' @title Empties the data structure storing the arguments for exit_function.
-#'
-clear_call_cache <- function() {
-    .Call("genthat_clearCallCache_cpp", PACKAGE = "genthat")
+on_function_exit <- function(call_id, retv) {
+    if (!cache$capture_arguments) {
+        return(NULL)
+    }
+    
+    trace <- get_call_trace(call_id)
+
+    if (is.null(trace)) {
+        warning("Unknown call ID: ", call_id)
+        return(NULL)
+    }
+
+    if (!("genthat_trace" %in% class(trace))) {
+        return(NULL)
+    }
+    
+    cache$capture_arguments <- FALSE
+
+    tryCatch({                    
+        trace$retv <- serialize_value(retv)        
+    }, error=function(e) {
+        trace <- create_trace_error(trace$fun, trace$args, format(e))
+    })
+    
+    set_call_trace(call_id, trace)
+    
+    cache$capture_arguments <- TRUE
 }
 

@@ -14,13 +14,13 @@ Imports:
     devtools,
     methods,
     testthat,
-    covr
+    covr,
+    withr
 LinkingTo: Rcpp
 Suggests:
     parallel,
     knitr,
-    rmarkdown,
-    roxygen2
+    rmarkdown
 LazyData: TRUE
-RoxygenNote: 6.0.1
+RoxygenNote: 5.0.1
 VignetteBuilder: knitr

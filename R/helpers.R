@@ -283,17 +283,6 @@ test_pkg_env <- function(package) {
     parent = parent.env(getNamespace(package)))
 }
 
-#' @title Appends x to list lst
-#'
-#' @param lst list
-#' @param x appended element
-#'
-listAppend <- function(lst, x) {
-    if (!is.list(lst)) stop("Invalid call to listAppend()!")
-    lst[[length(lst) + 1]] <- x
-    lst
-}
-
 listEnvFunctions <- function(env) {
     all_names <- ls(env, all.names = TRUE)
     Filter(function(name) is.function(env[[name]]), all_names)
@@ -358,20 +347,120 @@ map_iterator <- function(iterator, fn) {
 #'
 traces <- create_iterator(has_next, get_next)
 
-#' @title Returns the next available call id.
-#'
-#' @export
-#'
-gen_cid <- function() {
-    call_id_counter <- cache$call_id_counter
-    call_id <- call_id_counter$value
-    assign("value", call_id + 1, call_id_counter)
-    call_id
-}
 
 zipList <- function(xs, ys) {
     ii <- min(length(xs), length(ys))
     lapply(1:ii, function(i) {
         list(xs[[i]], ys[[i]])
     })
+}
+
+clean_objects <- function(path) {
+    files <-
+        list.files(
+            file.path(path, "src"),
+            pattern="\\.[o|so|dylib|a|dll]$",
+            full.names=TRUE,
+            recursive = TRUE)
+    unlink(files)
+    invisible(files)
+}
+
+create_std_package_hook <- function(type, hook) {
+    stopifnot(type %in% c("onLoad", "onAttach", "onDetach", "onUnload"))
+    stopifnot(is.language(hook))
+
+    deparse(
+        substitute({
+            setHook(packageEvent(pkg, EVENT), function(...) HOOK)
+        }, list(EVENT=type, HOOK=hook))
+    )
+}
+
+create_gc_finalizer_hook <- function(hook) {
+    stopifnot(is.language(hook))
+
+    deparse(
+        substitute(
+        reg.finalizer(ns, function(...) HOOK, onexit=TRUE)
+        , list(HOOK=hook))
+    )
+}
+
+# from covr
+add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
+    stopifnot(is.character(pkg_name))
+    stopifnot(dir.exists(lib))
+    
+    load_script <- file.path(lib, pkg_name, "R", pkg_name)
+    lines <- readLines(load_script)
+
+    lines <- append(lines, "options(error = function() traceback(2))", 0)
+
+    if (!missing(on_load)) {
+        lines <- append(lines, create_std_package_hook("onLoad", on_load), after=length(lines) - 1L)
+    }
+    if (!missing(on_gc_finalizer)) {
+        lines <- append(lines, create_gc_finalizer_hook(on_gc_finalizer), after=length(lines) - 1L)
+    }
+        
+    writeLines(text=lines, con=load_script)
+}
+
+# from covr
+show_failures <- function(dir) {
+  fail_files <- list.files(dir, pattern = "fail$", recursive = TRUE, full.names = TRUE)
+  for (file in fail_files) {
+    lines <- readLines(file)
+    # Skip header lines (until first >)
+    lines <- lines[seq(head(which(grepl("^>", lines)), n = 1), length(lines))]
+    stop("Failure in `", file, "`\n", paste(lines, collapse = "\n"), call. = FALSE)
+  }
+}
+
+# from covr
+env_path <- function(...) {
+  paths <- c(...)
+  paste(paths[nzchar(paths)], collapse = .Platform$path.sep)
+}
+
+serialize_value <- function(value) {
+    # TODO: useDynLib
+    # TODO: rename
+    .Call("genthat_serialize_cpp", PACKAGE = "genthat", value)
+}
+
+#' @export
+format.sexp_not_implemented <- function(e) {
+    paste("Serialization error:", e$message)
+}
+
+# TODO:on_function_entry
+filter <- function(X, FUN, ...) {
+    matches <- sapply(X, FUN, ...)
+    
+    if (length(matches) == 0) {
+        matches <- c()
+    }
+    
+    X[matches]
+}
+
+zip <- function(...) {
+    mapply(list, ..., SIMPLIFY=FALSE)
+}
+
+is_empty_str <- function(s) {
+    !is.character(s) || nchar(s) == 0
+}
+
+get_function_name <- function(name) {
+    stopifnot(!is_empty_str(name))
+    
+    x <- strsplit(name, ":")[[1]]
+    if (length(x) == 1) {
+        x[1]
+    } else {
+        c(x[1], x[length(x)])
+    }
 }
