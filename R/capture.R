@@ -78,14 +78,12 @@ decorate_and_replace <- function(funs) {
             stop(x$fun, ": does not have name")
         }
 
-        # TODO: inline
         name <- get_function_name_str(x$name, x$fun)
-        d <- create_duplicate(x$fun)
+
         create_replacement(
             name=name,
             env=environment(x$fun),
-            # TODO: useDynlib
-            orig_fun=d,
+            orig_fun=create_duplicate(x$fun),
             fun=x$fun,
             new_fun=decorate_function(name=name, fun=x$fun)
         )
