@@ -1,43 +1,22 @@
-
-public_fn <- function(x) {
-    x <- paste("this is public: ", x, sep="")
-    message(paste0("returning ", x));
-    return(x)
+#' @export
+my_public <- function(x) {
+    paste("public:", x)
 }
 
-private_fn <- function(x) {
-    paste("this is private: ", x, sep="")
-}
-
-my_apply <- function(fn, x) {
-    fn(x)
+my_private <- function(x) {
+    paste("private:", x)
 }
 
 my_add <- function(a, b) a + b
 
-applyFirst <- function(fn, x) {
-    function(y) fn(x, y)
+my_call <- function(fn, ...) {
+    fn(...)
 }
 
-causes_warning <- function() {
-    warning("this is a warning")
-    character()
+my_warning <- function() {
+    warning("my warning")
 }
 
-variadic <- function(x, ...) {
-}
-
-fnWithDefaults <- function(x, y = N) {
-    if (x < 10) {
-        N <- 3 * x
-    } else {
-        N <- 4 * x
-    }
-    message(N)
-    N <- 99
-}
-
-argsOrder <- function(a, b = 3, c, ...) {
-    rest <- list(...)
-    return(paste0(a , b , c , rest[[1]] , rest[[2]] , rest[[3]]))
+my_error <- function() {
+    stop("my error")
 }
