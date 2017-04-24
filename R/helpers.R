@@ -72,11 +72,6 @@ env_path <- function(...) {
   paste(paths[nzchar(paths)], collapse = .Platform$path.sep)
 }
 
-serialize_value <- function(value) {
-    # TODO: rename and use the generated wrapper
-    .Call("genthat_serialize_cpp", PACKAGE = "genthat", value)
-}
-
 filter <- function(X, FUN, ...) {
     matches <- sapply(X, FUN, ...)
     

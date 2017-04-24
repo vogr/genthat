@@ -16,3 +16,6 @@ TAGS
 generated_tests
 man
 genthat.Rproj
+genthat.h
+R/RcppExports.R
+src/RcppExports.cpp

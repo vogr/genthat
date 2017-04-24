@@ -1,7 +1,4 @@
-#define USE_RINTERNALS
-#include <R.h>
 #include <Rdefines.h>
-#include <R_ext/Error.h>
 
 // [[Rcpp::export]]
 SEXP reassign_function(SEXP target_fun, SEXP new_fun)

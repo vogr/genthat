@@ -4,7 +4,7 @@
 using namespace Rcpp;
 using namespace std;
 
-string serialize_cpp(SEXP s);
+string serialize_value(SEXP s);
 string serialize_cpp0(SEXP s);
 string to_string_literal(const char *x);
 
@@ -29,36 +29,6 @@ static Rboolean hasAttributes(SEXP s)
         if (TAG(a) != Rf_install("srcref")) return TRUE;
     }
     return FALSE;
-}
-
-static string simple_real_to_string(double val)
-{
-    static char buff[1000];
-    sprintf(buff, "%g", val);
-    return string(buff);
-}
-
-static string real_to_string(double val)
-{
-    return R_IsNA(val)  ? "NA_real_" :
-           R_IsNaN(val) ? "NaN" :
-           val == R_PosInf ? "Inf" :
-           val == R_NegInf ? "-Inf" : StringFromReal(val);
-}
-
-static string complex_scalar_to_string(Rcomplex val)
-{
-    double real = val.r;
-    double imag = val.i;
-    bool isNA = (R_IsNA(real) || R_IsNA(imag));
-    if (isNA) {
-        return "NA_complex_";
-    } else {
-        string real_str = real_to_string(real);
-        string imag_str = real_to_string(imag) + "i";
-        string separator = imag_str[0] == '-' ? "" : "+";
-        return real_str + separator + imag_str;
-    }
 }
 
 static bool is_syntactic_name(const char *name)
@@ -219,7 +189,7 @@ set<SEXP> visited_environments;
 
 // [[Rcpp::export]]
 
-string serialize_cpp(SEXP s)
+string serialize_value(SEXP s)
 {
     visited_environments.clear();
 
