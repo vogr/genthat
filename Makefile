@@ -18,6 +18,9 @@ check: build
 test:
 	Rscript tests/testthat.R
 
+clean:
+	rm -f ./src/*.o
+
 build-dev:
 	cd ..; \
 	R CMD build $(PKGSRC) --no-manual --no-build-vignettes
