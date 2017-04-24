@@ -25,7 +25,7 @@ reassign_function <- function(target_fun, new_fun) {
     .Call('genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }
 
-create_duplicate <- function(x) {
-    .Call('genthat_create_duplicate', PACKAGE = 'genthat', x)
+create_duplicate <- function(target) {
+    .Call('genthat_create_duplicate', PACKAGE = 'genthat', target)
 }
 

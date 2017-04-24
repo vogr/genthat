@@ -75,13 +75,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // create_duplicate
-SEXP create_duplicate(SEXP x);
-RcppExport SEXP genthat_create_duplicate(SEXP xSEXP) {
+SEXP create_duplicate(SEXP target);
+RcppExport SEXP genthat_create_duplicate(SEXP targetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(create_duplicate(x));
+    Rcpp::traits::input_parameter< SEXP >::type target(targetSEXP);
+    rcpp_result_gen = Rcpp::wrap(create_duplicate(target));
     return rcpp_result_gen;
 END_RCPP
 }

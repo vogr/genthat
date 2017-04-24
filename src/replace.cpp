@@ -16,8 +16,9 @@ SEXP reassign_function(SEXP target_fun, SEXP new_fun)
   return R_NilValue;
 }
 
-
 // [[Rcpp::export]]
-SEXP create_duplicate(SEXP x) {
-  return duplicate(x);
+SEXP create_duplicate(SEXP target) {
+  if (isNull(target)) error("target must not be null");
+                      
+  return duplicate(target);
 }
