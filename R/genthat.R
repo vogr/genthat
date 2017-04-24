@@ -3,6 +3,7 @@
 #' @docType package
 #' @name genthat
 #' @useDynLib genthat
+#' @importFrom Rcpp evalCpp
 NULL
 
 #' @title Adds regression tests to specified package.
