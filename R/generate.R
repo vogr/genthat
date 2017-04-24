@@ -52,6 +52,7 @@ gen_tests <- function(traces, output_dir="generated_tests") {
     }
     
     traces <- filter(traces, is, class2="genthat_trace")
+    traces <- filter(traces, contains, name="retv")
     if (length(traces) == 0) {
         return(list())
     }

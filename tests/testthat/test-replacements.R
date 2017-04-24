@@ -35,12 +35,12 @@ test_that("reset_function", {
     devtools::load_all("samplepkg")
     on.exit(detach(package:samplepkg))
 
-    decorate_functions(samplepkg::public_fn)
+    decorate_functions(samplepkg::my_public)
 
-    expect_true(is_decorated(samplepkg::public_fn))
+    expect_true(is_decorated(samplepkg::my_public))
 
-    reset_functions(samplepkg::public_fn)
+    reset_functions(samplepkg::my_public)
 
-    expect_false(is_decorated(samplepkg::public_fn))
+    expect_false(is_decorated(samplepkg::my_public))
     expect_equal(length(get_replacements()), 0)
 })

@@ -7,3 +7,9 @@ test_that("get_function_name", {
     expect_error(get_function_name(""))
     expect_error(get_function_name(NULL))
 })
+
+test_that("has", {
+    expect_true(contains(list(a=1, b=2), "a"))
+    expect_false(contains(list(a=1, b=2), "c"))
+    expect_error(contains("", "a"))
+})

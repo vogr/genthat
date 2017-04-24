@@ -11,8 +11,6 @@ save_calling_args <- function(env, return_value=TRUE, ...) {
             names(args) <- names
         }
 
-        args$retv <- returnValue()
-
         l <- paste0("c", length(env) + 1)
         assign(l, args, envir=env)
 

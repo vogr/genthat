@@ -1,7 +1,7 @@
 context("test generation")
 
 test_that("format_args", {
-    expect_equal(format_args(create_trace(fun="f", args=NULL)), "")
+    expect_equal(format_args(create_trace(fun="f")), "")
     expect_equal(format_args(create_trace(fun="f", args=list(1))), "1")
     expect_equal(format_args(create_trace(fun="f", args=list(1, 2))), "1, 2")
     expect_equal(format_args(create_trace(fun="f", args=list(a=1))), "a=1")
