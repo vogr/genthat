@@ -1,7 +1,8 @@
 genthat - test case generation for R
 =====
 
-[![Build Status](https://travis-ci.org/fghibellini/genthat.svg)](https://travis-ci.org/fghibellini/genthat) 
+[![Build Status](https://travis-ci.org/PRL-PRG/genthat.svg)](https://travis-ci.org/PRL-PRG/genthat)
+[![codecov](https://codecov.io/github/PRL-PRG/genthat/branch/feature/fixes/graphs/badge.svg)](https://codecov.io/github/PRL-PRG/genthat)
 [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/genthat)](http://cran.r-project.org/package=genthat)
 
 *genthat* is a framework for unit tests generation from source code and for test execution, and filtering of test cases based on C code coverage using `gcov` and R code coverage using `covr`.

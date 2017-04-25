@@ -1,13 +1,9 @@
-sudo: required
-
 language: r
+cache: packages
 
-services:
-  - docker
+r_packages:
+  - covr
 
-before_install:
-  - docker build -t genthat:dev .
-
-script:
-  - ./docker-run make test
+after_success:
+  - Rscript -e 'library(covr); codecov()'
 
