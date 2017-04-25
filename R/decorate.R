@@ -43,6 +43,7 @@ is_decorated <- function(fun) {
 }
 
 decorate_function <- function(name, fun,
+                             .call_id_gen=substitute(genthat:::gen_next_call_id),
                              .entry=substitute(genthat:::on_function_entry),
                              .exit=substitute(genthat:::on_function_exit)) {
     stopifnot(is.character(name))
@@ -55,7 +56,7 @@ decorate_function <- function(name, fun,
     new_fun <- create_function(
         params=formals(fun),
         body=substitute({
-            `__call_id` <- genthat:::get_next_call_id() 
+            `__call_id` <- CALL_ID_GEN() 
             if (ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1])) {
                 retv <- BODY
                 EXIT(call_id=`__call_id`, retv=retv)
@@ -63,7 +64,7 @@ decorate_function <- function(name, fun,
             } else {
                 BODY
             }
-        }, list(NAME=name, BODY=body(fun), ENTRY=.entry, EXIT=.exit)),
+        }, list(NAME=name, BODY=body(fun), CALL_ID_GEN=.call_id_gen, ENTRY=.entry, EXIT=.exit)),
         env=environment(fun),
         attributes=list(genthat=TRUE))
 

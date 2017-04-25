@@ -23,8 +23,6 @@ test_that("create_function assigns attributes", {
 })
 
 test_that("decorate_function decorates a function", {
-    on.exit(reset_call_traces())
-    
     entry <- new.env()
     exit <- new.env()
 
@@ -34,6 +32,7 @@ test_that("decorate_function decorates a function", {
         decorate_function(
             "f",
             f,
+            .call_id_gen=function() 0,
             .entry=save_calling_args(entry),
             .exit=save_calling_args(exit))
 
@@ -62,6 +61,7 @@ test_that("decorate_function decorates a package function", {
         decorate_function(
             "file_path_sans_ext",
             tools::file_path_sans_ext,
+            .call_id_gen=function() 0,
             .entry=save_calling_args(entry),
             .exit=save_calling_args(exit))
 
