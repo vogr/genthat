@@ -26,12 +26,12 @@ on_function_exit <- function(call_id, retv) {
     stopifnot(is.numeric(call_id))
     
     trace <- get_call_trace(call_id)
-    stopifnot(is(trace, "genthat_trace"))
+    stopifnot(is(trace, "genthat_trace_entry"))
 
     cache$capture_arguments <- FALSE
 
-    tryCatch({                    
-        trace$retv <- serialize_value(retv)        
+    tryCatch({
+        trace <- create_trace(trace$fun, trace$args, serialize_value(retv))
     }, error=function(e) {
         trace <- create_trace_error(trace$fun, trace$args, format(e))
     })
@@ -46,11 +46,15 @@ create_trace <- function(fun, args=list(), retv) {
     stopifnot(is.list(args))
 
     xs <- list(fun=fun, args=args)
+    
     if (!missing(retv)) {
         xs$retv <- retv
+        clazz <- "genthat_trace"
+    } else {
+        clazz <- "genthat_trace_entry"
     }
     
-    structure(xs, class="genthat_trace")
+    structure(xs, class=clazz)
 }
 
 create_trace_error <- function(fun, args, msg) {

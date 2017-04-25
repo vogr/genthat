@@ -1,6 +1,6 @@
 Package: genthat
 Type: Package
-Title: What the Package Does (Title Case)
+Title: A framework for unit tests generation
 Version: 0.1.0
 Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>

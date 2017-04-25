@@ -192,4 +192,4 @@ test_that("decorate_function works with ...", {
 
 # TODO: test that we cannot decorate builtins
 
-
+# TODO: test imported namespaces

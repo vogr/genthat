@@ -26,3 +26,8 @@ test_that("on_function_exit records exit value", {
 
     expect_equal(get_call_trace(1), create_trace("f", list(), retv=serialize_value(2)))
 })
+
+test_that("create_trace returns entry trace if no return value is specified", {
+    expect_true(is(create_trace(fun="f", args=list("")), "genthat_trace_entry"))        
+    expect_true(is(create_trace(fun="f", args=list(""), retv=""), "genthat_trace"))
+})

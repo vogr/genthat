@@ -1,5 +1,6 @@
-
 #include "genthat.h"
+
+#include <regex>
 
 using namespace Rcpp;
 using namespace std;
@@ -334,42 +335,42 @@ string serialize_cpp0(SEXP s)
         }
         return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")"); }
     case SYMSXP:
-        throw sexp_not_implemented("SYMSXP");
+        throw sexp_not_supported_error("SYMSXP");
     case ENVSXP:
         if (visited_environments.find(s) != visited_environments.end()) {
-            throw cycle_in_structure();
+            throw cycle_error();
         }
         visited_environments.emplace(s);
         return serialize_env(s);
     case SPECIALSXP:
-        throw sexp_not_implemented("SPECIALSXP");
+        throw sexp_not_supported_error("SPECIALSXP");
     case BUILTINSXP:
-        throw sexp_not_implemented("BUILTINSXP");
+        throw sexp_not_supported_error("BUILTINSXP");
     case EXTPTRSXP:
-        throw sexp_not_implemented("EXTPTRSXP");
+        throw sexp_not_supported_error("EXTPTRSXP");
     case BCODESXP:
-        throw sexp_not_implemented("BCODESXP");
+        throw sexp_not_supported_error("BCODESXP");
     case WEAKREFSXP:
-        throw sexp_not_implemented("WEAKREFSXP");
+        throw sexp_not_supported_error("WEAKREFSXP");
     case CLOSXP:
-        throw sexp_not_implemented("CLOSXP");
+        throw sexp_not_supported_error("CLOSXP");
     case LISTSXP: /* pairlists */
-        throw sexp_not_implemented("LISTSXP");
+        throw sexp_not_supported_error("LISTSXP");
     case LANGSXP:
-        throw sexp_not_implemented("LANGSXP");
+        throw sexp_not_supported_error("LANGSXP");
     case DOTSXP:
-        throw sexp_not_implemented("DOTSXP");
+        throw sexp_not_supported_error("DOTSXP");
     case CHARSXP:
-        throw sexp_not_implemented("CHARSXP");
+        throw sexp_not_supported_error("CHARSXP");
     case EXPRSXP:
-        throw sexp_not_implemented("EXPRSXP");
+        throw sexp_not_supported_error("EXPRSXP");
     case RAWSXP:
-        throw sexp_not_implemented("RAWSXP");
+        throw sexp_not_supported_error("RAWSXP");
     case PROMSXP:
-        throw sexp_not_implemented("PROMSXP");
+        throw sexp_not_supported_error("PROMSXP");
     case S4SXP:
-        throw sexp_not_implemented("S4SXP");
+        throw sexp_not_supported_error("S4SXP");
     default:
-        throw sexp_not_implemented("unknown");
+        throw sexp_not_supported_error("unknown");
     }
 }

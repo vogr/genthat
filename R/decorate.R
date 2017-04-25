@@ -43,7 +43,7 @@ is_decorated <- function(fun) {
 }
 
 decorate_function <- function(name, fun,
-                             .call_id_gen=substitute(genthat:::gen_next_call_id),
+                             .call_id_gen=substitute(genthat:::get_next_call_id),
                              .entry=substitute(genthat:::on_function_entry),
                              .exit=substitute(genthat:::on_function_exit)) {
     stopifnot(is.character(name))
@@ -91,6 +91,10 @@ decorate_and_replace <- function(funs) {
 
         name <- get_function_name_str(x$name, x$fun)
 
+        if (is_debug_enabled()) {
+            message("Tracing: ", name)
+        }
+        
         create_replacement(
             name=name,
             env=environment(x$fun),
@@ -111,6 +115,10 @@ reset_function <- function(name) {
     
     r <- remove_replacement(name)
 
+    if (is_debug_enabled()) {
+        message("Resetting: ", name)
+    }
+        
     reassign_function(r$fun, r$orig_fun)
 }
 

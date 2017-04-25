@@ -1,8 +1,7 @@
 #include <Rdefines.h>
 
 // [[Rcpp::export]]
-SEXP reassign_function(SEXP target_fun, SEXP new_fun)
-{
+SEXP reassign_function(SEXP target_fun, SEXP new_fun) {
   if (TYPEOF(target_fun) != CLOSXP) error("target_fun must be a function");
   if (TYPEOF(new_fun) != CLOSXP) error("new_fun must be a function");
 

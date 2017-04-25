@@ -1,4 +1,4 @@
-#' genthat: A framework for automatic test-case generation from client code
+#' genthat: A framework for unit tests generation
 #'
 #' @docType package
 #' @name genthat
@@ -16,7 +16,8 @@ NULL
 gen_from_package <- function(package=".", output_dir="generated_tests",
                             type=c("tests", "vignettes", "examples"),
                             clean=FALSE, quiet=FALSE) {
-    
+
+    # TODO: can we remove this dependency
     pkg <- devtools::as.package(package)
 
     if (missing(type)) {
@@ -47,6 +48,10 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     libs <- env_path(tmp_lib, .libPaths())
     pkg_dir <- file.path(tmp_lib, pkg$package)
     genthat_output <- file.path(pkg_dir, "genthat.RDS")
+
+    if (is_debug_enabled()) {
+        message("Working dir:", pkg_dir)
+    }
     
     add_package_hook(
         pkg$package,
@@ -103,13 +108,24 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     output <- readRDS(genthat_output)
     stopifnot(is.environment(output))
 
-    tests <- gen_tests(output$traces, output_dir)
+    tests <- generate_tests(output$traces, output_dir)
 
-    list(
-        traces=length(output$traces),
-        errors=length(filter(output$traces, is, class2="genthat_trace_error")),
-        tests=tests,
-        pkg_dir=if (!clean) pkg_dir else NA
+    structure(
+        list(
+            traces=output$traces,
+            errors=filter(output$traces, is, class2="genthat_trace_entry"),
+            failures=filter(output$traces, is, class2="genthat_trace_error"),
+            tests=tests            
+        ),
+        class="genthat_result"
     )
 }
 
+#' @export
+format.genthat_result <- function(r) {
+    format(lapply(r, length))
+} 
+
+print.genthat_result <- function(r) {
+    print(lapply(r, length))
+}

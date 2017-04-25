@@ -1,6 +1,6 @@
 #' @export
-format.sexp_not_implemented <- function(e) {
-    paste("Serialization error:", e$message)
+`format.C++Error` <- function(e) {
+    e$message
 }
 
 clean_objects <- function(path) {
@@ -72,14 +72,22 @@ env_path <- function(...) {
   paste(paths[nzchar(paths)], collapse = .Platform$path.sep)
 }
 
-filter <- function(X, FUN, ...) {
+filter_idx <- function(X, FUN, ...) {
     matches <- sapply(X, FUN, ...)
     
     if (length(matches) == 0) {
         matches <- c()
     }
-    
-    X[matches]
+
+    matches
+}
+
+filter <- function(X, FUN, ...) {
+    X[filter_idx(X, FUN, ...)]
+}
+
+filter_not <- function(X, FUN, ...) {
+    X[!filter_idx(X, FUN, ...)]    
 }
 
 zip <- function(...) {
@@ -106,7 +114,7 @@ create_function <- function(params, body, env=parent.frame(), attributes=list())
     stopifnot(is.language(body))
     stopifnot(is.environment(env))
     
-    fun <- eval(call("function", as.pairlist(params), body), parent.frame())
+    fun <- as.function(c(as.list(params), list(body)))
 
     environment(fun) <- env
     attributes(fun) <- attributes

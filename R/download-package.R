@@ -11,18 +11,8 @@ get_package_version <- function(package, repos=getOption("repos"), type="source"
 }
 
 #' @export
-download_package <-
-    function(
-        package,
-        destdir,
-        version=NULL,
-        repos=getOption("repos"),
-        type="source",
-        extract=TRUE,
-        force=FALSE,
-        quiet=TRUE,
-        ...) {
-        
+download_package <- function(package, destdir, version=NULL, repos=getOption("repos"),
+                            type="source", extract=TRUE, force=FALSE, quiet=TRUE, ...) {        
     contrib_url <-
         if (is.null(version)) {
             version <- get_package_version(package, repos, type)
@@ -87,5 +77,6 @@ download_package <-
         untar(destfile, exdir=destdir, verbose=!quiet)
     }
 
+    # TODO: can we remove this dependency
     devtools::as.package(pkgdir)
 }

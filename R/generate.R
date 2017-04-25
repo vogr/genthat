@@ -1,31 +1,36 @@
-format_args <- function(trace) {
-    args <- if (!is.null(names(trace$args))) {
-               pairs <- zip(name=names(trace$args), value=trace$args)
-               lapply(pairs, function(x) {
-                   if(nchar(x$name) > 0) {
-                       paste0(x$name, "=", x$value)
-                   } else {
-                       x$value
-                   }
-               })
-           } else {
-               trace$args
-           }
+format_args <- function(args) {
+    args_str <- if (!is.null(names(args))) {
+                   pairs <- zip(name=names(args), value=args)
+                   lapply(pairs, function(x) {
+                       if(nchar(x$name) > 0) {
+                           paste0(x$name, "=", x$value)
+                       } else {
+                           x$value
+                       }
+                   })
+               } else {
+                   args
+               }
 
-    paste(args, collapse=", ")    
+    paste(args_str, collapse=", ")    
 }
 
 
-#' @title Generate test case from trace
+#' @title Generate test case code from a trace
 #'
-#' @description This function generates a test case from the passed trace.
 #' @param trace trace value
 #'
-generate_test <- function(trace) {
-    stopifnot(is(trace, "genthat_trace"))
+generate_test_code <- function(trace) {
+    UseMethod("generate_test_code")
+}
+
+generate_test_code.genthat_trace <- function(trace) {
+    stopifnot(is.character(trace$fun))
+    stopifnot(is.list(trace$args))
+    stopifnot(is.character(trace$retv))
     
-    args_str <- format_args(trace)
-    call_str <- paste0(trace$fun, "(", args_str,")")
+    args_str <- format_args(trace$args)
+    call_str <- paste0(trace$fun, "(", args_str, ")")
     
     paste(
         paste0('test_that("', trace$fun, '"',", {"),
@@ -36,24 +41,23 @@ generate_test <- function(trace) {
     )
 }
 
-#' @title Generates tests from captured information.
-#'
-#' @description This function takes the tracing information collected by capture and generates
-#' testthat compatible testcases.
-#'
-#' @param output_dir Directory to which the tests should be generated.
+generate_test_code.default <- function(trace) {
+    NULL
+}
+
 #' @export
-gen_tests <- function(traces, output_dir="generated_tests") {
+generate_tests <- function(traces, output_dir="generated_tests") {
     stopifnot(is.list(traces))
     stopifnot(is.character(output_dir))
 
     if (length(traces) == 0) {
         return(list())
     }
-    
-    traces <- filter(traces, is, class2="genthat_trace")
-    traces <- filter(traces, contains, name="retv")
-    if (length(traces) == 0) {
+
+    tests <- lapply(traces, generate_test_code)
+    tests <- filter_not(tests, is.null)
+
+    if (length(tests) == 0) {
         return(list())
     }
 
@@ -63,12 +67,10 @@ gen_tests <- function(traces, output_dir="generated_tests") {
         }
     }
 
-    tests <- lapply(traces, generate_test)
     fnames <- file.path(output_dir, paste0("test-", 1:length(tests), ".R"))
     tests_with_fnames <- zip(fname=fnames, test=tests)
-    
+
     lapply(tests_with_fnames, function(x) write(x$test, file=x$fname))
     
     fnames
 }
-
