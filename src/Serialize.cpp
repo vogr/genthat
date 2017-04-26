@@ -1,9 +1,27 @@
-#include "genthat.h"
+#include <Rcpp.h>
+#include <R.h>
 
+#include <string>
 #include <regex>
 
 using namespace Rcpp;
 using namespace std;
+
+class serialization_error : public runtime_error {
+ public:
+ serialization_error(string details) : runtime_error("Serialization error: " + details) {}
+};
+
+class sexp_not_supported_error : public serialization_error {
+ public:
+ sexp_not_supported_error(string sexp_type) : serialization_error("SEXP type " + sexp_type + " not supported!") {}
+};
+
+class cycle_error : public serialization_error {
+ public:
+ cycle_error() : serialization_error("Serialized data structure contains cycle!") {}
+};
+
 
 string serialize_value(SEXP s);
 string serialize_cpp0(SEXP s);
@@ -189,8 +207,7 @@ string to_string_literal(const char *x)
 set<SEXP> visited_environments;
 
 // [[Rcpp::export]]
-
-string serialize_value(SEXP s)
+std::string serialize_value(SEXP s)
 {
     visited_environments.clear();
 

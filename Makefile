@@ -1,20 +1,18 @@
-NEWS     = NEWS
-PKGNAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
-PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
-PKGSRC  := $(shell basename `pwd`)
-
 build:
-	cd ..; \
-	R CMD build $(PKGSRC)
+	R CMD BUILD .
 
-install: build
+check:
 	cd ..; \
-	R CMD INSTALL $(PKGNAME)_$(PKGVERS).tar.gz
+	R CMD CHECK . --as-cran
 
-check: build
+clean:
+	rm -f src/*.so src/*.o
+	rm -fr man
+
+install:
 	cd ..; \
-	R CMD check $(PKGNAME)_$(PKGVERS).tar.gz --as-cran
+	R CMD INSTALL .
 
 test:
-	Rscript tests/testthat.R
+	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test()'
 

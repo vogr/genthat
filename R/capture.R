@@ -2,7 +2,7 @@ on_function_entry <- function(call_id, name, args) {
     stopifnot(is.numeric(call_id))
     stopifnot(is.character(name))
     stopifnot(is.list(args))
-    
+
     parent <- new.env(parent=parent.frame(2)) # 2 generations back - the callee of the original function
     args_vals <- lapply(args, eval, envir=parent)
 
@@ -12,7 +12,7 @@ on_function_entry <- function(call_id, name, args) {
 
         args_str <- lapply(args, serialize_value)
         set_call_trace(call_id, create_trace(name, args_str))
-        
+
         return(TRUE)
     }, error=function(e) {
         set_call_trace(call_id, create_trace_error(name, args_vals, format(e)))
@@ -24,9 +24,9 @@ on_function_entry <- function(call_id, name, args) {
 
 on_function_exit <- function(call_id, retv) {
     stopifnot(is.numeric(call_id))
-    
+
     trace <- get_call_trace(call_id)
-    stopifnot(is(trace, "genthat_trace_entry"))
+    stopifnot(methods::is(trace, "genthat_trace_entry"))
 
     cache$capture_arguments <- FALSE
 
@@ -35,9 +35,9 @@ on_function_exit <- function(call_id, retv) {
     }, error=function(e) {
         trace <- create_trace_error(trace$fun, trace$args, format(e))
     })
-    
+
     set_call_trace(call_id, trace)
-    
+
     cache$capture_arguments <- TRUE
 }
 
@@ -46,14 +46,14 @@ create_trace <- function(fun, args=list(), retv) {
     stopifnot(is.list(args))
 
     xs <- list(fun=fun, args=args)
-    
+
     if (!missing(retv)) {
         xs$retv <- retv
         clazz <- "genthat_trace"
     } else {
         clazz <- "genthat_trace_entry"
     }
-    
+
     structure(xs, class=clazz)
 }
 
@@ -91,4 +91,3 @@ get_call_trace <- function(call_id) {
 
     cache$traces[[as.character(call_id)]]
 }
-

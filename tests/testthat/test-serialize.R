@@ -4,7 +4,6 @@ test_that("string serialization", {
     expect_equal(serialize_value("A"), '"A"')
 })
 
-
 #test_that('Can serialize vectors of reals.', {
 #    l1 <- c(12.3, 435.549)
 #    s1 <- serialize_r(l1);

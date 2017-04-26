@@ -6,7 +6,7 @@ decorate_environment <- function(envir) {
     names <- ls(envir, all.names=TRUE)
     vals <- lapply(names, get, envir=envir)
     names(vals) <- names
-    
+
     funs <- filter(vals, is.function)
 
     decorate_and_replace(funs)
@@ -17,9 +17,9 @@ decorate_functions <- function(...) {
     dots <- substitute(list(...))[-1]
     names <- sapply(dots, deparse)
     funs <- list(...)
-    
+
     names(funs) <- names
-    
+
     decorate_and_replace(funs)
 }
 
@@ -27,7 +27,7 @@ decorate_functions <- function(...) {
 reset_functions <- function(...) {
     dots <- substitute(list(...))[-1]
     names <- sapply(dots, deparse)
-    
+
     lapply(names, reset_function)
 }
 
@@ -38,7 +38,7 @@ reset_functions <- function(...) {
 #'
 is_decorated <- function(fun) {
     stopifnot(is.function(fun))
-    
+
     isTRUE(attr(fun, "genthat"))
 }
 
@@ -56,7 +56,7 @@ decorate_function <- function(name, fun,
     new_fun <- create_function(
         params=formals(fun),
         body=substitute({
-            `__call_id` <- CALL_ID_GEN() 
+            `__call_id` <- CALL_ID_GEN()
             if (ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1])) {
                 retv <- BODY
                 EXIT(call_id=`__call_id`, retv=retv)
@@ -75,9 +75,9 @@ decorate_function <- function(name, fun,
 decorate_and_replace <- function(funs) {
     stopifnot(is.list(funs))
     stopifnot(!is.null(names(funs)))
-        
+
     funs <- zip(name=names(funs), fun=funs)
-    
+
     replacements <- lapply(funs, function(x) {
         # TODO: test
         if (!is.function(x$fun)) {
@@ -94,7 +94,7 @@ decorate_and_replace <- function(funs) {
         if (is_debug_enabled()) {
             message("Tracing: ", name)
         }
-        
+
         create_replacement(
             name=name,
             env=environment(x$fun),
@@ -106,26 +106,26 @@ decorate_and_replace <- function(funs) {
 
     lapply(replacements, function(x) reassign_function(x$fun, x$new_fun))
     lapply(replacements, add_replacement)
-    
+
     lapply(replacements, `[[`, "new_fun")
 }
 
 reset_function <- function(name) {
     stopifnot(is.character(name))
-    
+
     r <- remove_replacement(name)
 
     if (is_debug_enabled()) {
         message("Resetting: ", name)
     }
-        
+
     reassign_function(r$fun, r$orig_fun)
 }
 
 get_function_name_str <- function(name, fun) {
     stopifnot(is.character(name))
     stopifnot(is.function(fun))
-    
+
     env <- environment(fun)
     pkg_name <- environmentName(env)
 
@@ -164,8 +164,8 @@ create_replacement <- function(name, env, orig_fun, fun, new_fun) {
 }
 
 add_replacement <- function(r) {
-    stopifnot(is(r, "genthat_replacement"))
-    
+    stopifnot(methods::is(r, "genthat_replacement"))
+
     if (r$name %in% names(cache$replacements)) {
         stop(name, ": already exists in the replacement table")
     }
@@ -175,13 +175,13 @@ add_replacement <- function(r) {
 
 remove_replacement <- function(name) {
     stopifnot(is.character(name))
-    
+
     r <- cache$replacements[[name]]
 
     if (is.null(r)) {
         stop(name, ": does not exist in the replacement table")
     }
-    
+
     rm(list=name, envir=cache$replacements)
     r
 }
