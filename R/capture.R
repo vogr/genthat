@@ -225,6 +225,7 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         call_args <- as.list(sys.call())[-1]
 
         is.formula <- function(x) is.call(x) && as.character(x[[1]]) == "~"
+        is.closureLang <- function(x) is.call(x) && as.character(x[[1]]) == "function"
 
         get_exprs_from_args <- function(args, args_filter) {
             filtered <- Filter(args_filter, args)
@@ -237,8 +238,8 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
             e <- environment()
 
             #separate processing of optional expressions (e.g. exprs inside formulas)
-            optional_exprs <- get_exprs_from_args(call_args, function(x) is.formula(x))
-            required_exprs <- get_exprs_from_args(call_args, function(x) !is.formula(x))
+            optional_exprs <- get_exprs_from_args(call_args, function(x) is.formula(x) || is.closureLang(x))
+            required_exprs <- get_exprs_from_args(call_args, function(x) !is.formula(x) && !is.closureLang(x))
 
             #optional exprs which can be recorded
             optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))
