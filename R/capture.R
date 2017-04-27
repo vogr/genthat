@@ -229,7 +229,7 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         get_exprs_from_args <- function(args, args_filter) {
             filtered <- Filter(args_filter, args)
             exprs <- as.character(c(lapply(filtered, function(x) all.names(x)), recursive = TRUE))
-            exprs <- Filter(function(x)!x %in% genthat:::operators, exprs)
+            exprs <- Filter(function(x)! (x %in% genthat:::operators || x %in% genthat:::keywords) , exprs)
             unique(exprs)
         }
 

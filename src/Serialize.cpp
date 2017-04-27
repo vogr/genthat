@@ -286,7 +286,10 @@ string serialize_lang_subsexp(SEXP s)
      * - symbol (e.g. x)
      * - scalar literal (e.g. 5) -- TODO implement all literals
      */
+
     switch (TYPEOF(s)) {
+    case NILSXP:
+        return "NULL";
     case SYMSXP:
         return string(CHAR(PRINTNAME(s)));
     case INTSXP: {
@@ -301,8 +304,23 @@ string serialize_lang_subsexp(SEXP s)
             elems += (j == 0 ? "" : ",") + str_val;
         }
         return "readBin(as.raw(c(" + elems + ")), n=1, \"double\")"; }
+    case LISTSXP: {/* pairlists */
+        stringstream outStr;
+        SEXP names = Rf_getAttrib(s, R_NamesSymbol);
+        int i = 0;
+
+        for (SEXP con = s; con != R_NilValue; con = CDR(con))
+        {
+            if (i != 0) outStr << ", ";
+
+            outStr << escape_list_key(string(CHAR(STRING_ELT(names, i++))));
+            auto val = serialize_lang_subsexp(CAR(con));
+            if (val != "")
+                outStr << " = " << val;
+        }
+        return outStr.str();}
     default:
-        throw sexp_not_implemented("serialize_lang_subsexp unknown");
+        throw sexp_not_implemented("serialize_lang_subsexp unknown " + to_string(TYPEOF(s)));
     }
 }
 
@@ -433,7 +451,16 @@ string serialize_cpp0(SEXP s)
             SEXP left = CAR(CDR(s));
             SEXP right = CAR(CDR(CDR(s)));
             string call = serialize_lang_subsexp(left) + func + serialize_lang_subsexp(right);
-            return string("quote(") + call + string(")");
+            return string("quote(") + call + string(")");\
+        }
+        else if (func == "function") {
+            s = CDR(s);
+
+            SEXP args = CAR(s);
+            SEXP body = CADR(s);
+            SEXP null = CADDR(s);
+
+            return string(func + "(" + serialize_lang_subsexp(args) + ") " + serialize_lang_subsexp(body));
         } else {
             bool first = true;
             string args = "";
