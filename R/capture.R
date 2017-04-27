@@ -22,6 +22,7 @@ on_function_entry <- function(call_id, name, args) {
     })
 }
 
+#' @importFrom methods is
 on_function_exit <- function(call_id, retv) {
     stopifnot(is.numeric(call_id))
 

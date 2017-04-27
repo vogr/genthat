@@ -12,7 +12,7 @@ format_args <- function(args) {
                    args
                }
 
-    paste(args_str, collapse=", ")    
+    paste(args_str, collapse=", ")
 }
 
 
@@ -20,18 +20,20 @@ format_args <- function(args) {
 #'
 #' @param trace trace value
 #'
+#' @export
 generate_test_code <- function(trace) {
     UseMethod("generate_test_code")
 }
 
+#' @export
 generate_test_code.genthat_trace <- function(trace) {
     stopifnot(is.character(trace$fun))
     stopifnot(is.list(trace$args))
     stopifnot(is.character(trace$retv))
-    
+
     args_str <- format_args(trace$args)
     call_str <- paste0(trace$fun, "(", args_str, ")")
-    
+
     paste(
         paste0('test_that("', trace$fun, '"',", {"),
         paste0("\texpected <- ", trace$retv),
@@ -41,6 +43,7 @@ generate_test_code.genthat_trace <- function(trace) {
     )
 }
 
+#' @export
 generate_test_code.default <- function(trace) {
     NULL
 }
@@ -71,6 +74,6 @@ generate_tests <- function(traces, output_dir="generated_tests") {
     tests_with_fnames <- zip(fname=fnames, test=tests)
 
     lapply(tests_with_fnames, function(x) write(x$test, file=x$fname))
-    
+
     fnames
 }

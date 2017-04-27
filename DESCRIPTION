@@ -1,6 +1,6 @@
 Package: genthat
 Type: Package
-Title: A framework for unit tests generation
+Title: A Framework for Unit Tests Generation
 Version: 0.1.0
 Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>
@@ -12,6 +12,7 @@ Imports:
     utils,
     tools,
     devtools,
+    roxygen2 (>= 5.0.0),
     methods,
     testthat,
     covr,
@@ -24,3 +25,4 @@ Suggests:
 LazyData: TRUE
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr
+SystemRequirements: C++11

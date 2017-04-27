@@ -1,6 +1,6 @@
 #' @export
-`format.C++Error` <- function(e) {
-    e$message
+`format.C++Error` <- function(x, ...) {
+    x$message
 }
 
 clean_objects <- function(path) {
@@ -55,6 +55,7 @@ add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     writeLines(text=lines, con=load_script)
 }
 
+#' @importFrom utils head
 # from covr
 show_failures <- function(dir) {
   fail_files <- list.files(dir, pattern = "fail$", recursive = TRUE, full.names = TRUE)

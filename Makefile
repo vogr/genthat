@@ -1,16 +1,19 @@
+PKGNAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
+PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
+
 build:
 	R CMD BUILD .
 
-check:
-	cd ..; \
-	R CMD CHECK . --as-cran
+check: build
+	R CMD check --as-cran $(PKGNAME)_$(PKGVERS).tar.gz
 
 clean:
+	rm $(PKGNAME)_$(PKGVERS).tar.gz
+	rm -fr "genthat.Rcheck"
 	rm -f src/*.so src/*.o
 	rm -fr man
 
 install:
-	cd ..; \
 	R CMD INSTALL .
 
 test:

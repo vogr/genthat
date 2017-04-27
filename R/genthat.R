@@ -23,7 +23,7 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     if (missing(type)) {
         type <- "tests"
     }
-    
+
     tmp_lib <- tempfile("R_LIBS")
     stopifnot(dir.create(tmp_lib))
 
@@ -52,7 +52,7 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     if (is_debug_enabled()) {
         message("Working dir:", pkg_dir)
     }
-    
+
     add_package_hook(
         pkg$package,
         tmp_lib,
@@ -62,7 +62,8 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
             genthat::decorate_environment(ns)
         }, list(GENTHAT_PATH=find.package("genthat"))),
         on_gc_finalizer=substitute({
-            saveRDS(genthat:::cache, file=GENTHAT_OUTPUT)
+            # TODO: export this as a function
+            export_traces(GENTHAT_OUTPUT)
         }, list(GENTHAT_OUTPUT=genthat_output))
     )
 
@@ -90,11 +91,11 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
         if ("tests" %in% type) {
             result <- tools::testInstalledPackage(pkg$package, outDir=pkg_dir, types="tests", lib.loc=tmp_lib) # TODO: add ...
 
-            if (!quiet) {           
+            if (!quiet) {
                 out <- file.path(pkg_dir, paste0(pkg$package, "-tests"), "testthat.Rout")
                 if (file.exists(out)) cat(paste0(readLines(out), collapse="\n"))
             }
-            
+
             if (result != 0L) {
                 show_failures(pkg_dir)
             }
@@ -104,7 +105,7 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     if (!file.exists(genthat_output)) {
         stop("genthat output does not exist ", genthat_output)
     }
-    
+
     output <- readRDS(genthat_output)
     stopifnot(is.environment(output))
 
@@ -115,16 +116,21 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
             traces=output$traces,
             errors=filter(output$traces, is, class2="genthat_trace_entry"),
             failures=filter(output$traces, is, class2="genthat_trace_error"),
-            tests=tests            
+            tests=tests
         ),
         class="genthat_result"
     )
 }
 
 #' @export
-format.genthat_result <- function(r) {
-    format(lapply(r, length))
-} 
+export_traces <- function(file) {
+  saveRDS(cache, file)
+}
+
+#' @export
+format.genthat_result <- function(x, ...) {
+    format(lapply(x, length))
+}
 
 print.genthat_result <- function(r) {
     print(lapply(r, length))

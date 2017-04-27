@@ -163,11 +163,12 @@ create_replacement <- function(name, env, orig_fun, fun, new_fun) {
         class="genthat_replacement")
 }
 
+#' @importFrom methods is
 add_replacement <- function(r) {
     stopifnot(methods::is(r, "genthat_replacement"))
 
     if (r$name %in% names(cache$replacements)) {
-        stop(name, ": already exists in the replacement table")
+        stop(r$name, ": already exists in the replacement table")
     }
 
     cache$replacements[[r$name]] <- r
