@@ -422,7 +422,8 @@ string serialize_cpp0(SEXP s)
         return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
     case SYMSXP: {
         RObject protected_s(s);
-        return "quote(" + string(CHAR(PRINTNAME(s))) + ")"; }
+        //return "quote(" + string(CHAR(PRINTNAME(s))) + ")"; }
+        return string(CHAR(PRINTNAME(s))); }
     case ENVSXP: {
         RObject protected_s(s);
         if (visited_environments.find(s) != visited_environments.end()) {

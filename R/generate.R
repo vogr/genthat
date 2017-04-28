@@ -47,10 +47,25 @@ is_valid_trace <- function(trace) {
     }
 }
 
+deserializeFormals <- function(params) {
+    p <- parse(text = params)[[1]]
+    p[[1]] <- quote(alist) #not sure why there is pairlist, not alist in the original deparsed string
+    eval(p)
+}
+
+deserializeClosure <- function(cls) {
+    newf <- function() 0
+    if (cls$formals != "NULL")
+        formals(newf) <- deserializeFormals(cls$formals)
+    body(newf) <- parse(text = cls$body)
+    newf
+}
+
 printClosure <- function(name, cls) {
+    closure <- deserializeClosure(cls)
     envName <- concat("`__", name, "_env`");
     concat(
-      "\t", name, " <- function(", cls$formals, ")", paste(cls$body, collapse=""), "\n",
+      "\t", name, " <- ", paste(deparse(closure), collapse = "\n\t")  ,"\n",
       "\t", envName, " <- as.environment(", deparse(cls$envir), ")\n",
       "\t", "parent.env(", envName, ") <- ", cls$parentEnv, "\n",
       "\t", "environment(", name, ") <- ", envName, "\n"
@@ -125,7 +140,7 @@ generate_tc <- function(trace) {
   pargs <- deserialize(args)
   assignments <- lapply2(call_vals, function(val, name) paste0("\t", name, " <- ", as.character(val), "\n"))
   val_section <- paste(assignments, collapse="")
-  call_section <- paste0(func, "(", paste(sapply(call_exprs, deparse), collapse=", "), ")")
+  call_section <- paste0(func, "(", paste(call_exprs, collapse=", "), ")")
   clos_section <- paste(lapply2(pargs$cls, function(val, name) printClosure(name, val)), collapse = "\n\n")
 
   test_body <- concat(
