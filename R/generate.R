@@ -47,6 +47,13 @@ is_valid_trace <- function(trace) {
     }
 }
 
+printClosure <- function(name, cls) {
+    concat(
+      "\t", name, " <- function(", cls$formals, ")", paste(cls$body, collapse=""), "\n",
+      "\t", "environment(", name, ") <- ", deparse(cls$envir), "\n",
+      "\t", "parent.env(", name, ") <- ", cls$parentEnv, "\n")
+}
+
 deserialize <- function(x) eval(parse(text=x))
 
 #' @title Generate test case from trace
@@ -112,9 +119,11 @@ generate_tc <- function(trace) {
       }
   }
 
+  pargs <- deserialize(args)
   assignments <- lapply2(call_vals, function(val, name) paste0("\t", name, " <- ", as.character(val), "\n"))
   val_section <- paste(assignments, collapse="")
   call_section <- paste0(func, "(", paste(sapply(call_exprs, deparse), collapse=", "), ")")
+  clos_section <- paste(lapply2(pargs$cls, function(val, name) printClosure(name, val)), collapse = "\n\n")
 
   test_body <- concat(
       "\t# expected return value\n",
@@ -122,6 +131,9 @@ generate_tc <- function(trace) {
       "\n",
       "\t# variables used in arguments\n",
       val_section,
+      "\n",
+      "\t# closures\n",
+      clos_section,
       "\n",
       "\texpect_equal(", call_section, ", expected)\n"
   )

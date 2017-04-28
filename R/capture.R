@@ -208,6 +208,58 @@ decorate_hidden_functions <- function(package) {
     })
 }
 
+#todo: do AST descend, remove dependency
+closureGlobals <- function(fun) {
+    vars <- codetools:::mkHash()
+    funs <- codetools:::mkHash()
+    enter <- function(type, val, exp, ctx) {
+        if (type == "function") # TODO: should distinct between closures and functions from base/packages
+            assign(val, TRUE, funs)
+        else
+            assign(val, ctx$env, vars) # check ctx for assignment (<<- or assign)
+            #ctx$env contains "calling" env for val, not env where val is bound
+        }
+    collectUsage(fun, enterGlobal = enter)
+    fnames <- ls(funs, all.names = TRUE)
+    vnames <- ls(vars, all.names = TRUE)
+    vnames <- mget(vnames, vars)
+    list(funs = unique(fnames), vars = vnames)
+}
+
+envTooDeep <- function(name, env, typeFilter, envFilter) {
+    if (missing(typeFilter) || !is.function(typeFilter))
+        stop("Invalid typeFilter passed");
+
+    if (missing(envFilter) || !is.function(envFilter))
+        stop("Invalid envFilter passed");
+
+    if (!envFilter(env))
+        FALSE
+    else if (exists(name, envir = env, inherits = FALSE) && typeFilter(get(name, envir=env, inherits = FALSE)))
+        TRUE
+    else
+        envTooDeep(name, parent.env(env), typeFilter, envFilter)
+}
+
+
+serializeClosure <- function(fun) {
+    stopifnot(typeof(fun) == "closure")
+    enclosed <- closureGlobals(fun)
+    #enclosed$funs - get packages -> list of packages closure depends on
+
+    envFilter <- function(env) identical(environmentName(env), "") || identical(env, .GlobalEnv)
+    typeFilter <- function(x) !is.function(x)
+    #filter deep vars (deeper than the first named env)
+    filtered <- Filter(function(x) envTooDeep(x, enclosed$vars[[1]], typeFilter, envFilter), names(enclosed$vars))
+    #todo: deep vars should be "serialized" just like funcs
+    #todo: capture the first named envir
+
+    names(filtered) <- filtered
+    simpleEnv <- list2env(lapply(filtered, function(x) get(x, envir = enclosed$vars[[1]])), parent = emptyenv())
+
+    list(envir = simpleEnv, body = deparse(body(fun)), formals = deparse(formals(fun)), parentEnv = ".GlobalEnv")
+}
+
 #' @title Returns traced version of original function.
 #'
 #' @description More sane replacement of the base::trace function.
@@ -226,6 +278,7 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 
         is.formula <- function(x) is.call(x) && as.character(x[[1]]) == "~"
         is.closureLang <- function(x) is.call(x) && as.character(x[[1]]) == "function"
+        is.closure <- function(x) typeof(x) == "closure"
 
         get_exprs_from_args <- function(args, args_filter) {
             filtered <- Filter(args_filter, args)
@@ -239,21 +292,32 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 
             #separate processing of optional expressions (e.g. exprs inside formulas)
             optional_exprs <- get_exprs_from_args(call_args, function(x) is.formula(x) || is.closureLang(x))
-            required_exprs <- get_exprs_from_args(call_args, function(x) !is.formula(x) && !is.closureLang(x))
+            required_exprs <- get_exprs_from_args(call_args, function(x) !(is.formula(x) || is.closureLang(x)))
 
             #optional exprs which can be recorded
             optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))
             optional_exprs <- Filter(optional_filter, optional_exprs)
 
-            elem_exprs <- c(required_exprs, optional_exprs)
+
+            elem_exprs <- unique(c(required_exprs, optional_exprs))
+            cls_exprs <- Filter(function(x) is.closure(get(x, e)), elem_exprs)
+            elem_exprs <- Filter(function(x) !is.closure(get(x, e)), elem_exprs)
+
             elem_vals <- lapply(elem_exprs, function(name) get(name, e))
+            cls_vals <- lapply(cls_exprs, function(name) genthat:::serializeClosure(get(name, e)))
+
             if (length(elem_exprs) != 0) {
                 names(elem_vals) <- elem_exprs
             }
 
+            if (length(cls_exprs) != 0) {
+                names(cls_vals) <- cls_exprs
+            }
+
             list(
                 call = call_args,
-                vals = elem_vals
+                vals = elem_vals,
+                cls = cls_vals
             )
         }, error = function(e) {
             print("error recording args!")
