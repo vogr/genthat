@@ -48,10 +48,13 @@ is_valid_trace <- function(trace) {
 }
 
 printClosure <- function(name, cls) {
+    envName <- concat("`__", name, "_env`");
     concat(
       "\t", name, " <- function(", cls$formals, ")", paste(cls$body, collapse=""), "\n",
-      "\t", "environment(", name, ") <- ", deparse(cls$envir), "\n",
-      "\t", "parent.env(", name, ") <- ", cls$parentEnv, "\n")
+      "\t", envName, " <- as.environment(", deparse(cls$envir), ")\n",
+      "\t", "parent.env(", envName, ") <- ", cls$parentEnv, "\n",
+      "\t", "environment(", name, ") <- ", envName, "\n"
+      );
 }
 
 deserialize <- function(x) eval(parse(text=x))

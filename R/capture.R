@@ -255,7 +255,7 @@ serializeClosure <- function(fun) {
     #todo: capture the first named envir
 
     names(filtered) <- filtered
-    simpleEnv <- list2env(lapply(filtered, function(x) get(x, envir = enclosed$vars[[1]])), parent = emptyenv())
+    simpleEnv <- lapply(filtered, function(x) get(x, envir = enclosed$vars[[1]]))
 
     list(envir = simpleEnv, body = deparse(body(fun)), formals = deparse(formals(fun)), parentEnv = ".GlobalEnv")
 }
