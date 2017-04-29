@@ -276,7 +276,7 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         
         call_args <- as.list(sys.call())[-1]
 
-        is.formula <- function(x) is.call(x) && as.character(x[[1]]) == "~"
+        is.optional <- function(x) is.call(x) && (as.character(x[[1]]) == "~" || as.character(x[[1]]) == "quote" || as.character(x[[1]]) == "alist")
         is.closureLang <- function(x) is.call(x) && as.character(x[[1]]) == "function"
         is.closure <- function(x) typeof(x) == "closure"
 
@@ -291,8 +291,8 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
             e <- environment()
 
             #separate processing of optional expressions (e.g. exprs inside formulas)
-            optional_exprs <- get_exprs_from_args(call_args, function(x) is.formula(x) || is.closureLang(x))
-            required_exprs <- get_exprs_from_args(call_args, function(x) !(is.formula(x) || is.closureLang(x)))
+            optional_exprs <- get_exprs_from_args(call_args, function(x) is.optional(x) || is.closureLang(x))
+            required_exprs <- get_exprs_from_args(call_args, function(x)!(is.optional(x) || is.closureLang(x)))
 
             #optional exprs which can be recorded
             optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))
@@ -370,6 +370,7 @@ enter_function <- function(fname, args_env, call_id) {
         if (is.null(args_env)) {
             res <- list(type = "error", error_description = "Couldn't force arguments.")
         } else {
+            args_env$call <- lapply(args_env$call, serialize_r_expr);
             res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
         }
         cache$capture_arguments <- TRUE

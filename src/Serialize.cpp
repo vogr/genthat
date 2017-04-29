@@ -271,10 +271,10 @@ bool in_array(const std::string &value, const std::vector<string> &array)
 
 bool is_infix(string func)
 {
-	vector<string> builtIn{ "!", "!=", ":", "::", ":::", "-", "|", "||", "/", "(", "[", "[[", "[[<-", "[<-", "<",
-		"<-", "<<-", "<=", ">", ">=", "{", "&", "&&", "$", "$<-", "@", "@<-", "=", "==", "^", "+", "*", "~" };
+	vector<string> builtIn{ "!", "!=", ":", "::", ":::", "-", "|", "||", "/", "[[<-", "[<-", "<",
+		"<-", "<<-", "<=", ">", ">=", "&", "&&", "$", "$<-", "@", "@<-", "=", "==", "^", "+", "*", "~" };
 
-	return in_array(func, builtIn) || func[0] == '%';
+	return func[0] == '%' || in_array(func, builtIn);
 }
 
 string serialize_lang_subsexp(SEXP s)
@@ -304,6 +304,14 @@ string serialize_lang_subsexp(SEXP s)
             elems += (j == 0 ? "" : ",") + str_val;
         }
         return "readBin(as.raw(c(" + elems + ")), n=1, \"double\")"; }
+    case LGLSXP: {
+        int val = LOGICAL(s)[0];
+        return (val == NA_LOGICAL) ? "NA" : (val == 0) ? "FALSE" : "TRUE";
+        }
+    case STRSXP: {
+        SEXP val = STRING_ELT(s, 0);
+        return (val == NA_STRING) ? "NA_character_" : to_string_literal(CHAR(val));
+    }
     case LISTSXP: {/* pairlists */
         stringstream outStr;
         SEXP names = Rf_getAttrib(s, R_NamesSymbol);
@@ -319,6 +327,46 @@ string serialize_lang_subsexp(SEXP s)
                 outStr << " = " << val;
         }
         return outStr.str();}
+    case LANGSXP: {
+        RObject protected_s(s);
+        string func = serialize_lang_subsexp(CAR(s)); // TODO func val
+        Rcout << "LANGSXP(" <<  func << ")" << endl;
+        if (is_infix(func)) {
+            SEXP left = CAR(CDR(s));
+            SEXP right = CAR(CDR(CDR(s)));
+            string call = serialize_lang_subsexp(left) + func + serialize_lang_subsexp(right);
+            return call;
+        }
+        else if (func == "function") {
+            s = CDR(s);
+
+            SEXP args = CAR(s);
+            SEXP body = CADR(s);
+            SEXP null = CADDR(s);
+
+            return string("function(" + serialize_lang_subsexp(args) + ") " + serialize_lang_subsexp(body));
+        } else if (func == "{") {
+            bool first = true;
+            string args = "";
+            for (SEXP con = CDR(s); con != R_NilValue; con = CDR(con))
+            {
+                string arg = serialize_lang_subsexp(CAR(con));
+                if (!first) args += ";\n";
+                args += arg; // TODO arg name
+                first = false;
+            }
+            return string("{" + args + "}");
+        } else {
+            bool first = true;
+            string args = "";
+            for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
+            {
+                string arg = serialize_lang_subsexp(CAR(a));
+                args += (first ? string("") : string(",")) + arg; // TODO arg name
+                first = false;
+            }
+            return string(func + string("(") + args + string(")"));
+        } }
     default:
         throw sexp_not_implemented("serialize_lang_subsexp unknown " + to_string(TYPEOF(s)));
     }
@@ -422,8 +470,7 @@ string serialize_cpp0(SEXP s)
         return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
     case SYMSXP: {
         RObject protected_s(s);
-        //return "quote(" + string(CHAR(PRINTNAME(s))) + ")"; }
-        return string(CHAR(PRINTNAME(s))); }
+        return "quote(" + string(CHAR(PRINTNAME(s))) + ")"; }
     case ENVSXP: {
         RObject protected_s(s);
         if (visited_environments.find(s) != visited_environments.end()) {
@@ -462,7 +509,19 @@ string serialize_cpp0(SEXP s)
             SEXP null = CADDR(s);
 
             return string(func + "(" + serialize_lang_subsexp(args) + ") " + serialize_lang_subsexp(body));
-        } else {
+        }
+        else if (func == "{") {
+            bool first = true;
+            string args = "";
+            for (SEXP con = CDR(s); con != R_NilValue; con = CDR(con))
+            {
+                string arg = serialize_lang_subsexp(CAR(con));
+                if (!first) args += ";\n";
+                args += arg; // TODO arg name
+                first = false;
+            }
+            return string("{" + args + "}");
+        }else {
             bool first = true;
             string args = "";
             for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
@@ -506,6 +565,18 @@ SEXP serialize_r(SEXP s)
         string str_rep = serialize_cpp(s);
         return Rf_mkString(str_rep.c_str());
     } catch(sexp_not_implemented e) {
+        Rf_error(e.to_string().c_str());
+    }
+}
+
+// [[Rcpp::export]]
+SEXP serialize_r_expr(SEXP s)
+{
+    try {
+        string str_rep = serialize_lang_subsexp(s);
+        return Rf_mkString(str_rep.c_str());
+    }
+    catch (sexp_not_implemented e) {
         Rf_error(e.to_string().c_str());
     }
 }
