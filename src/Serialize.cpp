@@ -330,7 +330,6 @@ string serialize_lang_subsexp(SEXP s)
     case LANGSXP: {
         RObject protected_s(s);
         string func = serialize_lang_subsexp(CAR(s)); // TODO func val
-        Rcout << "LANGSXP(" <<  func << ")" << endl;
         if (is_infix(func)) {
             SEXP left = CAR(CDR(s));
             SEXP right = CAR(CDR(CDR(s)));
