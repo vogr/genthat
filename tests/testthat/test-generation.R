@@ -25,7 +25,7 @@ test_that("generate_tc() basic usage - expressions", {
     trace <- list(
         type = "trace",
         func = "add",
-        args = "list(call=list(a = 3L, b = y),vals=list(y = 4))",
+        args = "list(call=list(a = 3L, b = y),vals=list(y = 4),cls=list())",
         retv = "8L"
     )
 

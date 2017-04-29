@@ -16,7 +16,7 @@ test_that("basic trace pushing", {
         counter <- counter + 1L
         trace <- traces$get_next()
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "list(call=list(4L,3L),vals=list())")
+        expect_equal(trace$args, "list(call=list(4L,3L),vals=list(),cls=list())")
         expect_equal(trace$retv, "8L")
     }
     expect_equal(counter, 1)
@@ -33,7 +33,7 @@ test_that("basic trace pushing - non-syntactic names", {
         counter <- counter + 1L
         trace <- traces$get_next()
         expect_equal(trace$func, "for if")
-        expect_equal(trace$args, "list(call=list(4L,3L),vals=list())")
+        expect_equal(trace$args, "list(call=list(4L,3L),vals=list(),cls=list())")
         expect_equal(trace$retv, "8L")
     }
     expect_equal(counter, 1)
@@ -53,7 +53,7 @@ test_that("basic trace pushing", {
         counter <- counter + 1L
         trace <- traces$get_next()
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "list(call=list(quote(x),quote(y+x)),vals=list(x=42L,y=15L))")
+        expect_equal(trace$args, "list(call=list(quote(x),quote(y+x)),vals=list(x=42L,y=15L),cls=list())")
         expect_equal(trace$retv, "100L")
     }
     expect_equal(counter, 1)
@@ -89,7 +89,7 @@ test_that("tracing - names of function parameters enclosed in backticks are supp
         counter <- counter + 1L
         trace <- traces$get_next()
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "list(call=list(4L,3L,2L),vals=list())")
+        expect_equal(trace$args, "list(call=list(4L,3L,2L),vals=list(),cls=list())")
         expect_equal(trace$retv, "10L")
     }
     expect_equal(counter, 1)
@@ -107,7 +107,7 @@ test_that("tracing - basic tracing of formula", {
         trace <- traces$get_next()
 
         expect_equal(trace$func, "fn1")
-        expect_equal(trace$args, "list(call=list(quote(x~y)),vals=list())")
+        expect_equal(trace$args, "list(call=list(quote(x~y)),vals=list(),cls=list())")
         expect_equal(trace$retv, "quote(x~y)")
     }
     expect_equal(counter, 1)
@@ -127,7 +127,7 @@ test_that("tracing - basic tracing of lm formula", {
         trace <- traces$get_next()
 
         expect_equal(trace$func, "lm.coeff")
-        expect_equal(trace$args, "list(call=list(quote(x~y),quote(l)),vals=list(l=list(x=10L,y=20L)))")
+        expect_equal(trace$args, "list(call=list(quote(x~y),quote(l)),vals=list(l=list(x=10L,y=20L)),cls=list())")
         expect_match(trace$retv, "^structure\\(readBin\\(as.raw\\(c\\(0,0,0,0,0,0,0x24,0x40,0xa2,0x7,0,0,0,0,0xf0,0x7f\\)\\)")
     }
     expect_equal(counter, 1)
