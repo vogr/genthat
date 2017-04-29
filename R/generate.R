@@ -49,7 +49,6 @@ is_valid_trace <- function(trace) {
 
 deserializeFormals <- function(params) {
     p <- parse(text = params)[[1]]
-    p[[1]] <- quote(alist) #not sure why there is pairlist, not alist in the original deparsed string
     eval(p)
 }
 

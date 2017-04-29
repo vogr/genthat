@@ -219,7 +219,7 @@ closureGlobals <- function(fun) {
             assign(val, ctx$env, vars) # check ctx for assignment (<<- or assign)
             #ctx$env contains "calling" env for val, not env where val is bound
         }
-    collectUsage(fun, enterGlobal = enter)
+    codetools:::collectUsage(fun, enterGlobal = enter)
     fnames <- ls(funs, all.names = TRUE)
     vnames <- ls(vars, all.names = TRUE)
     vnames <- mget(vnames, vars)
@@ -257,7 +257,7 @@ serializeClosure <- function(fun) {
     names(filtered) <- filtered
     simpleEnv <- lapply(filtered, function(x) get(x, envir = enclosed$vars[[1]]))
 
-    list(envir = simpleEnv, body = deparse(body(fun)), formals = deparse(formals(fun)), parentEnv = ".GlobalEnv")
+    list(envir = simpleEnv, body = body(fun), formals = formals(fun), parentEnv = ".GlobalEnv")
 }
 
 #' @title Returns traced version of original function.
@@ -355,6 +355,11 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
     func
 }
 
+serialize_cls <- function(cls){
+    cls$body <- serialize_r_expr(cls$body)
+    cls
+}
+
 #' @title Write down capture information
 #'
 #' @description This function is respinsible for writing down capture information for decorated function calls.
@@ -370,7 +375,8 @@ enter_function <- function(fname, args_env, call_id) {
         if (is.null(args_env)) {
             res <- list(type = "error", error_description = "Couldn't force arguments.")
         } else {
-            args_env$call <- lapply(args_env$call, serialize_r_expr);
+            args_env$call <- lapply(args_env$call, serialize_r_expr)
+            args_env$cls <- lapply(args_env$cls, serialize_cls)
             res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
         }
         cache$capture_arguments <- TRUE

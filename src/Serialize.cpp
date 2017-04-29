@@ -489,8 +489,23 @@ string serialize_cpp0(SEXP s)
         throw sexp_not_implemented("WEAKREFSXP");
     case CLOSXP:
         throw sexp_not_implemented("CLOSXP");
-    case LISTSXP: /* pairlists */
-        throw sexp_not_implemented("LISTSXP");
+    case LISTSXP: {/* pairlists */
+        stringstream outStr;
+        outStr << "\"alist(";
+        SEXP names = Rf_getAttrib(s, R_NamesSymbol);
+        int i = 0;
+
+        for (SEXP con = s; con != R_NilValue; con = CDR(con))
+        {
+            if (i != 0) outStr << ", ";
+
+            outStr << escape_list_key(string(CHAR(STRING_ELT(names, i++)))) << " = ";
+            auto val = serialize_lang_subsexp(CAR(con));
+            if (val != "")
+                outStr << val;
+        }
+        outStr << ")\"";
+        return outStr.str(); }
     case LANGSXP: {
         RObject protected_s(s);
         string func = serialize_lang_subsexp(CAR(s)); // TODO func val
