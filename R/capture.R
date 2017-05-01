@@ -276,13 +276,8 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         
         call_args <- as.list(sys.call())[-1]
 
-        is.optional <- function(x) is.call(x) && (as.character(x[[1]]) == "~" || as.character(x[[1]]) == "quote" || as.character(x[[1]]) == "alist")
-        is.closureLang <- function(x) is.call(x) && as.character(x[[1]]) == "function"
-        is.closure <- function(x) typeof(x) == "closure"
-
-        get_exprs_from_args <- function(args, args_filter) {
-            filtered <- Filter(args_filter, args)
-            exprs <- as.character(c(lapply(filtered, function(x) all.names(x)), recursive = TRUE))
+        get_exprs_from_args <- function(args) {
+            exprs <- as.character(c(lapply(args, function(x) all.names(x)), recursive = TRUE))
             exprs <- Filter(function(x)! (x %in% genthat:::operators || x %in% genthat:::keywords) , exprs)
             unique(exprs)
         }
@@ -291,8 +286,8 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
             e <- environment()
 
             #separate processing of optional expressions (e.g. exprs inside formulas)
-            optional_exprs <- get_exprs_from_args(call_args, function(x) is.optional(x) || is.closureLang(x))
-            required_exprs <- get_exprs_from_args(call_args, function(x)!(is.optional(x) || is.closureLang(x)))
+            optional_exprs <- get_exprs_from_args(Filter(function(x) is.optional(x) || is.closureLang(x), call_args))
+            required_exprs <- get_exprs_from_args(Filter(function(x)!(is.optional(x) || is.closureLang(x)), call_args))
 
             #optional exprs which can be recorded
             optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))

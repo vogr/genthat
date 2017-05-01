@@ -17,17 +17,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-
 // serialize_r_expr
 SEXP serialize_r_expr(SEXP s);
 RcppExport SEXP genthat_serialize_r_expr(SEXP sSEXP) {
-    BEGIN_RCPP
-        Rcpp::RObject rcpp_result_gen;
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type s(sSEXP);
     rcpp_result_gen = Rcpp::wrap(serialize_r_expr(s));
     return rcpp_result_gen;
-    END_RCPP
+END_RCPP
 }
 // serialize_error_handler
 SEXP serialize_error_handler(SEXP e);

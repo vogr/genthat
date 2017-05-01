@@ -436,3 +436,9 @@ lapply2 <- function(xs, fn) {
     pairs <- zipList(xs, names(xs))
     lapply(pairs, function(pair) fn(pair[[1]], pair[[2]]))
 }
+
+# LANGEXP helper functions
+is.optional <- function(x) is.call(x) && (as.character(x[[1]]) == "~" || as.character(x[[1]]) == "quote" || as.character(x[[1]]) == "alist")
+is.closureLang <- function(x) is.call(x) && as.character(x[[1]]) == "function"
+is.closure <- function(x) typeof(x) == "closure"
+
