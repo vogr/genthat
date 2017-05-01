@@ -1,9 +1,3 @@
 #!/usr/bin/env bash
 
-args=()
-for a in "$@"; do
-  escaped="$(sed "s/'/'\\\\''/g" <<< "$a")"
-  args+=("'$escaped'")
-done
-
-docker run --rm -v "$(pwd)":/genthat -w /genthat genthat:dev sh -c "${args[*]}"
+docker run --rm -v "$(pwd)":/genthat -w /genthat genthat:dev "$@"
