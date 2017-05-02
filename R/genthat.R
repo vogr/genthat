@@ -62,8 +62,7 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
             genthat::decorate_environment(ns)
         }, list(GENTHAT_PATH=find.package("genthat"))),
         on_gc_finalizer=substitute({
-            # TODO: export this as a function
-            export_traces(GENTHAT_OUTPUT)
+            genthat::export_traces(GENTHAT_OUTPUT)
         }, list(GENTHAT_OUTPUT=genthat_output))
     )
 
@@ -124,7 +123,7 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
 
 #' @export
 export_traces <- function(file) {
-  saveRDS(cache, file)
+    saveRDS(cache, file)
 }
 
 #' @export

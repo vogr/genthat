@@ -24,7 +24,7 @@ class cycle_error : public serialization_error {
 
 
 string serialize_value(SEXP s);
-string serialize_cpp0(SEXP s);
+string do_serialize_value(SEXP s);
 string to_string_literal(const char *x);
 
 static string char_to_hex(unsigned char c)
@@ -153,7 +153,7 @@ string wrap_in_attributes(SEXP s, string s_str)
 		for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a))
         {
 			if (TAG(a) != Rf_install("srcref")) {
-                elems += ", " + symbol_to_attrib_key(a) + "=" + serialize_cpp0(CAR(a));
+                elems += ", " + symbol_to_attrib_key(a) + "=" + do_serialize_value(CAR(a));
             }
 		}
         return "structure(" + s_str + elems + ")";
@@ -211,7 +211,7 @@ std::string serialize_value(SEXP s)
 {
     visited_environments.clear();
 
-    string res = serialize_cpp0(s);
+    string res = do_serialize_value(s);
 
     visited_environments.clear();
 
@@ -236,13 +236,13 @@ static string serialize_env(SEXP s)
     {
         SEXP key = STRING_ELT(names, i);
         SEXP value = Rf_findVarInFrame(s, Rf_install(CHAR(key)));
-        elems += (i == 0 ? "" : ", ") + escape_list_key(string(CHAR(key))) + "=" + serialize_cpp0(value);
+        elems += (i == 0 ? "" : ", ") + escape_list_key(string(CHAR(key))) + "=" + do_serialize_value(value);
     }
     return "as.environment(list(" + elems + "))";
 }
 
 
-string serialize_cpp0(SEXP s)
+string do_serialize_value(SEXP s)
 {
     switch (TYPEOF(s)) {
     case NILSXP:
@@ -258,7 +258,7 @@ string serialize_cpp0(SEXP s)
             string label = (names == R_NilValue || string(CHAR(STRING_ELT(names, i))) == "") ?
                                 "" :
                                 (escape_list_key(string(CHAR(STRING_ELT(names, i)))) + "=");
-            ret += string(i == 0 ? "" : ",") + label + serialize_cpp0(val);
+            ret += string(i == 0 ? "" : ",") + label + do_serialize_value(val);
         }
         ret += ")";
 
@@ -352,7 +352,7 @@ string serialize_cpp0(SEXP s)
         if (visited_environments.find(s) != visited_environments.end()) {
             throw cycle_error();
         }
-        visited_environments.emplace(s);
+        visited_environments.insert(s);
         return serialize_env(s);
     case SPECIALSXP:
         throw sexp_not_supported_error("SPECIALSXP");

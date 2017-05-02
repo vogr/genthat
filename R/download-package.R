@@ -16,7 +16,7 @@ download_package <- function(package, destdir, version=NULL, repos=getOption("re
                             type="source", extract=TRUE, force=FALSE, quiet=TRUE, ...) {
 
     contrib_url <- contrib.url(repos, "source")
-    latest_version <- get_latest_package_version(package, repos, "source")
+    latest_version <- get_package_version(package, repos, "source")
 
     if (is.null(version)) {
         version <- latest_version
