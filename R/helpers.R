@@ -442,3 +442,4 @@ is.optional <- function(x) is.call(x) && (as.character(x[[1]]) == "~" || as.char
 is.closureLang <- function(x) is.call(x) && as.character(x[[1]]) == "function"
 is.closure <- function(x) typeof(x) == "closure"
 
+is_recorded_name <- function(name) !(name %in% c("{", "+"))

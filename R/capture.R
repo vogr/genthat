@@ -276,43 +276,25 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
         
         call_args <- as.list(sys.call())[-1]
 
-        get_exprs_from_args <- function(args) {
-            exprs <- as.character(c(lapply(args, function(x) all.names(x)), recursive = TRUE))
-            exprs <- Filter(function(x)! (x %in% genthat:::operators || x %in% genthat:::keywords) , exprs)
-            unique(exprs)
-        }
-
         args <- tryCatch({
             e <- environment()
 
             #separate processing of optional expressions (e.g. exprs inside formulas)
-            optional_exprs <- get_exprs_from_args(Filter(function(x) is.optional(x) || is.closureLang(x), call_args))
-            required_exprs <- get_exprs_from_args(Filter(function(x)!(is.optional(x) || is.closureLang(x)), call_args))
+            names <- Map(all.names, call_args)
+            names <- unlist(names, recursive = TRUE)
+            names <- unique(names)
+            names <- Filter(is_recorded_name, names)
 
-            #optional exprs which can be recorded
-            optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))
-            optional_exprs <- Filter(optional_filter, optional_exprs)
+            available_names <- Filter(names, function(name) exists(name, envir = e))
+            values <- Map(available_names, function(name) get(name, envir = e))
 
-
-            elem_exprs <- unique(c(required_exprs, optional_exprs))
-            cls_exprs <- Filter(function(x) is.closure(get(x, e)), elem_exprs)
-            elem_exprs <- Filter(function(x) !is.closure(get(x, e)), elem_exprs)
-
-            elem_vals <- lapply(elem_exprs, function(name) get(name, e))
-            cls_vals <- lapply(cls_exprs, function(name) genthat:::serializeClosure(get(name, e)))
-
-            if (length(elem_exprs) != 0) {
-                names(elem_vals) <- elem_exprs
-            }
-
-            if (length(cls_exprs) != 0) {
-                names(cls_vals) <- cls_exprs
+            if (length(values) != 0) {
+                names(values) <- available_names
             }
 
             list(
-                call = call_args,
-                vals = elem_vals,
-                cls = cls_vals
+                arg_expressions = call_args,
+                ref_values = values
             )
         }, error = function(e) {
             print("error recording args!")
@@ -355,6 +337,9 @@ serialize_cls <- function(cls){
     cls
 }
 
+# TODO where to do this
+#cls_vals <- lapply(cls_exprs, function(name) genthat:::serializeClosure(get(name, e)))
+
 #' @title Write down capture information
 #'
 #' @description This function is respinsible for writing down capture information for decorated function calls.
@@ -367,13 +352,11 @@ serialize_cls <- function(cls){
 enter_function <- function(fname, args_env, call_id) {
     if (cache$capture_arguments) {
         cache$capture_arguments <- FALSE
-        if (is.null(args_env)) {
-            res <- list(type = "error", error_description = "Couldn't force arguments.")
-        } else {
-            args_env$call <- lapply(args_env$call, serialize_r_expr)
-            args_env$cls <- lapply(args_env$cls, serialize_cls)
-            res <- .Call("genthat_enterFunction_cpp", PACKAGE = "genthat", fname, args_env, call_id)
-        }
+
+        args_env$arg_expressions <- lapply(args_env$arg_expressions, serialize_r_expr)
+        args_env$ref_values <- lapply(args_env$ref_values, serialize_r)
+        res <- enterFunction_cpp(fname, args_env, call_id)
+
         cache$capture_arguments <- TRUE
         if (typeof(res) != "list") { # success # TODO WHY can't this be res == 0 ?
             TRUE
@@ -399,7 +382,7 @@ enter_function <- function(fname, args_env, call_id) {
 exit_function <- function(call_id) {
     if (cache$capture_arguments) {
         cache$capture_arguments <- FALSE
-        res <- .Call("genthat_exitFunction_cpp", PACKAGE = "genthat", call_id, returnValue())
+        res <- exitFunction_cpp(call_id, returnValue())
         cache$capture_arguments <- TRUE
         push_trace(res)
     }
@@ -408,6 +391,6 @@ exit_function <- function(call_id) {
 #' @title Empties the data structure storing the arguments for exit_function.
 #'
 clear_call_cache <- function() {
-    .Call("genthat_clearCallCache_cpp", PACKAGE = "genthat")
+    clearCallCache_cpp()
 }
 
