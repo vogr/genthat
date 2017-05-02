@@ -1,7 +1,10 @@
 PKGNAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
 PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
 
-build:
+generate:
+	Rscript -e 'devtools::document()'
+
+build: generate
 	R CMD BUILD .
 
 check: build
@@ -13,9 +16,9 @@ clean:
 	rm -f src/*.so src/*.o
 	rm -fr man
 
-install:
+install: build
 	R CMD INSTALL .
 
-test:
+test: build
 	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test()'
 
