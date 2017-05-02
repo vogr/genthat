@@ -16,3 +16,4 @@
 ^TAGS$
 ^genthat\.Rproj$
 ^genthat_.*.tar.gz$
+^tools$

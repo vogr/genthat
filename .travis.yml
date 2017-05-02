@@ -8,11 +8,6 @@ env:
 
 r_packages:
   - covr
-  - devtools
-  - roxygen2
-
-before_install:
-  - Rscript -e 'devtools::document()'
 
 after_success:
   - Rscript -e 'covr::codecov()'

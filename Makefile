@@ -1,10 +1,7 @@
 PKGNAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
 PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
 
-generate:
-	Rscript -e 'devtools::document()'
-
-build: generate
+build:
 	R CMD BUILD .
 
 check: build
