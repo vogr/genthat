@@ -5,4 +5,4 @@ exec 1>&2
 
 # Test
 echo "Running tests"
-Rscript -e "devtools::test()"
+Rscript -e "options(genthat.run_integration_tests=TRUE); devtools::test()"
