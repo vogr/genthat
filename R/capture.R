@@ -278,23 +278,18 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
 
         get_exprs_from_args <- function(args) {
             exprs <- as.character(c(lapply(args, function(x) all.names(x)), recursive = TRUE))
-            exprs <- Filter(function(x)! (x %in% genthat:::operators || x %in% genthat:::keywords) , exprs)
+            exprs <- Filter(function(x)!(x %in% genthat:::operators || x %in% genthat:::keywords), exprs)
             unique(exprs)
         }
 
         args <- tryCatch({
-            e <- environment()
+            e <- parent.frame()
 
             #separate processing of optional expressions (e.g. exprs inside formulas)
-            optional_exprs <- get_exprs_from_args(Filter(function(x) is.optional(x) || is.closureLang(x), call_args))
-            required_exprs <- get_exprs_from_args(Filter(function(x)!(is.optional(x) || is.closureLang(x)), call_args))
+            elem_exprs <- get_exprs_from_args(call_args)
+            elem_exprs <- Filter(function(x) exists(x, envir = e), elem_exprs)
 
-            #optional exprs which can be recorded
-            optional_filter <- function(x)!(x %in% required_exprs) && exists(x, envir = e) && !is.function(get(x, e))
-            optional_exprs <- Filter(optional_filter, optional_exprs)
-
-
-            elem_exprs <- unique(c(required_exprs, optional_exprs))
+            #split closures/rest
             cls_exprs <- Filter(function(x) is.closure(get(x, e)), elem_exprs)
             elem_exprs <- Filter(function(x) !is.closure(get(x, e)), elem_exprs)
 
