@@ -1,4 +1,10 @@
+#' @title Decorates functions in an environment
+#'
+#' @param envir an environment that shall be decorated
+#'
+#' @description Decorates all symbols form the given environment for which `is.function` is `TRUE`.
 #' @export
+#'
 decorate_environment <- function(envir) {
     stopifnot(is.environment(envir))
 
@@ -9,29 +15,45 @@ decorate_environment <- function(envir) {
 
     funs <- filter(vals, is.function)
 
+    # TODO: call decorate_functions instead
     decorate_and_replace(funs)
 }
 
+#' @title Decorates given functions
+#'
+#' @param ... the functions that shall be decorated
+#'
+#' @description Given functions will be decorated in their defining environment.
 #' @export
+#'
 decorate_functions <- function(...) {
     dots <- substitute(list(...))[-1]
     names <- sapply(dots, deparse)
     funs <- list(...)
+
+    # TODO: define contract
 
     names(funs) <- names
 
     decorate_and_replace(funs)
 }
 
+#' @title Resets decorated function back to its original
+#'
+#' @description Reverts decorated functions back to their state they were before calling `decorate_functions`.
 #' @export
+#'
 reset_functions <- function(...) {
     dots <- substitute(list(...))[-1]
     names <- sapply(dots, deparse)
 
+    # TODO: define contract
+
     lapply(names, reset_function)
 }
 
-#' @title Tells you whether the given function is a result of genthat's function decoration.
+#' @title Checks whether a function has been already decorated
+#' @description Checks whether the given function has been decorated by `decorate_functions` call.
 #'
 #' @param fun function value
 #' @export

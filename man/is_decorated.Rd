@@ -2,10 +2,13 @@
 % Please edit documentation in R/decorate.R
 \name{is_decorated}
 \alias{is_decorated}
-\title{Tells you whether the given function is a result of genthat's function decoration.}
+\title{Checks whether a function has been already decorated}
 \usage{
 is_decorated(fun)
 }
 \arguments{
 \item{fun}{function value}
+}
+\description{
+Checks whether the given function has been decorated by `decorate_functions` call.
 }

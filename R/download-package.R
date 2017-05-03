@@ -1,4 +1,8 @@
+#' @title Gets the latest package version
+#'
+#' @description Returns the latest version of a given package that is available in the given repository.
 #' @export
+#'
 get_package_version <- function(package, repos=getOption("repos"), type="source") {
     contrib_url <- utils::contrib.url(repos, type)
     available_pkgs <- available.packages(contrib_url)
@@ -10,8 +14,12 @@ get_package_version <- function(package, repos=getOption("repos"), type="source"
     }
 }
 
+#' @title Downloads R package
+#'
+#' @description Downloads R package.
 #' @export
 #' @importFrom utils available.packages contrib.url download.file untar
+#'
 download_package <- function(package, destdir, version=NULL, repos=getOption("repos"),
                             type="source", extract=TRUE, force=FALSE, quiet=TRUE, ...) {
 

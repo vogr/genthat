@@ -9,3 +9,6 @@ generate_test_code(trace)
 \arguments{
 \item{trace}{trace value}
 }
+\description{
+Given a genthat trace it generates a corresponding test case
+}

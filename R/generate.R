@@ -17,6 +17,7 @@ format_args <- function(args) {
 
 
 #' @title Generate test case code from a trace
+#' @description Given a genthat trace it generates a corresponding test case
 #'
 #' @param trace trace value
 #'
@@ -48,7 +49,14 @@ generate_test_code.default <- function(trace) {
     NULL
 }
 
+#' @title Generates test cases from traces
+#'
+#' @param traces from which to generate test cases
+#' @param output_dir target directory where to place generated test
+#'
+#' @description Generates tests cases from the captured traces.
 #' @export
+#'
 generate_tests <- function(traces, output_dir="generated_tests") {
     stopifnot(is.list(traces))
     stopifnot(is.character(output_dir))

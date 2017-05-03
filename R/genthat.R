@@ -11,6 +11,10 @@ NULL
 # TODO: gen_from_code
 # TODO: gen_from_source
 
+#' @title Generate test cases for a package
+#'
+#' @description Decorates all functions in a package and then generates test cases based on
+#' the code contained in the package examples, vignettes and tests.
 #' @export
 #'
 gen_from_package <- function(package=".", output_dir="generated_tests",
@@ -121,7 +125,11 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     )
 }
 
+#' @title Exports recorded traces into RDS file
+#'
+#' @description Exports recorded traces into given file in RDS format using `saveRDS`.
 #' @export
+#'
 export_traces <- function(file) {
     saveRDS(cache, file)
 }
@@ -131,6 +139,7 @@ format.genthat_result <- function(x, ...) {
     format(lapply(x, length))
 }
 
-print.genthat_result <- function(r) {
+#' @export
+print.genthat_result <- function(x, ...) {
     print(lapply(r, length))
 }
