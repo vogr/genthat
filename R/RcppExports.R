@@ -5,6 +5,14 @@ serialize_value <- function(s) {
     .Call('genthat_serialize_value', PACKAGE = 'genthat', s)
 }
 
+serialize_r <- function(s) {
+    .Call('genthat_serialize_r', PACKAGE = 'genthat', s)
+}
+
+serialize_r_expr <- function(s) {
+    .Call('genthat_serialize_r_expr', PACKAGE = 'genthat', s)
+}
+
 reassign_function <- function(target_fun, new_fun) {
     .Call('genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }

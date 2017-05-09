@@ -38,6 +38,24 @@ decorate_functions <- function(...) {
     decorate_and_replace(funs)
 }
 
+#' @title Decorates given function
+#'
+#' @param fun the function that shall be decorated
+#' @param name name of the function
+#'
+#' @description Given function will be decorated in its defining environment.
+#' @export
+#'
+decorate_function <- function(fun, name=substitute(fun)) {
+    stopifnot(is.function(fun))
+    name <- as.character(name)
+
+    fs <- list()
+    fs[[name]] <- fun
+
+    decorate_and_replace(fs)[[name]]
+}
+
 #' @title Resets decorated function back to its original
 #'
 #' @description Reverts decorated functions back to their state they were before calling `decorate_functions`.
@@ -64,7 +82,7 @@ is_decorated <- function(fun) {
     isTRUE(attr(fun, "genthat"))
 }
 
-decorate_function <- function(name, fun,
+do_decorate_function <- function(name, fun,
                              .call_id_gen=substitute(genthat:::get_next_call_id),
                              .entry=substitute(genthat:::on_function_entry),
                              .exit=substitute(genthat:::on_function_exit)) {
@@ -79,13 +97,10 @@ decorate_function <- function(name, fun,
         params=formals(fun),
         body=substitute({
             `__call_id` <- CALL_ID_GEN()
-            if (ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1])) {
-                retv <- BODY
-                EXIT(call_id=`__call_id`, retv=retv)
-                retv
-            } else {
-                BODY
-            }
+            ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1])
+            retv <- BODY
+            EXIT(call_id=`__call_id`, retv=retv)
+            retv
         }, list(NAME=name, BODY=body(fun), CALL_ID_GEN=.call_id_gen, ENTRY=.entry, EXIT=.exit)),
         env=environment(fun),
         attributes=list(genthat=TRUE))
@@ -94,6 +109,7 @@ decorate_function <- function(name, fun,
 }
 
 ## funs a list of name, fun pairs for all functions to be decorated and replaced
+# TODO: rewrite to one-by-one so we can rollback in the case there is an error on the way
 decorate_and_replace <- function(funs) {
     stopifnot(is.list(funs))
     stopifnot(!is.null(names(funs)))
@@ -111,7 +127,11 @@ decorate_and_replace <- function(funs) {
             stop(x$fun, ": does not have name")
         }
 
-        name <- get_function_name_str(x$name, x$fun)
+        if (is_decorated(x$fun)) {
+            stop(x$name, ": is already decorated")
+        }
+
+        name <- get_function_fqn(x$name, x$fun)
 
         if (is_debug_enabled()) {
             message("Tracing: ", name)
@@ -122,7 +142,7 @@ decorate_and_replace <- function(funs) {
             env=environment(x$fun),
             orig_fun=create_duplicate(x$fun),
             fun=x$fun,
-            new_fun=decorate_function(name=name, fun=x$fun)
+            new_fun=do_decorate_function(name=name, fun=x$fun)
         )
     })
 
@@ -144,16 +164,20 @@ reset_function <- function(name) {
     reassign_function(r$fun, r$orig_fun)
 }
 
-get_function_name_str <- function(name, fun) {
+get_function_fqn <- function(name, fun) {
     stopifnot(is.character(name))
     stopifnot(is.function(fun))
 
     env <- environment(fun)
-    pkg_name <- environmentName(env)
+    pkg_name <- get_package_name(env)
 
-    names <- get_function_name(name)
-    if (is.null(names$package)) {
-        paste0(pkg_name, ":::", names$name)
+    names <- split_function_name(name)
+    if (is_empty_str(names$package)) {
+        if (is_empty_str(pkg_name) || identical(env, globalenv())) {
+            names$name
+        } else {
+            paste0(pkg_name, ":::", names$name)
+        }
     } else {
         # TODO: test
         if (nchar(pkg_name) > 0 && names$package != pkg_name) {
@@ -196,7 +220,8 @@ add_replacement <- function(r) {
     cache$replacements[[r$name]] <- r
 }
 
-remove_replacement <- function(name) {
+
+get_replacement <- function(name) {
     stopifnot(is.character(name))
 
     r <- cache$replacements[[name]]
@@ -205,6 +230,11 @@ remove_replacement <- function(name) {
         stop(name, ": does not exist in the replacement table")
     }
 
+    r
+}
+
+remove_replacement <- function(name) {
+    r <- get_replacement(name)
     rm(list=name, envir=cache$replacements)
     r
 }

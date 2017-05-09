@@ -39,7 +39,7 @@ create_gc_finalizer_hook <- function(hook) {
 add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     stopifnot(is.character(pkg_name))
     stopifnot(dir.exists(lib))
-    
+
     load_script <- file.path(lib, pkg_name, "R", pkg_name)
     lines <- readLines(load_script)
 
@@ -51,7 +51,7 @@ add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     if (!missing(on_gc_finalizer)) {
         lines <- append(lines, create_gc_finalizer_hook(on_gc_finalizer), after=length(lines) - 1L)
     }
-        
+
     writeLines(text=lines, con=load_script)
 }
 
@@ -75,9 +75,9 @@ env_path <- function(...) {
 
 filter_idx <- function(X, FUN, ...) {
     matches <- sapply(X, FUN, ...)
-    
+
     if (length(matches) == 0) {
-        matches <- c()
+        matches <- numeric()
     }
 
     matches
@@ -88,33 +88,37 @@ filter <- function(X, FUN, ...) {
 }
 
 filter_not <- function(X, FUN, ...) {
-    X[!filter_idx(X, FUN, ...)]    
+    X[!filter_idx(X, FUN, ...)]
 }
 
 zip <- function(...) {
     mapply(list, ..., SIMPLIFY=FALSE)
 }
 
+reduce <- function(X, FUN, init, ...) {
+    Reduce(function(a, b) FUN(a, b, ...), init=init, X)
+}
+
 is_empty_str <- function(s) {
     !is.character(s) || nchar(s) == 0
 }
 
-get_function_name <- function(name) {
+split_function_name <- function(name) {
     stopifnot(!is_empty_str(name))
-    
+
     x <- strsplit(name, ":")[[1]]
     if (length(x) == 1) {
         list(package=NULL, name=x[1])
     } else {
         list(package=x[1], name=x[length(x)])
-    }    
+    }
 }
 
 create_function <- function(params, body, env=parent.frame(), attributes=list()) {
     stopifnot(is.pairlist(params))
     stopifnot(is.language(body))
     stopifnot(is.environment(env))
-    
+
     fun <- as.function(c(as.list(params), list(body)))
 
     environment(fun) <- env
@@ -123,9 +127,99 @@ create_function <- function(params, body, env=parent.frame(), attributes=list())
     fun
 }
 
-contains <- function(x, name) {
-    stopifnot(!is_empty_str(name))
-    stopifnot(is.character(names(x)))
-    
-    name %in% names(x)
+# TODO: rename to list_contains_key
+contains_key <- function(x, name) {
+    name <- as.character(name)
+
+    stopifnot(!is_empty_str(name), length(name) == 1)
+    stopifnot(is.list(x) || is.vector(x))
+    names <- names(x)
+
+    if (length(names) == 0) {
+        FALSE
+    } else {
+        name %in% names(x)
+    }
+}
+
+bag_add <- function(bag, key, value) {
+    stopifnot(is.list(bag))
+
+    name <- as.character(key)
+
+    if (contains_key(bag, name)) {
+        bag[[name]] <- append(bag[[name]], value)
+    } else {
+        bag[[name]] <- list(value)
+    }
+
+    bag
+}
+
+bag_contains_value <- function(bag, key, value) {
+    stopifnot(is.list(bag))
+
+    name <- as.character(key)
+
+    if (contains_key(bag, name)) {
+        list_contains_value(bag[[name]], value)
+    } else {
+        FALSE
+    }
+}
+
+list_contains_value <- function(l, value) {
+    any(sapply(l, function(x) isTRUE(all.equal(x, value))))
+}
+
+list_merge <- function(xs, ys) {
+    xs <- as.list(xs)
+    xs_names <- names(xs)
+
+    if (is.null(xs_names)) {
+        return(c(xs, ys))
+    }
+
+    ys <- as.list(ys)
+    ys_names <- names(ys)
+
+    if (is.null(ys_names)) {
+        return(c(xs, ys))
+    }
+
+    # remove empty names in xs
+    xs_names <- xs_names[xs_names != ""]
+    stopifnot(all.equal(xs_names, unique(xs_names)))
+
+    # remove empty names in xs
+    ys_names <- ys_names[ys_names != ""]
+    stopifnot(all.equal(ys_names, unique(ys_names)))
+
+    xs_names_in_ys <- xs_names[which(xs_names %in% ys_names)]
+    ys_names_not_in_xs <- ys_names[which(!(ys_names %in% xs_names))]
+
+    rs <- xs
+    # replace existing
+    rs[xs_names_in_ys] <- ys[xs_names_in_ys]
+    # copy the rest of the names elements
+    rs <- c(rs, ys[ys_names_not_in_xs])
+    rs <- c(rs, ys[names(ys) == ""])
+    rs
+}
+
+
+
+#' @export
+link_environments <- function(parent=globalenv(), env=parent.frame()) {
+    vars <- as.list(env)
+    funs <- filter(vars, is.function)
+    lapply(funs, function(x) {
+        f_env <- environment(x)
+        parent.env(f_env) <- env
+        link_environments(f_env)
+    })
+
+    new_env <- new.env(parent=parent)
+    list2env(vars, new_env)
+    new_env
 }

@@ -16,6 +16,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// serialize_r
+SEXP serialize_r(SEXP s);
+RcppExport SEXP genthat_serialize_r(SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_r(s));
+    return rcpp_result_gen;
+END_RCPP
+}
+// serialize_r_expr
+SEXP serialize_r_expr(SEXP s);
+RcppExport SEXP genthat_serialize_r_expr(SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_r_expr(s));
+    return rcpp_result_gen;
+END_RCPP
+}
 // reassign_function
 SEXP reassign_function(SEXP target_fun, SEXP new_fun);
 RcppExport SEXP genthat_reassign_function(SEXP target_funSEXP, SEXP new_funSEXP) {

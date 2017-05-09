@@ -1,8 +1,11 @@
+# TODO: rename to format_calling_args
 format_args <- function(args) {
+    args <- lapply(args, format_value)
+
     args_str <- if (!is.null(names(args))) {
                    pairs <- zip(name=names(args), value=args)
                    lapply(pairs, function(x) {
-                       if(nchar(x$name) > 0) {
+                       if(!is_empty_str(x$name)) {
                            paste0(x$name, "=", x$value)
                        } else {
                            x$value
@@ -15,6 +18,28 @@ format_args <- function(args) {
     paste(args_str, collapse=", ")
 }
 
+#' @export
+format_value <- function(x, ...) {
+    UseMethod("format_value")
+}
+
+#' @export
+format_value.genthat_closure <- function(x, ...) {
+    args <- paste(names(x$args), lapply(x$args, format_value), sep="=", collapse=", ")
+    body <- paste(deparse(x$body, control=c("quoteExpressions")), collapse="\n")
+    globals <- paste(names(x$globals), lapply(x$globals, format_value), sep="=", collapse=",\n")
+
+    paste0("as.function(c(alist(", args, "), ", body,"), envir=list2env(list(", globals, ")))")
+}
+
+#' @export
+format_value.default <- function(value) {
+    if (isTRUE(getOption("genthat.use_deparse"))) {
+        deparse(value)
+    } else {
+        serialize_value(value)
+    }
+}
 
 #' @title Generate test case code from a trace
 #' @description Given a genthat trace it generates a corresponding test case
@@ -30,17 +55,17 @@ generate_test_code <- function(trace) {
 generate_test_code.genthat_trace <- function(trace) {
     stopifnot(is.character(trace$fun))
     stopifnot(is.list(trace$args))
-    stopifnot(is.character(trace$retv))
 
-    args_str <- format_args(trace$args)
-    call_str <- paste0(trace$fun, "(", args_str, ")")
+    fun <- trace$fun
+    args <- format_args(trace$args)
+    globals <- paste(names(trace$globals), lapply(trace$globals, format_value), sep=" <- ", collapse="\n")
+    retv <- format_value(trace$retv)
 
-    paste(
-        paste0('test_that("', trace$fun, '"',", {"),
-        paste0("\texpected <- ", trace$retv),
-        paste0("\texpect_equal(", call_str, ", expected)"),
-        "})",
-        sep="\n"
+    paste0(
+        'test_that("', fun, '", {',
+        if (!is_empty_str(globals)) paste0('\n\t', globals) else '',
+        '\n\tenvironment(', fun, ') <- genthat::link_environments(parent=environment(', fun, '))',
+        '\n\n\texpect_equal(', fun, '(', args, '), ', retv, ')\n})'
     )
 }
 
