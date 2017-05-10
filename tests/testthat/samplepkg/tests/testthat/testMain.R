@@ -12,6 +12,16 @@ test_that("indirect call", {
     expect_equal(my_call(my_add, 1, 2), 3)
 })
 
+test_that("indirect call", {
+    my_mul <- function(a, b, c) a * b * c
+
+    a1 <- 1
+    b1 <- 2
+    c1 <- 3
+
+    expect_equal(my_call(my_mul, a1, b1, c1), 6)
+})
+
 test_that("warnings", {
     expect_warning(my_warning())
 })

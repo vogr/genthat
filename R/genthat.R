@@ -54,7 +54,7 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     genthat_output <- file.path(pkg_dir, "genthat.RDS")
 
     if (is_debug_enabled()) {
-        message("Working dir:", pkg_dir)
+        cat("Working dir:", pkg_dir)
     }
 
     add_package_hook(
@@ -110,11 +110,16 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     }
 
     output <- readRDS(genthat_output)
+
+    if (is_debug_enabled()) {
+        cat("Genthat RDS output: ", genthat_output, "\n")
+    }
+
     stopifnot(is.environment(output))
 
     tests <- generate_tests(output$traces, output_dir)
 
-    structure(
+    res <- structure(
         list(
             traces=output$traces,
             errors=filter(output$traces, is, class2="genthat_trace_entry"),
@@ -123,6 +128,14 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
         ),
         class="genthat_result"
     )
+
+    if (is_debug_enabled()) {
+       res$genthat_output <- genthat_output
+       res$libs <- libs
+       res$pkg_dir <- pkg_dir
+    }
+
+    res
 }
 
 #' @title Exports recorded traces into RDS file
@@ -134,12 +147,21 @@ export_traces <- function(file) {
     saveRDS(cache, file)
 }
 
+summarizes_genthat_results <- function(x) {
+    x$traces <- length(x$traces)
+    x$errors <- length(x$errors)
+    x$failures <- length(x$failures)
+    x$tests <- length(x$tests)
+
+    c(x)
+}
+
 #' @export
 format.genthat_result <- function(x, ...) {
-    format(lapply(x, length))
+    format(summarizes_genthat_results(x))
 }
 
 #' @export
 print.genthat_result <- function(x, ...) {
-    print(lapply(r, length))
+    print(summarizes_genthat_results(x))
 }

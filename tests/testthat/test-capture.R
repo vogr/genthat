@@ -7,21 +7,44 @@ test_that("on_function_entry correctly evaluates and stores arguments", {
     b <- 2
 
     g <- function(y) a + y
-    f <- function(x, y) {
-        g(x + y)
-    }
+    f <- function(x, y) x + y
 
-    on_function_entry(1, "f", fun=f, args=list(x=quote(b + 2), y=1))
+    on_function_entry(1, "f", fun=f, args=list(x=quote(b + 2), y=quote(g(1))))
 
     t <- get_call_trace(1)
 
     expect_equal(t$fun, "f")
-    expect_equal(t$args, list(x=quote(b + 2), y=1))
-    expect_equal(t$globals$b, 2)
+    expect_equal(t$args, list(x=quote(b + 2), y=quote(g(1))))
     expect_equal(length(t$globals), 2)
+    expect_equal(t$globals$b, 2)
     expect_equal(t$globals$g$args, formals(g))
     expect_equal(t$globals$g$body, body(g))
     expect_equal(t$globals$g$globals, list(a=1))
+})
+
+test_that("on_function_entry correctly evaluates and stores arguments with ...", {
+    on.exit(reset_call_traces())
+
+    a <- 1
+    b <- 2
+    c <- 3
+    d <- 4
+
+    g <- function(y) a + y + h(b)
+    h <- function(x) x + c + d
+    f <- function(x, ...) x
+
+    # f(b+1, 2, 3, g(c))
+    on_function_entry(1, "f", fun=f, args=list(quote(b + 1), 2, 3, quote(g(c))))
+
+    t <- get_call_trace(1)
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(quote(b + 1), 2, 3, quote(g(c))))
+    expect_equal(length(t$globals), 3)
+    expect_equal(t$globals$b, 2)
+    expect_equal(t$globals$c, 3)
+    expect_equal(t$globals$g$globals$a, 1)
+    expect_equal(t$globals$g$globals$h$globals, list(d=4))
 })
 
 test_that("on_function_entry defaults", {
@@ -83,12 +106,12 @@ test_that("find_symbol_env finds the earlier symbol", {
 })
 
 test_that("get_symbol_values gets values", {
-    e <- new.env(parent=globalenv())
-    e$a <- 1
-    e$b <- 2
+    env <- new.env(parent=globalenv())
+    env$a <- 1
+    env$b <- 2
 
-    expect_equal(get_symbol_values(c("a", "b"), e), list(a=1, b=2))
-    expect_equal(get_symbol_values(c(), e), list())
+    expect_equal(get_symbol_values(c("a", "b"), env), list(a=1, b=2))
+    expect_equal(get_symbol_values(c(), env), list())
     expect_equal(get_symbol_values("unzip", globalenv()), list(unzip=quote(utils:::unzip)))
 
     # it is a named list for which expect_equal won't work
@@ -130,7 +153,7 @@ test_that("extract_closure works for nested closures", {
     expect_equal(sc$globals$f$globals, list(a=1))
 })
 
-test_that("extract_closure works work references", {
+test_that("extract_closure works with references", {
     a <- mtcars
     f <- function() mtcars$cyl*a$wt
 
@@ -180,20 +203,43 @@ test_that("extract_closure works with cycles", {
     expect_equal(sc$globals$a$globals$b$globals, list())
 })
 
+test_that("on_function_entry resolves caller and callee environments", {
+    env <- new.env(parent=baseenv())
+    env$a <- function(x) x
+    env$b <- function(x) x+2
+    env$d <- function(x) x+3
+    env$e <- function(x) x+4
+    env$f <- function(x=a(1), y=2*a(2), z=d(3)+e(4), ...) { b(1) }
+    environment(env$f) <- env
+
+    a <- 10
+    d <- 30
+    e <- 40
+    b <- function(x=d(), y=e) {
+        d <- 300
+        x+20+d+e
+    }
+
+    ## browser()
+    # env$f(y=2*x, a+x+y)
+    on_function_entry(1, "f", list(x=quote(b(d)), y=quote(2 * x), quote(a + x + y)), fun=env$f)
+
+    t <- get_call_trace(1)
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(x=quote(b(d)), y=quote(2 * x), quote(a + x + y)))
+    expect_equal(length(t$globals), 3)
+    expect_equal(t$globals$a, 10)
+    expect_equal(t$globals$d, 30)
+    expect_equal(t$globals$b$args, formals(b))
+    expect_equal(t$globals$b$body, body(b))
+    expect_equal(t$globals$b$globals, list(e=40))
+})
+
 # I need free variables
 # all non-functions in user-defined envs I can serialize straight away
 # all functions in user-defined envs I can serialize
 # all functions in packages I need to import into a namespace
 # for all functions in user-defined envs I have to do the same
-
-test_that("replace_formals_with_actuals", {
-    f1 <- function(x,y=1) x+y
-    f2 <- replace_formals_with_actuals(f1, alist(x=2, y=4))
-
-    expect_equal(as.list(formals(f1)), alist(x=, y=1))
-    expect_equal(as.list(formals(f2)), alist(x=2, y=4))
-})
-
 
 test_that("get_call_trace works", {
     on.exit(reset_call_traces())

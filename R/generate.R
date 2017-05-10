@@ -27,9 +27,15 @@ format_value <- function(x, ...) {
 format_value.genthat_closure <- function(x, ...) {
     args <- paste(names(x$args), lapply(x$args, format_value), sep="=", collapse=", ")
     body <- paste(deparse(x$body, control=c("quoteExpressions")), collapse="\n")
-    globals <- paste(names(x$globals), lapply(x$globals, format_value), sep="=", collapse=",\n")
 
-    paste0("as.function(c(alist(", args, "), ", body,"), envir=list2env(list(", globals, ")))")
+    env <- if (length(x$globals) == 0) {
+        "new.env()"
+    } else {
+        globals <- paste(names(x$globals), lapply(x$globals, format_value), sep="=", collapse=",\n")
+        paste0("list2env(list(", globals, "))")
+    }
+
+    paste0("as.function(c(alist(", args, "), ", body,"), envir=", env, ")")
 }
 
 #' @export
@@ -63,9 +69,8 @@ generate_test_code.genthat_trace <- function(trace) {
 
     paste0(
         'test_that("', fun, '", {',
-        if (!is_empty_str(globals)) paste0('\n\t', globals) else '',
-        '\n\tenvironment(', fun, ') <- genthat::link_environments(parent=environment(', fun, '))',
-        '\n\n\texpect_equal(', fun, '(', args, '), ', retv, ')\n})'
+        if (!is_empty_str(globals)) paste0('\n\t', globals, '\n\tgenthat::link_environments()\n') else '',
+        '\n\texpect_equal(', fun, '(', args, '), ', retv, ')\n})'
     )
 }
 

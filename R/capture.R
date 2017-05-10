@@ -1,14 +1,15 @@
-on_function_entry <- function(call_id, name, args, fun=sys.function(-1), parent=parent.frame(2)) {
+on_function_entry <- function(call_id, name, args, fun=sys.function(-1), env=parent.frame()) {
     stopifnot(is.numeric(call_id))
     stopifnot(is.character(name))
     stopifnot(is.list(args))
 
-    #parent <- parent.frame(2) # 2 generations back - the callee of the original function
-    #fun <- sys.function(-1) # the one that called this one
+    # get callee globals (free variables) that we need to capture
+    # we do that by abusing the extract closure
+    dummy <- as.function(c(name_unnamed_args(args), 0), envir=env)
 
-    new_fun <- replace_formals_with_actuals(fun, args)
-    cls <- extract_closure(new_fun)
-    set_call_trace(call_id, create_trace(name, cls$args, cls$globals))
+    callee <- extract_closure(dummy)$globals
+
+    set_call_trace(call_id, create_trace(name, args, callee))
 }
 
 #' @importFrom methods is
@@ -31,17 +32,21 @@ on_function_exit <- function(call_id, retv) {
     cache$capture_arguments <- TRUE
 }
 
-replace_formals_with_actuals <- function(fun, args) {
-    old_formals <- formals(fun)
+name_unnamed_args <- function(args) {
+    stopifnot(is.list(args))
 
-    if ("..." %in% names(old_formals)) {
-       old_formals  <- old_formals[names(old_formals) != "..."]
+    args_names <- names(args)
+
+    if (length(args) == 0) {
+        args
+    } else if (is.null(args_names)) {
+        names(args) <- paste0("___", 1:length(args))
+        args
+    } else {
+        args_names[args_names == ""] <- paste0("___", 1:length(args_names[args_names == ""])) 
+        names(args) <- args_names
+        args
     }
-
-    new_fun <- fun
-    new_formals <- list_merge(old_formals, args)
-    formals(new_fun) <- new_formals
-    new_fun
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {

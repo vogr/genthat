@@ -150,8 +150,9 @@ test_that("remove_replacement", {
 
 
 test_that("reset_function", {
-    devtools::load_all("samplepkg")
     on.exit(detach(package:samplepkg))
+
+    devtools::load_all("samplepkg")
 
     decorate_functions(samplepkg::my_public)
 

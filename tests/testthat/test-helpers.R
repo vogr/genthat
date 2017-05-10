@@ -46,6 +46,31 @@ test_that("list_merge works", {
     expect_equal(list_merge(list(0, a=1), list(a=2, b=3, 4)), list(0, a=2, b=3, 4))
 })
 
+test_that("link_environments work",{
+    b <- as.function(c(alist(x=0), quote(b())),
+        envir=list2env(
+            list(
+                a=as.function(c(alist(x=0), quote(d())), envir=list2env(
+                    list(
+                        d=as.function(c(alist(x=0), 1), envir=new.env())
+                    ),
+                    parent=emptyenv()
+                ),
+                parent=emptyenv())
+            ),
+            parent=emptyenv()
+        ))
+
+    link_environments()
+
+    b_env <- environment(b)
+    a_env <- environment(b_env$a)
+    d_env <- environment(a_env$d)
+
+    expect_identical(parent.env(b_env), sys.frame(sys.nframe()))
+    expect_identical(parent.env(a_env), b_env)
+    expect_identical(parent.env(d_env), a_env)
+})
 # TODO: update for link_environments()
 ## test_that("linked_environment links environments", {
 ##     e <- linked_environment(

@@ -67,6 +67,8 @@ reset_functions <- function(...) {
 
     # TODO: define contract
 
+    # TODO: if empty - reset all decorated functions
+
     lapply(names, reset_function)
 }
 
@@ -97,7 +99,7 @@ do_decorate_function <- function(name, fun,
         params=formals(fun),
         body=substitute({
             `__call_id` <- CALL_ID_GEN()
-            ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1])
+            ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1], env=parent.frame())
             retv <- BODY
             EXIT(call_id=`__call_id`, retv=retv)
             retv

@@ -454,7 +454,12 @@ string do_serialize_value(SEXP s)
         return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
     case SYMSXP: {
         RObject protected_s(s);
-        return "quote(" + string(CHAR(PRINTNAME(s))) + ")";
+        string symbol = string(CHAR(PRINTNAME(s)));
+        if (symbol.empty()) {
+          return symbol;
+        } else {
+          return "quote(" + symbol  + ")";
+        }
     }
     case ENVSXP: {
         RObject protected_s(s);

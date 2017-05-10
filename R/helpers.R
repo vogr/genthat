@@ -207,16 +207,17 @@ list_merge <- function(xs, ys) {
     rs
 }
 
-
-
 #' @export
-link_environments <- function(parent=globalenv(), env=parent.frame()) {
+link_environments <- function(env=parent.frame(), parent=globalenv()) {
     vars <- as.list(env)
     funs <- filter(vars, is.function)
+
     lapply(funs, function(x) {
         f_env <- environment(x)
-        parent.env(f_env) <- env
-        link_environments(f_env)
+        if (!identical(f_env, emptyenv())) {
+            parent.env(f_env) <- env
+            link_environments(f_env)
+        }
     })
 
     new_env <- new.env(parent=parent)
