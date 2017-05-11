@@ -211,6 +211,8 @@ is.local_function <- function(f) {
     is.function(f) && is.null(get_package_name(environment(f)))
 }
 
+#' @importFrom methods getPackageName
+#' 
 get_package_name <- function(env) {
     stopifnot(is.environment(env))
 
@@ -220,7 +222,7 @@ get_package_name <- function(env) {
     } else if (environmentName(env) == "") {
         NULL
     } else {
-        name <- getPackageName(env, create=FALSE)
+        name <- methods::getPackageName(env, create=FALSE)
         if (isNamespaceLoaded(name)) {
             name
         } else {
