@@ -207,16 +207,38 @@ list_merge <- function(xs, ys) {
     rs
 }
 
+is.local_function <- function(f) {
+    is.function(f) && is.null(get_package_name(environment(f)))
+}
+
+get_package_name <- function(env) {
+    stopifnot(is.environment(env))
+
+    # TODO: there must be a smarter way how to do this
+    if (identical(env, globalenv())) {
+        NULL
+    } else if (environmentName(env) == "") {
+        NULL
+    } else {
+        name <- getPackageName(env, create=FALSE)
+        if (isNamespaceLoaded(name)) {
+            name
+        } else {
+            NULL
+        }
+    }
+}
+
 #' @export
 link_environments <- function(env=parent.frame(), parent=globalenv()) {
     vars <- as.list(env)
-    funs <- filter(vars, is.function)
+    funs <- filter(vars, is.local_function)
 
     lapply(funs, function(x) {
         f_env <- environment(x)
         if (!identical(f_env, emptyenv())) {
             parent.env(f_env) <- env
-            link_environments(f_env)
+            link_environments(env=f_env)
         }
     })
 

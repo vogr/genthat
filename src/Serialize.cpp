@@ -24,7 +24,7 @@ class cycle_error : public serialization_error {
 
 
 string serialize_value(SEXP s);
-string do_serialize_value(SEXP s);
+string do_serialize_value(SEXP s, bool quote);
 string to_string_literal(const char *x);
 
 static string char_to_hex(unsigned char c)
@@ -39,6 +39,7 @@ static string char_to_hex(unsigned char c)
         return "0x" + string(buff);
     }
 }
+
 
 /* check for attributes other than function source */
 static Rboolean hasAttributes(SEXP s)
@@ -156,7 +157,7 @@ string wrap_in_attributes(SEXP s, string s_str, bool wrap_just_names)
         {
 			if (TAG(a) != Rf_install("srcref")) {
                 string attr_name = symbol_to_attrib_key(TAG(a));
-                elems += ", " + attr_name + "=" + do_serialize_value(CAR(a));
+                elems += ", " + attr_name + "=" + do_serialize_value(CAR(a), true);
                 if (attr_name != ".Names") {
                     non_name_attr = true;
                 }
@@ -212,6 +213,7 @@ string to_string_literal(const char *x)
     return "\"" + ret + "\"";
 }
 
+// TODO: do we really need global state? Why not to encapsulate the whole thing in a class?
 set<SEXP> visited_environments;
 
 // [[Rcpp::export]]
@@ -219,7 +221,7 @@ std::string serialize_value(SEXP s)
 {
     visited_environments.clear();
 
-    string res = do_serialize_value(s);
+    string res = do_serialize_value(s, false);
 
     visited_environments.clear();
 
@@ -244,7 +246,7 @@ static string serialize_env(SEXP s)
     {
         SEXP key = STRING_ELT(names, i);
         SEXP value = Rf_findVarInFrame(s, Rf_install(CHAR(key)));
-        elems += (i == 0 ? "" : ", ") + escape_list_key(string(CHAR(key))) + "=" + do_serialize_value(value);
+        elems += (i == 0 ? "" : ", ") + escape_list_key(string(CHAR(key))) + "=" + do_serialize_value(value, true);
     }
     return "as.environment(list(" + elems + "))";
 }
@@ -262,104 +264,11 @@ bool is_infix(string func)
 	return func[0] == '%' || in_array(func, builtIn);
 }
 
-string serialize_lang_subsexp(SEXP s)
-{
-    RObject protected_s(s);
-    /**
-     * can be one of:
-     * - lang (e.g. c(2,3))
-     * - symbol (e.g. x)
-     * - scalar literal (e.g. 5) -- TODO implement all literals
-     */
-
-    switch (TYPEOF(s)) {
-    case NILSXP:
-        return "NULL";
-    case SYMSXP:
-        return string(CHAR(PRINTNAME(s)));
-    case INTSXP: {
-        int val = INTEGER(s)[0];
-        return val == NA_INTEGER ? "NA_integer_" : (to_string(val) + "L"); }
-    case REALSXP: {
-        double val = REAL(s)[0];
-        string elems = "";
-        for (int j = 0; j < sizeof(double); j++)
-        {
-            string str_val = char_to_hex(((unsigned char *) &val)[j]);
-            elems += (j == 0 ? "" : ",") + str_val;
-        }
-        return "readBin(as.raw(c(" + elems + ")), n=1, \"double\")"; }
-    case LGLSXP: {
-        int val = LOGICAL(s)[0];
-        return (val == NA_LOGICAL) ? "NA" : (val == 0) ? "FALSE" : "TRUE";
-        }
-    case STRSXP: {
-        SEXP val = STRING_ELT(s, 0);
-        return (val == NA_STRING) ? "NA_character_" : to_string_literal(CHAR(val));
-    }
-    case LISTSXP: {/* pairlists */
-        stringstream outStr;
-        SEXP names = Rf_getAttrib(s, R_NamesSymbol);
-        int i = 0;
-
-        for (SEXP con = s; con != R_NilValue; con = CDR(con))
-        {
-            if (i != 0) outStr << ", ";
-
-            outStr << escape_list_key(string(CHAR(STRING_ELT(names, i++))));
-            auto val = serialize_lang_subsexp(CAR(con));
-            if (val != "")
-                outStr << " = " << val;
-        }
-        return outStr.str();}
-    case LANGSXP: {
-        RObject protected_s(s);
-        string func = serialize_lang_subsexp(CAR(s)); // TODO func val
-        if (is_infix(func)) {
-            SEXP left = CAR(CDR(s));
-            SEXP right = CAR(CDR(CDR(s)));
-            string call = serialize_lang_subsexp(left) + func + serialize_lang_subsexp(right);
-            return call;
-        }
-        else if (func == "function") {
-            s = CDR(s);
-
-            SEXP args = CAR(s);
-            SEXP body = CADR(s);
-            SEXP null = CADDR(s);
-
-            return string("function(" + serialize_lang_subsexp(args) + ") " + serialize_lang_subsexp(body));
-        } else if (func == "{") {
-            bool first = true;
-            string args = "";
-            for (SEXP con = CDR(s); con != R_NilValue; con = CDR(con))
-            {
-                string arg = serialize_lang_subsexp(CAR(con));
-                if (!first) args += ";\n";
-                args += arg; // TODO arg name
-                first = false;
-            }
-            return string("{" + args + "}");
-        } else {
-            bool first = true;
-            string args = "";
-            for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
-            {
-                string arg = serialize_lang_subsexp(CAR(a));
-                args += (first ? string("") : string(",")) + arg; // TODO arg name
-                first = false;
-            }
-            return string(func + string("(") + args + string(")"));
-        } }
-    default:
-        throw sexp_not_supported_error("serialize_lang_subsexp unknown " + to_string(TYPEOF(s)));
-    }
-}
-
-string do_serialize_value(SEXP s)
+string do_serialize_value(SEXP s, bool quote)
 {
     switch (TYPEOF(s)) {
     case NILSXP:
+      // TODO: isn't there a constant somewhere?
         return "NULL";
     case VECSXP: { /* lists */
         RObject protected_s(s); // TODO push this above switch
@@ -372,7 +281,7 @@ string do_serialize_value(SEXP s)
             string label = (names == R_NilValue || string(CHAR(STRING_ELT(names, i))) == "") ?
                                 "" :
                                 (escape_list_key(string(CHAR(STRING_ELT(names, i)))) + "=");
-            ret += string(i == 0 ? "" : ",") + label + do_serialize_value(val);
+            ret += string(i == 0 ? "" : ",") + label + do_serialize_value(val, true);
         }
         ret += ")";
         return wrap_in_attributes(s, ret, false);}
@@ -440,7 +349,6 @@ string do_serialize_value(SEXP s)
     case STRSXP: {
         RObject protected_s(s);
         int n = XLENGTH(s);
-        SEXP attrs = ATTRIB(s);
         string elems = "";
         for (int i = 0; i < n; i++)
         {
@@ -455,7 +363,7 @@ string do_serialize_value(SEXP s)
     case SYMSXP: {
         RObject protected_s(s);
         string symbol = string(CHAR(PRINTNAME(s)));
-        if (symbol.empty()) {
+        if (symbol.empty() || !quote) {
           return symbol;
         } else {
           return "quote(" + symbol  + ")";
@@ -492,7 +400,7 @@ string do_serialize_value(SEXP s)
             if (i != 0) outStr << ", ";
 
             outStr << escape_list_key(string(CHAR(STRING_ELT(names, i++)))) << " = ";
-            auto val = serialize_lang_subsexp(CAR(con));
+            auto val = do_serialize_value(CAR(con), false);
             if (val != "")
                 outStr << val;
         }
@@ -500,28 +408,31 @@ string do_serialize_value(SEXP s)
         return outStr.str(); }
     case LANGSXP: {
         RObject protected_s(s);
-        string func = serialize_lang_subsexp(CAR(s)); // TODO func val
+        string func = do_serialize_value(CAR(s), false); // TODO func val
         if (is_infix(func)) {
             SEXP left = CAR(CDR(s));
             SEXP right = CAR(CDR(CDR(s)));
-            string call = serialize_lang_subsexp(left) + func + serialize_lang_subsexp(right);
-            return string("quote(") + call + string(")");\
+            string call = do_serialize_value(left, false) + func + do_serialize_value(right, false);
+            if (quote) {
+              return string("quote(") + call + string(")");
+            } else {
+              return call;
+            }
         }
         else if (func == "function") {
             s = CDR(s);
 
             SEXP args = CAR(s);
             SEXP body = CADR(s);
-            SEXP null = CADDR(s);
 
-            return string(func + "(" + serialize_lang_subsexp(args) + ") " + serialize_lang_subsexp(body));
+            return func + "(" + do_serialize_value(args, false) + ") " + do_serialize_value(body, false);
         }
         else if (func == "{") {
             bool first = true;
             string args = "";
             for (SEXP con = CDR(s); con != R_NilValue; con = CDR(con))
             {
-                string arg = serialize_lang_subsexp(CAR(con));
+              string arg = do_serialize_value(CAR(con), false);
                 if (!first) args += ";\n";
                 args += arg; // TODO arg name
                 first = false;
@@ -532,7 +443,7 @@ string do_serialize_value(SEXP s)
             string args = "";
             for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
             {
-                string arg = serialize_lang_subsexp(CAR(a));
+                string arg = do_serialize_value(CAR(a), false);
                 args += (first ? string("") : string(",")) + arg; // TODO  arg name
                 first = false;
                 /*
@@ -545,8 +456,15 @@ string do_serialize_value(SEXP s)
                 }
                 */
             }
-            return string("quote(") + func + string("(") + args + string("))");
-        } } 
+
+            string res = func + string("(") + args + string(")");
+            if (quote) {
+              return string("quote(") + res + string(")");
+            } else {
+              return res;
+            }
+        } }
+      // the following is annoying, but the sexptype2char from memory.c is not public
     case DOTSXP:
         throw sexp_not_supported_error("DOTSXP");
     case CHARSXP:
@@ -560,25 +478,6 @@ string do_serialize_value(SEXP s)
     case S4SXP:
         throw sexp_not_supported_error("S4SXP");
     default:
-      // TODO: merge all the unsupported sexp
         throw sexp_not_supported_error("unknown");
     }
 }
-
-// [[Rcpp::export]]
-SEXP serialize_r(SEXP s)
-{
-  string str_rep = serialize_value(s);
-  // TODO: use std:string
-  return Rf_mkString(str_rep.c_str());
-}
-
-// [[Rcpp::export]]
-SEXP serialize_r_expr(SEXP s)
-{
-  // TYPEOF(s) == LANGSXP | SYMXSP | LISTSXP
-  string str_rep = serialize_lang_subsexp(s);
-  // TODO: use std:string
-  return Rf_mkString(str_rep.c_str());
-}
-

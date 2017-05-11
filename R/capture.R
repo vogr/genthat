@@ -62,24 +62,6 @@ find_symbol_env <- function(name, env=parent.frame()) {
     }
 }
 
-get_package_name <- function(env) {
-    stopifnot(is.environment(env))
-
-    # TODO: there must be a smarter way how to do this
-    if (identical(env, globalenv())) {
-        NULL
-    } else if (environmentName(env) == "") {
-        NULL
-    } else {
-        name <- getPackageName(env, create=FALSE)
-        if (isNamespaceLoaded(name)) {
-            name
-        } else {
-            NULL
-        }
-    }
-}
-
 get_symbol_names <- function(exprs) {
     stopifnot(is.list(exprs))
 

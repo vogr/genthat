@@ -130,9 +130,10 @@ gen_from_package <- function(package=".", output_dir="generated_tests",
     )
 
     if (is_debug_enabled()) {
-       res$genthat_output <- genthat_output
-       res$libs <- libs
-       res$pkg_dir <- pkg_dir
+        res$output <- output_dir
+        res$genthat_output <- genthat_output
+        res$libs <- libs
+        res$pkg_dir <- pkg_dir
     }
 
     res
@@ -153,6 +154,7 @@ summarizes_genthat_results <- function(x) {
     x$failures <- length(x$failures)
     x$tests <- length(x$tests)
 
+    # to get rid of the attributes
     c(x)
 }
 

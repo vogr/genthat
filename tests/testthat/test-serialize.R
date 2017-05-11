@@ -1,8 +1,23 @@
 context("serialize")
 
-test_that("string serialization", {
-    expect_equal(serialize_value("A"), '"A"')
+serialize <- function(x) {
+    eval(parse(text=serialize_value(x)))
+}
+
+test_that("single element string vector serialization", {
+    v <- "A"
+    expect_equal(serialize(v), v)
 })
+
+test_that("string vector serialization", {
+    v <- c("A", "B")
+    expect_equal(serialize(v), v)
+})
+
+test_that("function serialization", {
+    cat(serialize_value(quote(my_call(x=a, y="2", z=function(x,y) x + y, zz=list(a="1", b=my, c=quote(my_call))))))
+})
+
 
 #test_that('Can serialize vectors of reals.', {
 #    l1 <- c(12.3, 435.549)

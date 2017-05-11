@@ -65,18 +65,16 @@ test_that("gen_from_package works on samplepkg tests", {
 
     devtools::load_all("samplepkg")
 
-    # TODO: because of quote it does not work
-    ## x <- testthat::test_dir(tmp_dir, reporter="silent")
-    ## x <- as.data.frame(x)
+    x <- testthat::test_dir(tmp_dir, reporter="silent")
+    x <- as.data.frame(x)
 
-    ## expect_equal(nrow(x), 4)
-    ## expect_equal(sum(x[["failed"]]), 0)
-    ## expect_equal(sum(x[["error"]]), 0)
+    expect_equal(nrow(x), 6)
+    expect_equal(sum(x[["failed"]]), 0)
+    expect_equal(sum(x[["error"]]), 0)
 })
 
 test_that("gen_from_package works on stringr", {
     skip_if_not_integration_test()
-    skip("A")
 
     pkg_tmp_dir <- tempfile()
     tmp_dir <- tempfile()

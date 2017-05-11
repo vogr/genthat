@@ -69,6 +69,7 @@ generate_test_code.genthat_trace <- function(trace) {
 
     paste0(
         'test_that("', fun, '", {',
+        # TODO: only link if there is a function
         if (!is_empty_str(globals)) paste0('\n\t', globals, '\n\tgenthat::link_environments()\n') else '',
         '\n\texpect_equal(', fun, '(', args, '), ', retv, ')\n})'
     )
