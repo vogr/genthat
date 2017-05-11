@@ -351,7 +351,7 @@ string serialize_lang_subsexp(SEXP s)
             {
                 string arg = serialize_lang_subsexp(CAR(con));
                 if (!first) args += ";\n";
-                args += arg; // TODO arg name
+                args += arg;
                 first = false;
             }
             return string("{" + args + "}");
@@ -360,8 +360,12 @@ string serialize_lang_subsexp(SEXP s)
             string args = "";
             for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
             {
+                SEXP tag = TAG(a);
+                string argName = "";
+                if (!Rf_isNull(tag) && a != Rf_install("srcref"))
+                    argName = symbol_to_attrib_key(TAG(a)) + "=";
                 string arg = serialize_lang_subsexp(CAR(a));
-                args += (first ? string("") : string(",")) + arg; // TODO arg name
+                args += (first ? string("") : string(",")) + argName + arg;
                 first = false;
             }
             return string(func + string("(") + args + string(")"));
@@ -540,18 +544,13 @@ string serialize_cpp0(SEXP s)
             string args = "";
             for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
             {
+                SEXP tag = TAG(a);
+                string argName = "";
+                if (!Rf_isNull(tag) && a != Rf_install("srcref"))
+                    argName = symbol_to_attrib_key(TAG(a)) + "=";
                 string arg = serialize_lang_subsexp(CAR(a));
-                args += (first ? string("") : string(",")) + arg; // TODO  arg name
+                args += (first ? string("") : string(",")) + argName + arg;
                 first = false;
-                /*
-                if (TAG(a) != Rf_install("srcref")) {
-                    string attr_name = symbol_to_attrib_key(TAG(a));
-                    elems += ", " + attr_name + "=" + serialize_cpp0(CAR(a));
-                    if (attr_name != ".Names") {
-                        non_name_attr = true;
-                    }
-                }
-                */
             }
             return string("quote(") + func + string("(") + args + string("))");
         } } 
