@@ -14,8 +14,9 @@ test_that("string vector serialization", {
     expect_equal(serialize(v), v)
 })
 
-test_that("function serialization", {
-    cat(serialize_value(quote(my_call(x=a, y="2", z=function(x,y) x + y, zz=list(a="1", b=my, c=quote(my_call))))))
+test_that("function serialization with a quote", {
+    v <- serialize_value(quote(my_call("0", "1", a=quote(my_fun), b=my_fun(a="1", b=ref))))
+    expect_equal(v, 'my_call("0", "1", a=quote(my_fun), b=my_fun(a="1", b=ref))')
 })
 
 

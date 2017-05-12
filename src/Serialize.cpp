@@ -264,6 +264,26 @@ bool is_infix(string func)
 	return func[0] == '%' || in_array(func, builtIn);
 }
 
+static string format_call_argument(SEXP s) {
+  SEXP tag = TAG(s);
+  string prefix;
+
+  switch (TYPEOF(tag)) {
+  case NILSXP:
+    prefix = "";
+    break;
+  case SYMSXP:
+    prefix = do_serialize_value(tag, false) + "=";
+    break;
+  default:
+    throw serialization_error("Unexpected SEXPTYPE in function arguments: " + to_string(TYPEOF(tag)));
+  }
+
+  string value = do_serialize_value(CAR(s), false);
+
+  return prefix + value;
+}
+
 string do_serialize_value(SEXP s, bool quote)
 {
     switch (TYPEOF(s)) {
@@ -438,32 +458,20 @@ string do_serialize_value(SEXP s, bool quote)
                 first = false;
             }
             return string("{" + args + "}");
-        }else {
-            bool first = true;
+        } else {
             string args = "";
-            for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
-            {
-                string arg = do_serialize_value(CAR(a), false);
-                args += (first ? string("") : string(",")) + arg; // TODO  arg name
-                first = false;
-                /*
-                if (TAG(a) != Rf_install("srcref")) {
-                    string attr_name = symbol_to_attrib_key(TAG(a));
-                    elems += ", " + attr_name + "=" + serialize_cpp0(CAR(a));
-                    if (attr_name != ".Names") {
-                        non_name_attr = true;
-                    }
-                }
-                */
+
+            for (SEXP arg = CDR(s); !Rf_isNull(arg); arg = CDR(arg)) {
+              args += format_call_argument(arg);
+              args += Rf_isNull(CDR(arg)) ? "" : ", ";
             }
 
             string res = func + string("(") + args + string(")");
-            if (quote) {
-              return string("quote(") + res + string(")");
-            } else {
-              return res;
-            }
-        } }
+
+            // TODO: can this actually ever happen?
+            return quote ? string("quote(") + res + string(")") : res;
+        }
+    }
       // the following is annoying, but the sexptype2char from memory.c is not public
     case DOTSXP:
         throw sexp_not_supported_error("DOTSXP");
