@@ -344,18 +344,43 @@ string serialize_lang_subsexp(SEXP s)
             SEXP null = CADDR(s);
 
             return string("function(" + serialize_lang_subsexp(args) + ") " + serialize_lang_subsexp(body));
-        } else if (func == "{") {
+        }
+        else if (func == "{") {
             bool first = true;
             string args = "";
             for (SEXP con = CDR(s); con != R_NilValue; con = CDR(con))
             {
                 string arg = serialize_lang_subsexp(CAR(con));
-                if (!first) args += ";\n";
+                if (!first) args += "; ";
                 args += arg;
                 first = false;
             }
             return string("{" + args + "}");
-        } else {
+        }
+        else if (func == "(") {
+            bool first = true;
+            string args = "";
+            for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
+            {
+                string arg = serialize_lang_subsexp(CAR(a));
+                args += (first ? string("") : string(",")) + arg;
+                first = false;
+            }
+            return string("(" + args + ")");
+        }
+        else if (func == "[") {
+            bool first = true;
+            SEXP firstItem = CDR(s);
+            string args = serialize_lang_subsexp(CAR(firstItem)) + "[";
+            for (SEXP a = CDR(firstItem); !Rf_isNull(a); a = CDR(a))
+            {
+                string arg = serialize_lang_subsexp(CAR(a));
+                args += (first ? string("") : string(",")) + arg;
+                first = false;
+            }
+            return string(args + "]");
+        }
+        else {
             bool first = true;
             string args = "";
             for (SEXP a = CDR(s); !Rf_isNull(a); a = CDR(a))
@@ -368,8 +393,9 @@ string serialize_lang_subsexp(SEXP s)
                 args += (first ? string("") : string(",")) + argName + arg;
                 first = false;
             }
-            return string(func + string("(") + args + string(")"));
-        } }
+            return string(func + "(" + args + ")");
+        } 
+    }
     default:
         throw sexp_not_implemented("serialize_lang_subsexp unknown " + to_string(TYPEOF(s)));
     }

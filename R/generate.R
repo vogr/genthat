@@ -54,7 +54,7 @@ deserializeFormals <- function(params) {
 
 deserializeClosure <- function(cls) {
     newf <- function() 0
-    if (cls$formals != "NULL")
+    if (!is.null(cls$formals) && cls$formals != "NULL")
         formals(newf) <- deserializeFormals(cls$formals)
     body(newf) <- parse(text = cls$body)
     newf

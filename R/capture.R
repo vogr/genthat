@@ -208,6 +208,8 @@ decorate_hidden_functions <- function(package) {
     })
 }
 
+
+
 #todo: do AST descend, remove dependency
 closureGlobals <- function(fun) {
     vars <- codetools:::mkHash()
@@ -241,14 +243,12 @@ envTooDeep <- function(name, env, typeFilter, envFilter) {
         envTooDeep(name, parent.env(env), typeFilter, envFilter)
 }
 
-
 serializeClosure <- function(fun) {
     stopifnot(typeof(fun) == "closure")
     enclosed <- closureGlobals(fun)
     #enclosed$funs - get packages -> list of packages closure depends on
-
     envFilter <- function(env) identical(environmentName(env), "") || identical(env, .GlobalEnv)
-    typeFilter <- function(x) !is.function(x)
+    typeFilter <- function(x)!is.function(x)
     #filter deep vars (deeper than the first named env)
     filtered <- Filter(function(x) envTooDeep(x, enclosed$vars[[1]], typeFilter, envFilter), names(enclosed$vars))
     #todo: deep vars should be "serialized" just like funcs
@@ -288,10 +288,12 @@ decorate_function_val__ <- function(func, func_label, enter_function, exit_funct
             #separate processing of optional expressions (e.g. exprs inside formulas)
             elem_exprs <- get_exprs_from_args(call_args)
             elem_exprs <- Filter(function(x) exists(x, envir = e), elem_exprs)
-
+            envFilter <- function(env) identical(environmentName(env), "") || identical(env, .GlobalEnv)
+            typeFilter <- function(x) TRUE
             #split closures/rest
-            cls_exprs <- Filter(function(x) is.closure(get(x, e)), elem_exprs)
-            elem_exprs <- Filter(function(x) !is.closure(get(x, e)), elem_exprs)
+            elem_exprs <- Filter(function(x) genthat:::envTooDeep(x, e, typeFilter, envFilter), elem_exprs)
+            cls_exprs <- Filter(function(x) genthat:::is.closure(get(x, e)), elem_exprs)
+            elem_exprs <- Filter(function(x)!genthat:::is.closure(get(x, e)), elem_exprs)
 
             elem_vals <- lapply(elem_exprs, function(name) get(name, e))
             cls_vals <- lapply(cls_exprs, function(name) genthat:::serializeClosure(get(name, e)))
