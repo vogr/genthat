@@ -172,47 +172,12 @@ list_contains_value <- function(l, value) {
     any(sapply(l, function(x) isTRUE(all.equal(x, value))))
 }
 
-list_merge <- function(xs, ys) {
-    xs <- as.list(xs)
-    xs_names <- names(xs)
-
-    if (is.null(xs_names)) {
-        return(c(xs, ys))
-    }
-
-    ys <- as.list(ys)
-    ys_names <- names(ys)
-
-    if (is.null(ys_names)) {
-        return(c(xs, ys))
-    }
-
-    # remove empty names in xs
-    xs_names <- xs_names[xs_names != ""]
-    stopifnot(all.equal(xs_names, unique(xs_names)))
-
-    # remove empty names in xs
-    ys_names <- ys_names[ys_names != ""]
-    stopifnot(all.equal(ys_names, unique(ys_names)))
-
-    xs_names_in_ys <- xs_names[which(xs_names %in% ys_names)]
-    ys_names_not_in_xs <- ys_names[which(!(ys_names %in% xs_names))]
-
-    rs <- xs
-    # replace existing
-    rs[xs_names_in_ys] <- ys[xs_names_in_ys]
-    # copy the rest of the names elements
-    rs <- c(rs, ys[ys_names_not_in_xs])
-    rs <- c(rs, ys[names(ys) == ""])
-    rs
-}
-
 is.local_function <- function(f) {
     is.function(f) && is.null(get_package_name(environment(f)))
 }
 
 #' @importFrom methods getPackageName
-#' 
+#'
 get_package_name <- function(env) {
     stopifnot(is.environment(env))
 
@@ -232,6 +197,7 @@ get_package_name <- function(env) {
 }
 
 #' @export
+#'
 link_environments <- function(env=parent.frame(), parent=globalenv()) {
     vars <- as.list(env)
     funs <- filter(vars, is.local_function)

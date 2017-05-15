@@ -36,16 +36,6 @@ test_that("filter filters elements where the predicate does not hold", {
     expect_equal(filter_not(list(NULL, 2, NULL, 3), is.null), list(2, 3))
 })
 
-test_that("list_merge works", {
-    expect_equal(list_merge(list(a=1, b=2), list(3, 4)), list(a=1, b=2, 3, 4))
-    expect_equal(list_merge(list(1, 2), list(3, 4)), list(1, 2, 3, 4))
-    expect_equal(list_merge(list(1, 2), list(a=3, b=4)), list(1, 2, a=3, b=4))
-    expect_equal(list_merge(list(a=1), list(b=2)), list(a=1, b=2))
-    expect_equal(list_merge(list(a=1), list(a=2)), list(a=2))
-    expect_equal(list_merge(list(0, a=1), list(a=2, b=3)), list(0, a=2, b=3))
-    expect_equal(list_merge(list(0, a=1), list(a=2, b=3, 4)), list(0, a=2, b=3, 4))
-})
-
 test_that("link_environments work",{
     b <- as.function(c(alist(x=0), quote(b())),
         envir=list2env(
