@@ -39,12 +39,8 @@ format_value.genthat_closure <- function(x, ...) {
 }
 
 #' @export
-format_value.default <- function(value) {
-    if (isTRUE(getOption("genthat.use_deparse"))) {
-        deparse(value)
-    } else {
-        serialize_value(value)
-    }
+format_value.default <- function(x, ...) {
+    serialize_value(x)
 }
 
 #' @title Generate test case code from a trace

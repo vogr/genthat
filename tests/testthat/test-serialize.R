@@ -164,8 +164,23 @@ test_that("environment with environments serialization", {
     e4$e2 <- e2
     e4$e3 <- e3
 
-    print(serialize_value(e4))
     expect_equal(serialize(e4), e4)
+})
+
+test_that("class serialization", {
+    v <- list(1,2)
+    class(v) <- "my_class"
+
+    expect_equal(serialize(v), v)
+})
+
+test_that("attributes serialization", {
+    v <- list(1,2)
+    attr(v, "A1") <- 1
+    attr(v, "A2") <- 2
+    attr(v, "A3") <- list(a=1, b=3)
+
+    expect_equal(serialize(v), v)
 })
 
 # TODO: matrix

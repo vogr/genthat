@@ -7,19 +7,31 @@
 using namespace Rcpp;
 using namespace std;
 
+// options for deparse
+// from Defn.h
+#define KEEPINTEGER 	1
+#define SHOWATTRIBUTES 	4
+#define KEEPNA			64
+#define HEXNUMERIC      256
+#define DIGITS16        512
+
+extern "C" {
+    SEXP Rf_deparse1(SEXP call, Rboolean abbrev, int opts);
+}
+
 class serialization_error : public runtime_error {
- public:
- serialization_error(string details) : runtime_error("Serialization error: " + details) {}
+public:
+    serialization_error(string details) : runtime_error("Serialization error: " + details) {}
 };
 
 class sexp_not_supported_error : public serialization_error {
- public:
- sexp_not_supported_error(string sexp_type) : serialization_error("SEXP type " + sexp_type + " not supported!") {}
+public:
+    sexp_not_supported_error(string sexp_type) : serialization_error("SEXP type " + sexp_type + " not supported!") {}
 };
 
 class cycle_error : public serialization_error {
- public:
- cycle_error() : serialization_error("Serialized data structure contains cycle!") {}
+public:
+    cycle_error() : serialization_error("Serialized data structure contains cycle!") {}
 };
 
 static const set<string> BASE_INFIX_FUNS = {
@@ -27,17 +39,25 @@ static const set<string> BASE_INFIX_FUNS = {
 };
 
 static const set<string> BASE_INFIX_FUNS_NO_SPACE = {
-   ":", "::", ":::", "$", "@"
+    ":", "::", ":::", "$", "@"
 };
 
 // "keywords" that need to be escaped
 static const set<string> KEYWORDS = {
-   "if", "else", "repeat", "while", "function", "for", "in", "next", "break",
-   "TRUE", "FALSE", "NULL", "Inf", "NaN", "NA", "NA_integer_", "NA_real_",
-   "NA_complex_", "NA_character_"
+    "if", "else", "repeat", "while", "function", "for", "in", "next", "break",
+    "TRUE", "FALSE", "NULL", "Inf", "NaN", "NA", "NA_integer_", "NA_real_",
+    "NA_complex_", "NA_character_"
 };
 
 static const regex VAR_NAME = regex("^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$");
+
+static const map<SEXP, string> SPEC_ATTRIBUTES_NAMES = {
+    {R_DimSymbol, ".Dim"},
+    {R_DimNamesSymbol, ".Dimnames"},
+    {R_TspSymbol, ".Tsp"},
+    {R_NamesSymbol, ".Names"},
+    {R_LevelsSymbol, ".Label"}
+};
 
 class Serializer {
 private:
@@ -57,18 +77,6 @@ private:
         }
     }
 
-/* check for attributes other than function source */
-// TODO: bool
-    static Rboolean hasAttributes(SEXP s)
-        {
-            for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a))
-            {
-                if (TAG(a) != Rf_install("srcref")) return TRUE;
-            }
-            return FALSE;
-        }
-
-    // TODO: fix
     static string escape_name(string const &name) {
         if (name.empty()) {
             return name;
@@ -79,99 +87,35 @@ private:
         }
     }
 
-    // TODO: fix
-    static string symbol_to_attrib_key(SEXP s) {
-        if(s == R_DimSymbol) {
-            return ".Dim";
-        } else if (s == R_DimNamesSymbol) {
-            return ".Dimnames";
-        } else if (s == R_NamesSymbol) {
-            return ".Names";
-        } else if (s == R_TspSymbol) {
-            return ".Tsp";
-        } else if (s == R_LevelsSymbol) {
-            return ".Label";
+    static string attribute_name(SEXP const s) {
+        auto e = SPEC_ATTRIBUTES_NAMES.find(s);
+        if (e != SPEC_ATTRIBUTES_NAMES.end()) {
+            return e->second;
         } else {
             string tag = CHAR(PRINTNAME(s));
             return escape_name(tag);
         }
     }
 
-    // TODO: fix
-    string wrap_in_attributes(SEXP s, string s_str, bool wrap_just_names) {
+    string wrap_in_attributes(SEXP const s, string const &s_str) {
         RObject protected_s(s);
-        if (hasAttributes(s)) {
-            string elems = "";
-            bool non_name_attr = false;
-            for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a))
-            {
-                if (TAG(a) != Rf_install("srcref")) {
-                    string attr_name = symbol_to_attrib_key(TAG(a));
-                    elems += ", " + attr_name + "=" + serialize(CAR(a), true);
-                    if (attr_name != ".Names") {
-                        non_name_attr = true;
-                    }
-                }
-            }
-            return (non_name_attr || wrap_just_names) ?
-                "structure(" + s_str + elems + ")" :
-                s_str;
-        } else {
-            return s_str;
-        }
-    }
 
-    // TODO: fix
-    inline char hex_digit_to_char(int x) {
-        return x < 10 ? x + '0' : x + 'a' - 9;
-    }
+        string elems = "";
+        for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a)) {
+            SEXP tag = TAG(a);
 
-    inline string to_string_literal(const char *x) {
-        string ret = "";
-        for (int i = 0; i < strlen(x); i++)
-        {
-            unsigned char c = x[i];
-            switch (c) {
-                /* ANSI Escapes */
-            case '\a': ret += "\\a"; break;
-            case '\b': ret += "\\b"; break;
-            case '\f': ret += "\\f"; break;
-            case '\n': ret += "\\n"; break;
-            case '\r': ret += "\\r"; break;
-            case '\t': ret += "\\t"; break;
-            case '\v': ret += "\\v"; break;
-            case '\0': ret += "\\0"; break;
-            default: {
-                if(c < 0x80 && c > 0x1F) {
-                    // printable chars
-                    switch(c) {
-                    case '\\': ret += "\\\\"; break;
-                    case '"': ret += "\\\""; break;
-                    default: ret += string((const char *) &c, 1);
-                    }
-                } else {
-                    // non-printable chars
-                    char digits[] = { '4', '2', '\0' };
-                    digits[0] = hex_digit_to_char((c >> 4) & 0x0f);
-                    digits[1] = hex_digit_to_char(c & 0x0f);
-                    ret += string("\\x") + digits;
-                }
-            }
+            if (tag == Rf_install("srcref")) {
+                continue;
+            } else if (tag == R_NamesSymbol) {
+                continue;
+            } else {
+                string name = attribute_name(tag);
+                elems += name + "=" + serialize(CAR(a), true);
+                elems += !Rf_isNull(CDR(a)) ? ", " : "";
             }
         }
-        return "\"" + ret + "\"";
-    }
 
-    static string char_to_hex(unsigned char c) {
-        if (c == 0) {
-            return "0";
-        } else if (c == 1) {
-            return "1";
-        } else {
-            char buff[33];
-            sprintf(buff, "%x", c);
-            return "0x" + string(buff);
-        }
+        return !elems.empty() ?  "structure(" + s_str + ", " + elems + ")" : s_str;
     }
 
     string format_argument(SEXP const arg) {
@@ -252,83 +196,24 @@ public:
                 args += i + 1 < size ? ", " : "";
             }
 
-            return wrap_in_attributes(s, "list(" + args + ")", false);
+            return wrap_in_attributes(s, "list(" + args + ")");
         }
-        case LGLSXP: {
-            RObject protected_s(s);
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                int val = LOGICAL(s)[i];
-                string str_val = (val == NA_LOGICAL) ? "NA" : (val == 0) ? "FALSE" : "TRUE";
-                elems += (i == 0 ? "" : ",") + str_val;
-            }
-            return wrap_in_attributes(s, n == 0 ? "logical(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
-        case INTSXP: {
-            RObject protected_s(s);
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                int val = INTEGER(s)[i];
-                string str_val = val == NA_INTEGER ? "NA_integer_" : (to_string(val) + "L");
-                elems += (i == 0 ? "" : ",") + str_val;
-            }
-            return wrap_in_attributes(s, n == 0 ? "integer(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
-        case REALSXP: {
-            RObject protected_s(s);
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                double val = REAL(s)[i];
-                for (int j = 0; j < sizeof(double); j++)
-                {
-                    string str_val = char_to_hex(((unsigned char *) &val)[j]);
-                    elems += ((i == 0 && j == 0) ? "" : ",") + str_val;
-                }
-            }
-            string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"double\")";
-            return wrap_in_attributes(s, n == 0 ? "double(0)" : decoded, true); }
-        case CPLXSXP: {
-            RObject protected_s(s);
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                Rcomplex val = COMPLEX(s)[i];
-
-                double real = val.r;
-                for (int j = 0; j < sizeof(double); j++)
-                {
-                    string str_val = char_to_hex(((unsigned char *) &real)[j]);
-                    elems += ((i == 0 && j == 0) ? "" : ",") + str_val;
-                }
-
-                double imag = val.i;
-                for (int j = 0; j < sizeof(double); j++)
-                {
-                    string str_val = char_to_hex(((unsigned char *) &imag)[j]);
-                    elems += "," + str_val;
-                }
-            }
-            string decoded = "readBin(as.raw(c(" + elems + ")), n=" + to_string(n) + ", \"complex\")";
-            return wrap_in_attributes(s, n == 0 ? "complex(0)" : decoded, true); }
+            // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
+        case LGLSXP:
+        case INTSXP:
+        case REALSXP:
+        case CPLXSXP:
         case STRSXP: {
-            RObject protected_s(s);
-            int n = XLENGTH(s);
-            string elems = "";
-            for (int i = 0; i < n; i++)
-            {
-                SEXP val = STRING_ELT(s, i);
-                string str_val = "NA_character_";
-                if (val != NA_STRING) {
-                    str_val = to_string_literal(CHAR(val));
-                }
-                elems += (i == 0 ? "" : ",") + str_val;
+            StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
+            string res;
+
+            for (int i = 0; i < deparsed.size(); i++) {
+                res += deparsed(i);
+                res += i + 1 < deparsed.size() ? "\n" : "";
             }
-            return wrap_in_attributes(s, n == 0 ? "character(0)" : n == 1 ? elems : "c(" + elems + ")", true); }
+
+            return res;
+        }
         case SYMSXP: {
             RObject protected_s(s);
             string symbol = string(CHAR(PRINTNAME(s)));
@@ -392,8 +277,9 @@ public:
 
             return "list2env(list(" + elems + ")" + parent_env_arg + ")";
         }
+        // TODO: do we need this one?
         case LISTSXP: {/* pairlists */
-            // TODO: when will this happen?
+
             RObject protected_s(s);
             stringstream outStr;
             outStr << "\"alist(";
@@ -410,7 +296,8 @@ public:
                     outStr << val;
             }
             outStr << ")\"";
-            return outStr.str(); }
+            return outStr.str();
+        }
         case LANGSXP: {
             RObject protected_s(s);
             string fun = serialize(CAR(s), false);
