@@ -5,7 +5,7 @@ on_function_entry <- function(call_id, name, args, fun=sys.function(-1), env=par
 
     # get callee globals (free variables) that we need to capture
     # we do that by abusing the extract closure
-    dummy <- as.function(c(name_unnamed_args(args), 0), envir=env)
+    dummy <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
 
     callee <- extract_closure(dummy)$globals
 
@@ -30,23 +30,6 @@ on_function_exit <- function(call_id, retv) {
     set_call_trace(call_id, trace)
 
     cache$capture_arguments <- TRUE
-}
-
-name_unnamed_args <- function(args) {
-    stopifnot(is.list(args))
-
-    args_names <- names(args)
-
-    if (length(args) == 0) {
-        args
-    } else if (is.null(args_names)) {
-        names(args) <- paste0("___", 1:length(args))
-        args
-    } else {
-        args_names[args_names == ""] <- paste0("___", 1:length(args_names[args_names == ""])) 
-        names(args) <- args_names
-        args
-    }
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {

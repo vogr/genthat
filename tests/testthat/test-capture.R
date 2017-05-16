@@ -59,6 +59,23 @@ test_that("on_function_entry defaults", {
     t <- get_call_trace(1)
 })
 
+test_that("on_function_entry defaults with the same names", {
+    on.exit(reset_call_traces())
+
+    x <- 1
+    f <- function(x, y) {
+        on_function_entry(1, "f", as.list(match.call())[-1])
+    }
+
+    f(x, 2)
+
+    t <- get_call_trace(1)
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(x=quote(x), y=2))
+    expect_equal(length(t$globals), 1)
+    expect_equal(t$globals$x, 1)
+})
+
 test_that("on_function_exit records exit value", {
     on.exit(reset_call_traces())
 
@@ -222,11 +239,11 @@ test_that("on_function_entry resolves caller and callee environments", {
 
     ## browser()
     # env$f(y=2*x, a+x+y)
-    on_function_entry(1, "f", list(x=quote(b(d)), y=quote(2 * x), quote(a + x + y)), fun=env$f)
+    on_function_entry(1, "f", list(x=quote(b(d)), quote(a)), fun=env$f)
 
     t <- get_call_trace(1)
     expect_equal(t$fun, "f")
-    expect_equal(t$args, list(x=quote(b(d)), y=quote(2 * x), quote(a + x + y)))
+    expect_equal(t$args, list(x=quote(b(d)), quote(a)))
     expect_equal(length(t$globals), 3)
     expect_equal(t$globals$a, 10)
     expect_equal(t$globals$d, 30)

@@ -52,6 +52,32 @@ test_that("do_decorate_function decorates a function", {
     expect_equal(exit$c1$retv, 3)
 })
 
+test_that("on_function_entry works with multiline functions", {
+    entry <- new.env()
+    exit <- new.env()
+
+    f <- function(x, y) {
+        x1 <- x + 1
+        y1 <- y + 1
+        x1 + y1
+    }
+
+    d <-
+        do_decorate_function(
+            "f",
+            f,
+            .call_id_gen=function() 0,
+            .entry=save_calling_args(entry),
+            .exit=save_calling_args(exit))
+
+    expect_equal(formals(d), formals(d))
+    expect_equal(environment(d), environment(f))
+    expect_equal(attributes(d), list(genthat=T))
+
+    d(1, 2)
+
+    expect_equal(exit$c1$retv, 5)
+})
 
 test_that("do_decorate_function decorates a package function", {
     entry <- new.env()

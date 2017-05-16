@@ -53,7 +53,7 @@ decorate_function <- function(fun, name=substitute(fun)) {
     fs <- list()
     fs[[name]] <- fun
 
-    decorate_and_replace(fs)[[name]]
+    invisible(decorate_and_replace(fs)[[name]])
 }
 
 #' @title Resets decorated function back to its original
@@ -95,6 +95,7 @@ do_decorate_function <- function(name, fun,
         return(fun)
     }
 
+    # the `retv <- BODY` is OK because in the case of multiple expressions, it will be surrounded with `{}`.
     new_fun <- create_function(
         params=formals(fun),
         body=substitute({
@@ -151,7 +152,8 @@ decorate_and_replace <- function(funs) {
     lapply(replacements, function(x) reassign_function(x$fun, x$new_fun))
     lapply(replacements, add_replacement)
 
-    lapply(replacements, `[[`, "new_fun")
+    res <- lapply(replacements, `[[`, "new_fun")
+    invisible(res)
 }
 
 reset_function <- function(name) {

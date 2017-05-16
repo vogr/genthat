@@ -183,6 +183,8 @@ test_that("attributes serialization", {
     expect_equal(serialize(v), v)
 })
 
+# TODO: 1+(1+2)
+
 # TODO: matrix
 # TODO: factors
 # TODO: named elements
