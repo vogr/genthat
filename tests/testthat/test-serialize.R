@@ -183,7 +183,9 @@ test_that("attributes serialization", {
     expect_equal(serialize(v), v)
 })
 
-# TODO: 1+(1+2)
+test_that("( serialization", {
+    expect_equal(serialize(2*(1+2)), 6)
+})
 
 # TODO: matrix
 # TODO: factors

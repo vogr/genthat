@@ -337,6 +337,9 @@ public:
             } else if (fun == "{") {
                 string args = format_arguments(s, "\n\t");
                 res = "{\n\t" + args + "\n}";
+            } else if (fun == "(") {
+                string args = format_arguments(s);
+                res = "(" + args + ")";
             } else {
                 string args = format_arguments(s);
                 res = fun + "(" + args + ")";
