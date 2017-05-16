@@ -170,6 +170,7 @@ test_that("extract_closure works for nested closures", {
     expect_equal(sc$globals$f$globals, list(a=1))
 })
 
+# test for https://github.com/PRL-PRG/genthat/issues/16
 test_that("extract_closure works with references", {
     a <- mtcars
     f <- function() mtcars$cyl*a$wt
@@ -184,6 +185,7 @@ test_that("extract_closure works with references", {
     expect_equal(attr(sc, "class"), "genthat_closure")
 })
 
+# test for https://github.com/PRL-PRG/genthat/issues/16
 test_that("extract_closure works with default values", {
     a <- function() mtcars
     f <- function(x=a, y=1) x() * y
