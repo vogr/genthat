@@ -43,13 +43,17 @@ static const set<string> BASE_INFIX_FUNS_NO_SPACE = {
 };
 
 // "keywords" that need to be escaped
+// cf. https://stat.ethz.ch/R-manual/R-devel/library/base/html/Reserved.html
 static const set<string> KEYWORDS = {
     "if", "else", "repeat", "while", "function", "for", "in", "next", "break",
     "TRUE", "FALSE", "NULL", "Inf", "NaN", "NA", "NA_integer_", "NA_real_",
-    "NA_complex_", "NA_character_"
+    "NA_complex_", "NA_character_", "..."
 };
 
-static const regex VAR_NAME = regex("^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$");
+// A syntactically valid name consists of letters, numbers and the dot or underline
+// characters and starts with a letter or the dot not followed by a number
+// cf. https://stat.ethz.ch/R-manual/R-devel/library/base/html/make.names.html
+static const regex VALID_NAME = regex("^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$");
 
 static const map<SEXP, string> SPEC_ATTRIBUTES_NAMES = {
     {R_DimSymbol, ".Dim"},
@@ -80,7 +84,7 @@ private:
     static string escape_name(string const &name) {
         if (name.empty()) {
             return name;
-        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !regex_match(name, VAR_NAME)) {
+        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !regex_match(name, VALID_NAME)) {
             return "`" + name + "`";
         } else {
             return name;
