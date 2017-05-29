@@ -16,6 +16,6 @@ clean:
 install: build
 	R CMD INSTALL .
 
-test: build
+test:
 	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test()'
 
