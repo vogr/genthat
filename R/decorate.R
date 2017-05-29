@@ -15,7 +15,6 @@ decorate_environment <- function(envir) {
 
     funs <- filter(vals, is.function)
 
-    # TODO: call decorate_functions instead
     decorate_and_replace(funs)
 }
 
@@ -30,9 +29,6 @@ decorate_functions <- function(...) {
     dots <- substitute(list(...))[-1]
     names <- sapply(dots, deparse)
     funs <- list(...)
-
-    # TODO: define contract
-
     names(funs) <- names
 
     decorate_and_replace(funs)
@@ -111,49 +107,55 @@ do_decorate_function <- function(name, fun,
     new_fun
 }
 
-## funs a list of name, fun pairs for all functions to be decorated and replaced
-# TODO: rewrite to one-by-one so we can rollback in the case there is an error on the way
 decorate_and_replace <- function(funs) {
-    stopifnot(is.list(funs))
-    stopifnot(!is.null(names(funs)))
+    xs <- zip(name=names(funs), fun=funs)
 
-    funs <- zip(name=names(funs), fun=funs)
-
-    replacements <- lapply(funs, function(x) {
-        # TODO: test
-        if (!is.function(x$fun)) {
-            stop(x$name, ": not a function")
-        }
-
-        # TODO: test
-        if (is_empty_str(x$name)) {
-            stop(x$fun, ": does not have name")
-        }
-
-        if (is_decorated(x$fun)) {
-            stop(x$name, ": is already decorated")
-        }
-
-        name <- get_function_fqn(x$name, x$fun)
-
-        if (is_debug_enabled()) {
-            message("Tracing: ", name)
-        }
-
-        create_replacement(
-            name=name,
-            env=environment(x$fun),
-            orig_fun=create_duplicate(x$fun),
-            fun=x$fun,
-            new_fun=do_decorate_function(name=name, fun=x$fun)
-        )
+    lapply(xs, function(x) {
+        tryCatch({
+            decorate_and_replace_one(x$name, x$fun)
+        }, error=function(e) {
+            message("Unable to decorate `", x$name, "`: ", e$message)
+        })
     })
+}
 
-    lapply(replacements, function(x) reassign_function(x$fun, x$new_fun))
-    lapply(replacements, add_replacement)
+decorate_and_replace_one <- function(name, fun) {
+    stopifnot(is.character(name) && length(name) == 1)
+    stopifnot(is.function(fun))
 
-    res <- lapply(replacements, `[[`, "new_fun")
-    invisible(res)
+    # TODO: test
+    if (!is.function(fun)) {
+        stop(name, ": not a function")
+    }
+
+    # TODO: test
+    if (is_empty_str(name)) {
+        stop(fun, ": does not have name")
+    }
+
+    if (is_decorated(fun)) {
+        fun
+    }
+
+    name <- get_function_fqn(name, fun)
+
+    if (is_debug_enabled()) {
+        message("Tracing: ", name)
+    }
+
+    new_fun <- do_decorate_function(name=name, fun=fun)
+    replacement <- create_replacement(
+        name=name,
+        env=environment(fun),
+        orig_fun=create_duplicate(fun),
+        fun=fun,
+        new_fun=new_fun
+    )
+
+    add_replacement(replacement)
+    reassign_function(fun, new_fun)
+
+    invisible(new_fun)
 }
 
 reset_function <- function(name) {
