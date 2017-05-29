@@ -196,6 +196,12 @@ get_package_name <- function(env) {
     }
 }
 
+#' @title Links the environments of the surrounding functions
+#' @description Sets the parent environment of all the functions defined in the given environment `env` to `parent`.
+#'
+#' @param env the environment in which to look for functions
+#' @param parent the environment to use as the parent environment of the functions
+#'
 #' @export
 #'
 link_environments <- function(env=parent.frame(), parent=globalenv()) {

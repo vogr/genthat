@@ -18,7 +18,13 @@ format_args <- function(args) {
     paste(args_str, collapse=", ")
 }
 
+#' @title Format a given value into R code string
+#' @description Creates an R code snippet such that `isTRUE(all.equals(eval(format_value(x)), x))`.
+#'
+#' @param x the value to format
+#' /
 #' @export
+#
 format_value <- function(x, ...) {
     UseMethod("format_value")
 }
