@@ -9,10 +9,9 @@ check: build
 	R CMD check --as-cran $(PKGNAME)_$(PKGVERS).tar.gz
 
 clean:
-	rm $(PKGNAME)_$(PKGVERS).tar.gz
+	rm -f $(PKGNAME)_$(PKGVERS).tar.gz
 	rm -fr "genthat.Rcheck"
 	rm -f src/*.so src/*.o
-	rm -fr man
 
 install: build
 	R CMD INSTALL .
