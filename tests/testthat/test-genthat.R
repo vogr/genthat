@@ -8,7 +8,6 @@ test_that("closures", {
     on.exit(detach(package:samplepkg))
     on.exit({reset_call_traces(); reset_replacements()}, add=TRUE)
 
-
     devtools::load_all("samplepkg")
 
     decorate_functions(samplepkg::my_call)
@@ -105,4 +104,19 @@ test_that("gen_from_package works on stringr", {
 
     # somthing is captured - good for now
     expect_true(length(res$traces) > 0)
+})
+
+test_that("tracing control work", {
+    f <- function(x,y) x + y
+    decorate_function(f)
+
+    disable_tracing()
+    f(1,2)
+    expect_equal(is_tracing_enabled(), FALSE)
+    expect_equal(length(get_call_traces()), 0)
+
+    enable_tracing()
+    f(1,2)
+    expect_equal(is_tracing_enabled(), TRUE)
+    expect_equal(length(get_call_traces()), 1)
 })

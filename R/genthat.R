@@ -167,3 +167,18 @@ format.genthat_result <- function(x, ...) {
 print.genthat_result <- function(x, ...) {
     print(summarizes_genthat_results(x))
 }
+
+#' @export
+enable_tracing <- function() {
+    cache$tracing <- TRUE
+}
+
+#' @export
+disable_tracing <- function() {
+    cache$tracing <- FALSE
+}
+
+#' @export
+is_tracing_enabled <- function() {
+    cache$tracing
+}
