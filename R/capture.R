@@ -1,6 +1,6 @@
 on_function_entry <- function(call_id, name, args, fun=sys.function(-1), env=parent.frame()) {
     stopifnot(is.numeric(call_id))
-    stopifnot(is.character(name))
+    stopifnot(is.character(name) && length(name) == 1)
     stopifnot(is.list(args))
 
     # get callee globals (free variables) that we need to capture
@@ -19,8 +19,6 @@ on_function_exit <- function(call_id, retv) {
     trace <- get_call_trace(call_id)
     stopifnot(methods::is(trace, "genthat_trace_entry"))
 
-    cache$capture_arguments <- FALSE
-
     tryCatch({
         trace <- create_trace(trace$fun, args=trace$args, globals=trace$globals, retv=retv)
     }, error=function(e) {
@@ -28,8 +26,6 @@ on_function_exit <- function(call_id, retv) {
     })
 
     set_call_trace(call_id, trace)
-
-    cache$capture_arguments <- TRUE
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {
@@ -67,6 +63,7 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
     vars <- zip(name=names, env=envs)
     vars <- filter(vars, function(x) {
         if (is.null(x$env)) {
+            # TODO: this does not seem to be correct 
             warning("Symbol ", x$name, " could not be found in ", environmentName(env))
             FALSE
         } else {
@@ -91,8 +88,9 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
     })
 }
 
+#' @importFrom codetools findGlobals
 extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
-    stopifnot(is.function(fun))
+    stopifnot(is.closure(fun))
 
     env <- environment(fun)
 
@@ -104,8 +102,8 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
     unknowns <- filter_not(names, bag_contains_value, bag=.visited, value=env)
     vals <- get_symbol_values(unknowns, env)
 
-    vars <- filter_not(vals, is.function)
-    funs <- filter(vals, is.function)
+    vars <- filter_not(vals, is.closure)
+    funs <- filter(vals, is.closure)
 
     # mark variables as visited so the consecutive serialization will not consider them
     .visited <- reduce(names(vars), function(b, x) b <- bag_add(b, x, env), init=.visited)
@@ -154,9 +152,6 @@ get_next_call_id <- function() {
 
 reset_call_traces <- function() {
     cache$traces <- list()
-
-    # TODO: do we need this?
-    cache$capture_arguments <- TRUE
 }
 
 get_call_traces <- function() {

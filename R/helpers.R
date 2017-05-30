@@ -172,8 +172,12 @@ list_contains_value <- function(l, value) {
     any(sapply(l, function(x) isTRUE(all.equal(x, value))))
 }
 
-is.local_function <- function(f) {
-    is.function(f) && is.null(get_package_name(environment(f)))
+is.closure <- function(f) {
+    typeof(f) == "closure"
+}
+
+is.local_closure <- function(f) {
+    is.closure(f) && is.null(get_package_name(environment(f)))
 }
 
 #' @importFrom methods getPackageName
@@ -206,7 +210,7 @@ get_package_name <- function(env) {
 #'
 link_environments <- function(env=parent.frame(), parent=globalenv()) {
     vars <- as.list(env)
-    funs <- filter(vars, is.local_function)
+    funs <- filter(vars, is.local_closure)
 
     lapply(funs, function(x) {
         f_env <- environment(x)

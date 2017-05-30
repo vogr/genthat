@@ -15,7 +15,7 @@ decorate_environment <- function(envir) {
 
     funs <- filter(vals, is.function)
 
-    decorate_and_replace(funs)
+    invisible(decorate_and_replace(funs))
 }
 
 #' @title Decorates given functions
@@ -31,7 +31,7 @@ decorate_functions <- function(...) {
     funs <- list(...)
     names(funs) <- names
 
-    decorate_and_replace(funs)
+    invisible(decorate_and_replace(funs))
 }
 
 #' @title Decorates given function
@@ -95,11 +95,25 @@ do_decorate_function <- function(name, fun,
     new_fun <- create_function(
         params=formals(fun),
         body=substitute({
-            `__call_id` <- CALL_ID_GEN()
-            ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1], env=parent.frame())
-            retv <- BODY
-            EXIT(call_id=`__call_id`, retv=retv)
-            retv
+            `__genthat_cache` <- .Internal(get("cache", .Internal(getRegisteredNamespace("genthat")), "any", FALSE))
+            if (.Internal(get("tracing", `__genthat_cache`, "any", FALSE)) == TRUE) {
+                on.exit(.Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE)))
+
+                .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
+                `__call_id` <- CALL_ID_GEN()
+                ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1], env=parent.frame())
+                .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
+
+                retv <- BODY
+
+                .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
+                EXIT(call_id=`__call_id`, retv=retv)
+                .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
+
+                retv
+            } else {
+                BODY
+            }
         }, list(NAME=name, BODY=body(fun), CALL_ID_GEN=.call_id_gen, ENTRY=.entry, EXIT=.exit)),
         env=environment(fun),
         attributes=list(genthat=TRUE))
@@ -114,7 +128,7 @@ decorate_and_replace <- function(funs) {
         tryCatch({
             decorate_and_replace_one(x$name, x$fun)
         }, error=function(e) {
-            message("Unable to decorate `", x$name, "`: ", e$message)
+            warning("Unable to decorate `", x$name, "`: ", e$message)
         })
     })
 }
@@ -125,7 +139,11 @@ decorate_and_replace_one <- function(name, fun) {
 
     # TODO: test
     if (!is.function(fun)) {
-        stop(name, ": not a function")
+        stop(name, ": is not a function")
+    }
+
+    if (is.primitive(fun)) {
+        stop(name, ": is a primitive function")
     }
 
     # TODO: test

@@ -224,6 +224,10 @@ test_that("decorate_function returns decorated function", {
     expect_equal(decorated, f)
 })
 
+test_that("decorate_and_replace_one checks for primitive functions", {
+    expect_error(decorate_and_replace_one("$", `$`), regexp="\\$: is a primitive function")
+})
+
 # TODO: test that we cannot decorate builtins
 
 # TODO: test imported namespaces
