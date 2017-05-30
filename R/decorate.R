@@ -14,6 +14,7 @@ decorate_environment <- function(envir) {
     names(vals) <- names
 
     funs <- filter(vals, is.function)
+    funs <- filter_not(funs, is.primitive)
 
     invisible(decorate_and_replace(funs))
 }
