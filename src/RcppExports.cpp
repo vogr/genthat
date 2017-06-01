@@ -39,3 +39,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// environment_name
+std::string environment_name(SEXP env);
+RcppExport SEXP genthat_environment_name(SEXP envSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
+    rcpp_result_gen = Rcpp::wrap(environment_name(env));
+    return rcpp_result_gen;
+END_RCPP
+}
+// environment_name_as_code
+std::string environment_name_as_code(SEXP env);
+RcppExport SEXP genthat_environment_name_as_code(SEXP envSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
+    rcpp_result_gen = Rcpp::wrap(environment_name_as_code(env));
+    return rcpp_result_gen;
+END_RCPP
+}

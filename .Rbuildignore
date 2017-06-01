@@ -17,3 +17,4 @@
 ^genthat\.Rproj$
 ^genthat_.*.tar.gz$
 ^tools$
+^.*\.RDS$

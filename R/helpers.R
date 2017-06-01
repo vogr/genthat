@@ -185,7 +185,6 @@ is.local_closure <- function(f) {
 get_package_name <- function(env) {
     stopifnot(is.environment(env))
 
-    # TODO: there must be a smarter way how to do this
     if (identical(env, globalenv())) {
         NULL
     } else if (environmentName(env) == "") {
@@ -208,7 +207,7 @@ get_package_name <- function(env) {
 #'
 #' @export
 #'
-link_environments <- function(env=parent.frame(), parent=globalenv()) {
+link_environments <- function(env=parent.frame(), parent=parent.env(env)) {
     vars <- as.list(env)
     funs <- filter(vars, is.local_closure)
 
@@ -219,8 +218,12 @@ link_environments <- function(env=parent.frame(), parent=globalenv()) {
             link_environments(env=f_env)
         }
     })
+}
 
-    new_env <- new.env(parent=parent)
-    list2env(vars, new_env)
-    new_env
+#' @export
+#'
+with_env <- function(f, env) {
+    link_environments(env)
+    environment(f) <- env
+    f
 }

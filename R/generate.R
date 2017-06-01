@@ -1,6 +1,6 @@
 # TODO: rename to format_calling_args
 format_args <- function(args) {
-    args <- lapply(args, format_value)
+    args <- lapply(args, serialize_value)
 
     args_str <- if (!is.null(names(args))) {
                    pairs <- zip(name=names(args), value=args)
@@ -18,69 +18,60 @@ format_args <- function(args) {
     paste(args_str, collapse=", ")
 }
 
-#' @title Format a given value into R code string
-#' @description Creates an R code snippet such that `isTRUE(all.equals(eval(format_value(x)), x))`.
-#'
-#' @param x the value to format
-#' /
-#' @export
-#
-format_value <- function(x, ...) {
-    UseMethod("format_value")
-}
-
-#' @export
-format_value.genthat_closure <- function(x, ...) {
-    args <- paste(names(x$args), lapply(x$args, format_value), sep="=", collapse=", ")
-    body <- paste(deparse(x$body, control=c("quoteExpressions")), collapse="\n")
-
-    env <- if (length(x$globals) == 0) {
-        "new.env()"
-    } else {
-        globals <- paste(names(x$globals), lapply(x$globals, format_value), sep="=", collapse=",\n")
-        paste0("list2env(list(", globals, "))")
-    }
-
-    paste0("as.function(c(alist(", args, "), ", body,"), envir=", env, ")")
-}
-
-#' @export
-format_value.default <- function(x, ...) {
-    serialize_value(x)
-}
-
 #' @title Generate test case code from a trace
 #' @description Given a genthat trace it generates a corresponding test case
 #'
 #' @param trace trace value
 #'
 #' @export
-generate_test_code <- function(trace) {
+generate_test_code <- function(trace, include_trace_dump=FALSE) {
     UseMethod("generate_test_code")
 }
 
 #' @export
-generate_test_code.genthat_trace <- function(trace) {
+generate_test_code.genthat_trace <- function(trace, include_trace_dump) {
     stopifnot(is.character(trace$fun))
     stopifnot(is.list(trace$args))
 
     fun <- trace$fun
     args <- format_args(trace$args)
-    globals <- paste(names(trace$globals), lapply(trace$globals, format_value), sep=" <- ", collapse="\n")
-    retv <- format_value(trace$retv)
+    globals <- paste(names(trace$globals), lapply(trace$globals, serialize_value), sep=" <- ", collapse="\n")
+    retv <- serialize_value(trace$retv)
+
+    header <-
+        paste0(
+            "library(testthat)\n\n",
+            if (include_trace_dump) {
+                ts <- capture.output(str(trace))
+                ts <- paste("# ", ts, collapse="\n")
+                ts <- paste0("# TRACE:\n", ts, "\n\n")
+                ts
+            } else {
+                ""
+            }
+        )
 
     paste0(
-        'test_that("', fun, '", {',
-        # TODO: only link if there is a function
-        if (!is_empty_str(globals)) paste0('\n\t', globals, '\n\tgenthat::link_environments()\n') else '',
-        '\n\texpect_equal(', fun, '(', args, '), ', retv, ')\n})'
+        header,
+        'test_that("', fun, '", {\n',
+        globals,
+        '\nexpect_equal(', fun, '(', args, '), ', retv, ')\n})'
     )
 }
 
 #' @export
-generate_test_code.default <- function(trace) {
+generate_test_code.default <- function(trace, include_trace_dump) {
     NULL
 }
+
+# TODO: to remove
+## stopwatch <- function(expr) {
+##     t <- as.numeric(Sys.time())*1000
+##     r <- force(expr)
+##     t <- as.numeric(Sys.time())*1000 - t
+
+##     list(result=r, time=t)
+## }
 
 #' @title Generates test cases from traces
 #'
@@ -90,15 +81,28 @@ generate_test_code.default <- function(trace) {
 #' @description Generates tests cases from the captured traces.
 #' @export
 #'
-generate_tests <- function(traces, output_dir="generated_tests") {
-    stopifnot(is.list(traces))
+generate_tests <- function(traces, output_dir="generated_tests", include_trace_dump=FALSE) {
+    stopifnot(is.list(traces) || is.environment(traces))
     stopifnot(is.character(output_dir))
 
     if (length(traces) == 0) {
         return(list())
     }
 
-    tests <- lapply(traces, generate_test_code)
+    tests <-
+        lapply(traces, function(x) {
+            if (is_debug_enabled()) {
+                message("Generating test trace of ", x$fun)
+            }
+
+            tryCatch({
+                 generate_test_code(x, include_trace_dump)
+            }, error=function(e) {
+                warning("Unable to generate test trace of", x$fun, " ", e$message)
+                NULL
+            })
+        })
+
     tests <- filter_not(tests, is.null)
 
     if (length(tests) == 0) {

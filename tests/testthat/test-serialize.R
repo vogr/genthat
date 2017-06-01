@@ -187,9 +187,14 @@ test_that("( serialization", {
     expect_equal(serialize(2*(1+2)), 6)
 })
 
-# TODO: matrix
-# TODO: factors
-# TODO: named elements
+test_that("closure serialization", {
+    f <- function() 1+1
+    expect_equal(serialize(f)(), 2)
+})
+
+test_that("closure reference serialization", {
+    expect_equal(serialize(ls)(), ls())
+})
 
 #test_that('Can serialize vectors of reals.', {
 #    l1 <- c(12.3, 435.549)

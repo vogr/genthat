@@ -17,9 +17,10 @@ test_that("on_function_entry correctly evaluates and stores arguments", {
     expect_equal(t$args, list(x=quote(b + 2), y=quote(g(1))))
     expect_equal(length(t$globals), 2)
     expect_equal(t$globals$b, 2)
-    expect_equal(t$globals$g$args, formals(g))
-    expect_equal(t$globals$g$body, body(g))
-    expect_equal(t$globals$g$globals, list(a=1))
+    expect_equal(formals(t$globals$g), formals(g))
+    expect_equal(body(t$globals$g), body(g))
+    expect_equal(environment(t$globals$g)$a, 1)
+    expect_equal(as.list(environment(t$globals$g)), list(a=1))
 })
 
 test_that("on_function_entry correctly evaluates and stores arguments with ...", {
@@ -43,13 +44,14 @@ test_that("on_function_entry correctly evaluates and stores arguments with ...",
     expect_equal(length(t$globals), 3)
     expect_equal(t$globals$b, 2)
     expect_equal(t$globals$c, 3)
-    expect_equal(t$globals$g$globals$a, 1)
-    expect_equal(t$globals$g$globals$h$globals, list(d=4))
+    expect_equal(environment(t$globals$g)$a, 1)
+    expect_equal(environment(environment(t$globals$g)$h)$d, 4)
 })
 
-test_that("on_function_entry defaults", {
+test_that("on_function_entry called from a function body with argument matching", {
     on.exit(reset_call_traces())
 
+    # kind of a simulation of the injected code
     f <- function(x) {
         on_function_entry(1, "f", as.list(match.call())[-1])
     }
@@ -57,12 +59,17 @@ test_that("on_function_entry defaults", {
     f()
 
     t <- get_call_trace(1)
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list())
+    expect_equal(t$globals, list())
 })
 
-test_that("on_function_entry defaults with the same names", {
+test_that("on_function_entry correctly resolves the names in lexical scopes", {
     on.exit(reset_call_traces())
 
+    # x is here
     x <- 1
+    # and x is here
     f <- function(x, y) {
         on_function_entry(1, "f", as.list(match.call())[-1])
     }
@@ -92,7 +99,6 @@ test_that("create_trace returns entry trace if no return value is specified", {
 })
 
 test_that("find_symbol_env finds symbols", {
-
     e1 <- new.env()
     e2 <- new.env(parent=e1)
     e3 <- new.env(parent=e2)
@@ -148,10 +154,9 @@ test_that("extract_closure works for a simple function", {
     f <- function(x) a + x
 
     sc <- extract_closure(f)
-    expect_equal(sc$args, formals(f))
-    expect_equal(sc$body, body(f))
-    expect_equal(sc$globals, list(a=1))
-    expect_equal(attr(sc, "class"), "genthat_closure")
+    expect_equal(formals(sc), formals(f))
+    expect_equal(body(sc), body(f))
+    expect_equal(as.list(environment(sc)), list(a=1))
 })
 
 test_that("extract_closure works for nested closures", {
@@ -162,12 +167,12 @@ test_that("extract_closure works for nested closures", {
     g <- function() f(b)
 
     sc <- extract_closure(g)
-    expect_equal(sc$args, formals(g))
-    expect_equal(sc$body, body(g))
-    expect_equal(sc$globals$b, 2)
-    expect_equal(sc$globals$f$args, formals(f))
-    expect_equal(sc$globals$f$body, body(f))
-    expect_equal(sc$globals$f$globals, list(a=1))
+    expect_equal(formals(sc), formals(g))
+    expect_equal(body(sc), body(g))
+    expect_equal(environment(sc)$b, 2)
+    expect_equal(formals(environment(sc)$f), formals(f))
+    expect_equal(body(environment(sc)$f), body(f))
+    expect_equal(as.list(environment(environment(sc)$f)), list(a=1))
 })
 
 # test for https://github.com/PRL-PRG/genthat/issues/16
@@ -176,13 +181,15 @@ test_that("extract_closure works with references", {
     f <- function() mtcars$cyl*a$wt
 
     sc <- extract_closure(f)
-    expect_equal(sc$args, formals(f))
-    expect_equal(sc$body, body(f))
-    expect_equal(sc$globals$mtcars, quote(datasets:::mtcars))
+    expect_equal(formals(sc), formals(f))
+    expect_equal(body(sc), body(f))
+    expect_equal(length(environment(sc)), 2)
+
+    # this one is a reference
+    expect_equal(environment(sc)$mtcars, quote(datasets:::mtcars))
 
     # this one is not a reference
-    expect_equal(sc$globals$a, mtcars)
-    expect_equal(attr(sc, "class"), "genthat_closure")
+    expect_equal(environment(sc)$a, mtcars)
 })
 
 # test for https://github.com/PRL-PRG/genthat/issues/16
@@ -191,20 +198,21 @@ test_that("extract_closure works with default values", {
     f <- function(x=a, y=1) x() * y
 
     sc <- extract_closure(f)
-    expect_equal(sc$args, formals(f))
-    expect_equal(sc$body, body(f))
-    expect_equal(sc$globals$a$args, formals(a))
-    expect_equal(sc$globals$a$body, body(a))
-    expect_equal(sc$globals$a$globals$mtcars, quote(datasets:::mtcars))
+    expect_equal(formals(sc), formals(f))
+    expect_equal(body(sc), body(f))
+    expect_equal(length(environment(sc)), 1)
+    expect_equal(formals(environment(sc)$a), formals(a))
+    expect_equal(body(environment(sc)$a), body(a))
+    expect_equal(environment(environment(sc)$a)$mtcars, quote(datasets:::mtcars))
 })
 
 test_that("extract_closure works with recursion", {
     f <- function() f()
 
     sc <- extract_closure(f)
-    expect_equal(sc$args, formals(f))
-    expect_equal(sc$body, body(f))
-    expect_equal(sc$globals, list())
+    expect_equal(formals(sc), formals(f))
+    expect_equal(body(sc), body(f))
+    expect_equal(as.list(environment(sc)), list())
 })
 
 test_that("extract_closure works with cycles", {
@@ -213,13 +221,17 @@ test_that("extract_closure works with cycles", {
     c <- function() a()
 
     sc <- extract_closure(c)
-    expect_equal(sc$args, formals(c))
-    expect_equal(sc$body, body(c))
-    expect_equal(sc$globals$a$args, formals(a))
-    expect_equal(sc$globals$a$body, body(a))
-    expect_equal(sc$globals$a$globals$b$args, formals(b))
-    expect_equal(sc$globals$a$globals$b$body, body(b))
-    expect_equal(sc$globals$a$globals$b$globals, list())
+    expect_equal(formals(sc), formals(c))
+    expect_equal(body(sc), body(c))
+    expect_equal(length(environment(sc)), 1)
+
+    expect_equal(formals(environment(sc)$a), formals(a))
+    expect_equal(body(environment(sc)$a), body(a))
+    expect_equal(length(environment(environment(sc)$a)), 1)
+
+    expect_equal(formals(environment(environment(sc)$a)$b), formals(b))
+    expect_equal(body(environment(environment(sc)$a)$b), body(b))
+    expect_equal(length(environment(environment(environment(sc)$a)$b)), 0)
 })
 
 test_that("on_function_entry resolves caller and callee environments", {
@@ -241,7 +253,7 @@ test_that("on_function_entry resolves caller and callee environments", {
 
     ## browser()
     # env$f(y=2*x, a+x+y)
-    on_function_entry(1, "f", list(x=quote(b(d)), quote(a)), fun=env$f)
+    on_function_entry(1, "f", fun=env$f, list(x=quote(b(d)), quote(a)))
 
     t <- get_call_trace(1)
     expect_equal(t$fun, "f")
@@ -249,16 +261,10 @@ test_that("on_function_entry resolves caller and callee environments", {
     expect_equal(length(t$globals), 3)
     expect_equal(t$globals$a, 10)
     expect_equal(t$globals$d, 30)
-    expect_equal(t$globals$b$args, formals(b))
-    expect_equal(t$globals$b$body, body(b))
-    expect_equal(t$globals$b$globals, list(e=40))
+    expect_equal(formals(t$globals$b), formals(b))
+    expect_equal(body(t$globals$b), body(b))
+    expect_equal(as.list(environment(t$globals$b)), list(e=40))
 })
-
-# I need free variables
-# all non-functions in user-defined envs I can serialize straight away
-# all functions in user-defined envs I can serialize
-# all functions in packages I need to import into a namespace
-# for all functions in user-defined envs I have to do the same
 
 test_that("get_call_trace works", {
     on.exit(reset_call_traces())

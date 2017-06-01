@@ -4,7 +4,7 @@
 \alias{link_environments}
 \title{Links the environments of the surrounding functions}
 \usage{
-link_environments(env = parent.frame(), parent = globalenv())
+link_environments(env = parent.frame(), parent = parent.env(env))
 }
 \arguments{
 \item{env}{the environment in which to look for functions}

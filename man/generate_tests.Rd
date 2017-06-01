@@ -4,7 +4,8 @@
 \alias{generate_tests}
 \title{Generates test cases from traces}
 \usage{
-generate_tests(traces, output_dir = "generated_tests")
+generate_tests(traces, output_dir = "generated_tests",
+  include_trace_dump = FALSE)
 }
 \arguments{
 \item{traces}{from which to generate test cases}

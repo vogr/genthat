@@ -51,3 +51,4 @@ TAGS
 # temp files
 generated_tests
 tmp
+.Rproj.user

@@ -178,6 +178,14 @@ decorate_and_replace_one <- function(name, fun) {
 }
 
 reset_function <- function(name) {
+    # allows both a name reference or name as string
+    if (!is.character(name)) {
+        name <- substitute(name)
+        if (is.name(name)) {
+            name <- as.character(name)
+        }
+    }
+
     stopifnot(is.character(name))
 
     r <- remove_replacement(name)

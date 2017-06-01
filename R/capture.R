@@ -3,11 +3,12 @@ on_function_entry <- function(call_id, name, args, fun=sys.function(-1), env=par
     stopifnot(is.character(name) && length(name) == 1)
     stopifnot(is.list(args))
 
+    # TODO: (performance) all this makes sense only if there are symbols anywhere in args
+
     # get callee globals (free variables) that we need to capture
     # we do that by abusing the extract closure
     dummy <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
-
-    callee <- extract_closure(dummy)$globals
+    callee <- as.list(environment(extract_closure(dummy)))
 
     set_call_trace(call_id, create_trace(name, args, callee))
 }
@@ -92,36 +93,62 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
 extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
     stopifnot(is.closure(fun))
 
+    if (isTRUE(attr(fun, "genthat_extracted_closure"))) {
+        return(fun)
+    }
+
     env <- environment(fun)
+    if (identical(env, baseenv())
+        || identical(env, .BaseNamespaceEnv)
+        || identical(env, emptyenv())
+        || environment_name(env) != "") {
+
+        copy <- fun
+
+        attr(copy, "genthat_extracted_closure") <- TRUE
+
+        return(copy)
+    }
 
     if (is.name(name) || is.character(name)) {
         .visited <- bag_add(.visited, name, env)
     }
 
     names <- codetools::findGlobals(fun)
-    unknowns <- filter_not(names, bag_contains_value, bag=.visited, value=env)
-    vals <- get_symbol_values(unknowns, env)
+    new_fun <-
+        if (length(names) == 0) {
+            copy <- fun
+            environment(copy) <- new.env(parent=baseenv())
+            copy
+        } else {
+            unknowns <- filter_not(names, bag_contains_value, bag=.visited, value=env)
+            vals <- get_symbol_values(unknowns, env)
 
-    vars <- filter_not(vals, is.closure)
-    funs <- filter(vals, is.closure)
+            vars <- filter_not(vals, is.closure)
+            funs <- filter(vals, is.closure)
 
-    # mark variables as visited so the consecutive serialization will not consider them
-    .visited <- reduce(names(vars), function(b, x) b <- bag_add(b, x, env), init=.visited)
+            # mark variables as visited so the consecutive serialization will not consider them
+            .visited <- reduce(names(vars), function(b, x) b <- bag_add(b, x, env), init=.visited)
 
-    # now we can process functions
-    funs <- zip(name=names(funs), val=funs)
-    funs <- lapply(funs, function(x) extract_closure(x$val, x$name, .visited))
+            # now we can process functions
+            funs <- zip(name=names(funs), val=funs)
+            funs <- lapply(funs, function(x) extract_closure(x$val, x$name, .visited))
 
-    globals <- c(vars, funs)
+            globals <- c(vars, funs)
+            new_env <-
+                if (length(globals) == 0) {
+                    new.env(parent=baseenv())
+                } else {
+                    e <- list2env(globals, parent=baseenv())
+                    link_environments(e)
+                    e
+                }
 
-    structure(
-        list(
-            args=formals(fun),
-            body=body(fun),
-            globals=globals
-        ),
-        class="genthat_closure"
-    )
+            as.function(c(formals(fun), body(fun)), envir=new_env)
+        }
+
+    attr(new_fun, "genthat_extracted_closure") <- TRUE
+    new_fun
 }
 
 create_trace <- function(fun, args=list(), globals=list(), retv) {
@@ -151,7 +178,7 @@ get_next_call_id <- function() {
 }
 
 reset_call_traces <- function() {
-    cache$traces <- list()
+    cache$traces <- new.env(parent=emptyenv())
 }
 
 get_call_traces <- function() {
@@ -160,19 +187,14 @@ get_call_traces <- function() {
 
 set_call_trace <- function(call_id, trace) {
     stopifnot(is.numeric(call_id))
-    stopifnot(any(sapply(class(trace), startsWith, prefix="genthat_trace")))
+#    stopifnot(any(sapply(class(trace), startsWith, prefix="genthat_trace")))
 
     cache$traces[[as.character(call_id)]] <- trace
 }
 
 get_call_trace <- function(call_id) {
     stopifnot(is.numeric(call_id))
-
-    idx <- as.character(call_id)
-
-    if (contains_key(cache$traces, idx)) {
-        cache$traces[[idx]]
-    } else {
-        stop("Call ID: ", call_id, " does not exist")
-    }
+    v <- cache$traces[[as.character(call_id)]]
+    stopifnot(!is.null(v))
+    v
 }

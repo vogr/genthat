@@ -13,3 +13,11 @@ create_duplicate <- function(target) {
     .Call('genthat_create_duplicate', PACKAGE = 'genthat', target)
 }
 
+environment_name <- function(env) {
+    .Call('genthat_environment_name', PACKAGE = 'genthat', env)
+}
+
+environment_name_as_code <- function(env) {
+    .Call('genthat_environment_name_as_code', PACKAGE = 'genthat', env)
+}
+

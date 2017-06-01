@@ -4,7 +4,7 @@
 \alias{generate_test_code}
 \title{Generate test case code from a trace}
 \usage{
-generate_test_code(trace)
+generate_test_code(trace, include_trace_dump = FALSE)
 }
 \arguments{
 \item{trace}{trace value}

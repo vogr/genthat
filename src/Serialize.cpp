@@ -4,6 +4,8 @@
 #include <string>
 #include <regex>
 
+#include "utils.h"
+
 using namespace Rcpp;
 using namespace std;
 
@@ -17,6 +19,7 @@ using namespace std;
 
 extern "C" {
     SEXP Rf_deparse1(SEXP call, Rboolean abbrev, int opts);
+    SEXP Rf_eval(SEXP e, SEXP rho);
 }
 
 class serialization_error : public runtime_error {
@@ -62,6 +65,8 @@ static const map<SEXP, string> SPEC_ATTRIBUTES_NAMES = {
     {R_NamesSymbol, ".Names"},
     {R_LevelsSymbol, ".Label"}
 };
+
+static SEXP GENTHAT_EXTRACTED_CLOSURE_SYM = Rf_install("genthat_extracted_closure");
 
 class Serializer {
 private:
@@ -176,9 +181,35 @@ private:
         return name;
     }
 
+    SEXP extract_closure(SEXP fun) {
+        // TODO: make sure it is a function
+        Environment genthat("package:genthat");
+        Function extract_closure_r = genthat["extract_closure"];
+
+        SEXP extracted = extract_closure_r(Rcpp::_["fun"] = fun);
+
+        // remove the attribute indicating the extracted closure
+        // so not to pollute the output
+        Rf_setAttrib(extracted, GENTHAT_EXTRACTED_CLOSURE_SYM, R_NilValue);
+
+        return extracted;
+    }
+
+    string concatenate(StringVector v, string sep) {
+        string res;
+
+        for (int i = 0; i < v.size(); i++) {
+            res += v(i);
+            res += i + 1 < v.size() ? sep : "";
+        }
+
+        return res;
+    }
+
     // contains the list of visited environments so far
     // it is used for the ENVSXP serialization
     set<SEXP> visited_environments;
+
 public:
     string serialize(SEXP s, bool quote) {
         switch (TYPEOF(s)) {
@@ -209,13 +240,7 @@ public:
         case CPLXSXP:
         case STRSXP: {
             StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
-            string res;
-
-            for (int i = 0; i < deparsed.size(); i++) {
-                res += deparsed(i);
-                res += i + 1 < deparsed.size() ? "\n" : "";
-            }
-
+            string res = concatenate(deparsed, "\n");
             return res;
         }
         case SYMSXP: {
@@ -251,7 +276,7 @@ public:
             }
 
             string parent_env_arg;
-            if (!Rf_isNull(parent)) {
+            if (!Rf_isNull(parent) && visited_environments.find(parent) == visited_environments.end()) {
                 string parent_env;
 
                 if (parent == R_EmptyEnv) {
@@ -362,8 +387,22 @@ public:
             throw sexp_not_supported_error("BCODESXP");
         case WEAKREFSXP:
             throw sexp_not_supported_error("WEAKREFSXP");
-        case CLOSXP:
-            throw sexp_not_supported_error("CLOSXP");
+        case CLOSXP: {
+            SEXP extracted = extract_closure(s);
+            SEXP env = CLOENV(extracted);
+            string env_code = environment_name_as_code(env);
+
+            // if this is empty, the environment is not a empty / base / package / namespace
+            // and therefore we need to serialize it
+            if (env_code.empty()) {
+                env_code = serialize(env, false);
+            }
+
+            string fun_code = concatenate(Rf_deparse1(extracted, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16), "\n");
+            string res = "genthat::with_env(" + fun_code + ", env=" + env_code + ")";
+
+            return res;
+        }
         case DOTSXP:
             throw sexp_not_supported_error("DOTSXP");
         case CHARSXP:
@@ -372,8 +411,11 @@ public:
             throw sexp_not_supported_error("EXPRSXP");
         case RAWSXP:
             throw sexp_not_supported_error("RAWSXP");
-        case PROMSXP:
+        case PROMSXP: {
+            // s = Rf_eval(s, R_BaseEnv);
+            // return serialize(s, quote);
             throw sexp_not_supported_error("PROMSXP");
+        }
         case S4SXP:
             throw sexp_not_supported_error("S4SXP");
         default:
