@@ -227,3 +227,19 @@ with_env <- function(f, env) {
     environment(f) <- env
     f
 }
+
+
+has_attr <- function(obj, name, value=NULL) {
+    stopifnot(is.character(name))
+
+    if (is.null(obj)) {
+        FALSE
+    } else {
+        v <- attr(obj, name)
+        if (is.null(v)) {
+            is.null(value)
+        } else {
+            is.null(value) || attr(obj, name) == value
+        }
+    }
+}

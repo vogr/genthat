@@ -30,7 +30,13 @@ capture <- function(expr) {
     )
 }
 
+
+#' @importFrom methods is
+#' @export
+#'
 run_generated_tests <- function(tests) {
+    stopifnot(is.character(tests))
+
     result <-
         lapply(tests, function(x) {
             n <- tools::file_path_sans_ext(x)
@@ -41,12 +47,24 @@ run_generated_tests <- function(tests) {
             writeLines(as.character(r$time), paste0(n, ".time"))
 
             if (methods::is(r$result, "error")) {
-                message("Test ", x, " failed: ", r$result$message)
-                data.frame()
+                if (is_debug_enabled()) {
+                    message("Test ", x, " failed: ", r$result$message)
+                }
+                r <- data.frame(list(test=x, message=r$result$message), stringsAsFactors=FALSE)
+                attr(r, "passed") <- FALSE
+                r
             } else {
-                as.data.frame(r$result)
+                r <- as.data.frame(r$result)
+                attr(r, "passed") <- TRUE
+                r
             }
         })
 
-    do.call(rbind, result)
+    passed <- filter(result,  has_attr, name="passed", value=TRUE)
+    passed <- do.call(rbind, passed)
+
+    failed <- filter(result,  has_attr, name="passed", value=FALSE)
+    failed <- do.call(rbind, failed)
+
+    list(passed=passed, failed=failed)
 }

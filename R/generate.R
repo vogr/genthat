@@ -64,15 +64,6 @@ generate_test_code.default <- function(trace, include_trace_dump) {
     NULL
 }
 
-# TODO: to remove
-## stopwatch <- function(expr) {
-##     t <- as.numeric(Sys.time())*1000
-##     r <- force(expr)
-##     t <- as.numeric(Sys.time())*1000 - t
-
-##     list(result=r, time=t)
-## }
-
 #' @title Generates test cases from traces
 #'
 #' @param traces from which to generate test cases
@@ -83,31 +74,36 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #'
 generate_tests <- function(traces, output_dir="generated_tests", include_trace_dump=FALSE) {
     stopifnot(is.list(traces) || is.environment(traces))
-    stopifnot(is.character(output_dir))
+    stopifnot(is.character(output_dir) && length(output_dir) == 1)
 
     if (length(traces) == 0) {
         return(list())
     }
 
-    tests <-
+    results <-
         lapply(traces, function(x) {
             if (is_debug_enabled()) {
-                message("Generating test trace of ", x$fun)
+                message("Generating test from a trace of ", x$fun)
             }
 
             tryCatch({
-                 generate_test_code(x, include_trace_dump)
+                test <- generate_test_code(x, include_trace_dump)
+                if (!is.null(test)) {
+                    attr(test, "generated") <- TRUE
+                }
+                test
             }, error=function(e) {
-                warning("Unable to generate test trace of", x$fun, " ", e$message)
-                NULL
+                msg <- e$message
+                if (is_debug_enabled()) {
+                    message("Unable to generate test trace of", x$fun, " ", msg)
+                }
+                attr(msg, "generated") <- FALSE
+                msg
             })
         })
 
-    tests <- filter_not(tests, is.null)
-
-    if (length(tests) == 0) {
-        return(list())
-    }
+    tests <- filter(results, has_attr, name="generated", value=TRUE)
+    errors <- filter(results, has_attr, name="generated", value=FALSE)
 
     if (!dir.exists(output_dir)) {
         if (!dir.create(output_dir)) {
@@ -120,5 +116,5 @@ generate_tests <- function(traces, output_dir="generated_tests", include_trace_d
 
     lapply(tests_with_fnames, function(x) write(x$test, file=x$fname))
 
-    fnames
+    list(tests=fnames, errors=errors)
 }
