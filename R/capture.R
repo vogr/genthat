@@ -1,32 +1,27 @@
-on_function_entry <- function(call_id, name, args, fun=sys.function(-1), env=parent.frame()) {
-    stopifnot(is.numeric(call_id))
+# Default function entry decorator. Creates the trace record and stores it into the trace vector. Returns the index of the trace record in the vector so that the trace can be updated later.
+on_function_entry <- function(name, args, fun=sys.function(-1), env=parent.frame()) {
     stopifnot(is.character(name) && length(name) == 1)
     stopifnot(is.list(args))
 
     # TODO: (performance) all this makes sense only if there are symbols anywhere in args
-
     # get callee globals (free variables) that we need to capture
     # we do that by abusing the extract closure
     dummy <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
     callee <- as.list(environment(extract_closure(dummy)))
 
-    set_call_trace(call_id, create_trace(name, args, callee))
+    .Call("push_trace", create_trace(name, args, callee))
 }
 
 #' @importFrom methods is
-on_function_exit <- function(call_id, retv) {
-    stopifnot(is.numeric(call_id))
-
-    trace <- get_call_trace(call_id)
-    stopifnot(methods::is(trace, "genthat_trace_entry"))
-
+on_function_exit <- function(index, retv) {
+    stopifnot(is.integer(index))
+    trace <- .Call("get_trace", index)
     tryCatch({
         trace <- create_trace(trace$fun, args=trace$args, globals=trace$globals, retv=retv)
     }, error=function(e) {
         trace <- create_trace_error(trace$fun, trace$args, format(e))
     })
-
-    set_call_trace(call_id, trace)
+    .Call("update_trace", index, trace)
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {
@@ -173,28 +168,12 @@ create_trace_error <- function(fun, args, msg) {
     structure(list(fun=fun, args=as.list(args), msg=msg), class="genthat_trace_error")
 }
 
-get_next_call_id <- function() {
-    length(cache$traces)
-}
-
+# Clears the captured caches. 
 reset_call_traces <- function() {
-    cache$traces <- new.env(parent=emptyenv())
+    .Call("reset_traces")
 }
 
-get_call_traces <- function() {
-    cache$traces
-}
-
-set_call_trace <- function(call_id, trace) {
-    stopifnot(is.numeric(call_id))
-#    stopifnot(any(sapply(class(trace), startsWith, prefix="genthat_trace")))
-
-    cache$traces[[as.character(call_id)]] <- trace
-}
-
-get_call_trace <- function(call_id) {
-    stopifnot(is.numeric(call_id))
-    v <- cache$traces[[as.character(call_id)]]
-    stopifnot(!is.null(v))
-    v
+# Creates a copy of traces captured so far and returns them as R list. 
+get_call_traces_copy <- function() {
+    .Call("copy_traces")  
 }

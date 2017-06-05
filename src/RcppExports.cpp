@@ -61,3 +61,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+
+RcppExport SEXP copy_traces();
+RcppExport SEXP get_trace(SEXP);
+RcppExport SEXP push_trace(SEXP);
+RcppExport SEXP reset_traces();
+RcppExport SEXP update_trace(SEXP, SEXP);
+
+static const R_CallMethodDef CallEntries[] = {
+    {"genthat_serialize_value", (DL_FUNC) &genthat_serialize_value, 1},
+    {"genthat_reassign_function", (DL_FUNC) &genthat_reassign_function, 2},
+    {"genthat_create_duplicate", (DL_FUNC) &genthat_create_duplicate, 1},
+    {"genthat_environment_name", (DL_FUNC) &genthat_environment_name, 1},
+    {"genthat_environment_name_as_code", (DL_FUNC) &genthat_environment_name_as_code, 1},
+    {"copy_traces",                      (DL_FUNC) &copy_traces,                      0},
+    {"get_trace",                        (DL_FUNC) &get_trace,                        1},
+    {"push_trace",                       (DL_FUNC) &push_trace,                       1},
+    {"reset_traces",                     (DL_FUNC) &reset_traces,                     0},
+    {"update_trace",                     (DL_FUNC) &update_trace,                     2},
+    {NULL, NULL, 0}
+};
+
+RcppExport void R_init_genthat(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
+}

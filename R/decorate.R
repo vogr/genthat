@@ -82,7 +82,6 @@ is_decorated <- function(fun) {
 }
 
 do_decorate_function <- function(name, fun,
-                             .call_id_gen=substitute(genthat:::get_next_call_id),
                              .entry=substitute(genthat:::on_function_entry),
                              .exit=substitute(genthat:::on_function_exit)) {
     stopifnot(is.character(name))
@@ -101,21 +100,20 @@ do_decorate_function <- function(name, fun,
                 on.exit(.Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE)))
 
                 .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
-                `__call_id` <- CALL_ID_GEN()
-                ENTRY(call_id=`__call_id`, name=NAME, args=as.list(match.call())[-1], env=parent.frame())
+                `__trace_index` <- ENTRY(name = NAME, args = as.list(match.call())[-1], env = parent.frame())
                 .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
 
                 retv <- BODY
 
                 .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
-                EXIT(call_id=`__call_id`, retv=retv)
+                EXIT(index = `__trace_index`, retv = retv)
                 .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
 
                 retv
             } else {
                 BODY
             }
-        }, list(NAME=name, BODY=body(fun), CALL_ID_GEN=.call_id_gen, ENTRY=.entry, EXIT=.exit)),
+        }, list(NAME=name, BODY=body(fun), ENTRY=.entry, EXIT=.exit)),
         env=environment(fun),
         attributes=list(genthat=TRUE))
 
