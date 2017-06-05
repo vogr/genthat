@@ -23,6 +23,7 @@ test_that("create_function assigns attributes", {
 })
 
 test_that("do_decorate_function decorates a function", {
+    reset_call_traces()
     entry <- new.env()
     exit <- new.env()
 
@@ -32,8 +33,7 @@ test_that("do_decorate_function decorates a function", {
         do_decorate_function(
             "f",
             f,
-            .call_id_gen=function() 0,
-            .entry=save_calling_args(entry),
+            .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
 
     expect_equal(formals(d), formals(d))
@@ -43,12 +43,12 @@ test_that("do_decorate_function decorates a function", {
     d(1, 2)
 
     expect_equal(length(entry), 1)
-    expect_equal(entry$c1$call_id, 0)
+    #expect_equal(entry$c1$call_id, 0)
     expect_equal(entry$c1$name, "f")
     expect_equal(entry$c1$args, list(a=1, b=2))
 
     expect_equal(length(exit), 1)
-    expect_equal(exit$c1$call_id, 0)
+    expect_equal(exit$c1$index, 0L)
     expect_equal(exit$c1$retv, 3)
 })
 
@@ -66,8 +66,7 @@ test_that("on_function_entry works with multiline functions", {
         do_decorate_function(
             "f",
             f,
-            .call_id_gen=function() 0,
-            .entry=save_calling_args(entry),
+            .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
 
     expect_equal(formals(d), formals(d))
@@ -87,8 +86,7 @@ test_that("do_decorate_function decorates a package function", {
         do_decorate_function(
             "file_path_sans_ext",
             tools::file_path_sans_ext,
-            .call_id_gen=function() 0,
-            .entry=save_calling_args(entry),
+            .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
 
     expect_equal(formals(d), formals(tools::file_path_sans_ext))
@@ -97,12 +95,11 @@ test_that("do_decorate_function decorates a package function", {
     d("a.b")
 
     expect_equal(length(entry), 1)
-    expect_equal(entry$c1$call_id, 0)
     expect_equal(entry$c1$name, "file_path_sans_ext")
     expect_equal(entry$c1$args, list(x="a.b"))
 
     expect_equal(length(exit), 1)
-    expect_equal(exit$c1$call_id, 0)
+    expect_equal(exit$c1$index, 0)
     expect_equal(exit$c1$retv, "a")
 })
 
@@ -199,8 +196,7 @@ test_that("do_decorate_function works with ...", {
         do_decorate_function(
             "f",
             f,
-            .call_id_gen=function() 0,
-            .entry=save_calling_args(entry),
+            .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
 
     r <- d(a=1, b=2, 3, 4)
@@ -208,12 +204,11 @@ test_that("do_decorate_function works with ...", {
     expect_equal(r, f(1:4))
 
     expect_equal(length(entry), 1)
-    expect_equal(entry$c1$call_id, 0)
     expect_equal(entry$c1$name, "f")
     expect_equal(entry$c1$args, list(a=1, b=2, 3, 4))
 
     expect_equal(length(exit), 1)
-    expect_equal(exit$c1$call_id, 0)
+    expect_equal(exit$c1$index, 0)
     expect_equal(exit$c1$retv, f(1:4))
 })
 

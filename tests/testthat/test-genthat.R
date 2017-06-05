@@ -113,10 +113,10 @@ test_that("tracing control work", {
     disable_tracing()
     f(1,2)
     expect_equal(is_tracing_enabled(), FALSE)
-    expect_equal(length(get_call_traces()), 0)
+    expect_equal(length(get_call_traces_copy()), 0)
 
     enable_tracing()
     f(1,2)
     expect_equal(is_tracing_enabled(), TRUE)
-    expect_equal(length(get_call_traces()), 1)
+    expect_equal(length(get_call_traces_copy()), 1)
 })
