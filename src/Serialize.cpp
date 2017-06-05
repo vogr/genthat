@@ -2,7 +2,6 @@
 #include <R.h>
 
 #include <string>
-#include <regex>
 
 #include "utils.h"
 
@@ -53,10 +52,28 @@ static const set<string> KEYWORDS = {
     "NA_complex_", "NA_character_", "..."
 };
 
+bool isDigit(char c) {
+    return c >= '0' && c <= '9';
+}
+
 // A syntactically valid name consists of letters, numbers and the dot or underline
 // characters and starts with a letter or the dot not followed by a number
 // cf. https://stat.ethz.ch/R-manual/R-devel/library/base/html/make.names.html
-static const regex VALID_NAME = regex("^([a-zA-Z][a-zA-Z0-9._]*|[.]([a-zA-Z._][a-zA-Z0-9._]*)?)$");
+bool isNameOk(std::string const & name) {
+    // dot followed by number must be escaped
+    if (name[0] == '.' && isDigit(name[1]))
+        return false;
+    // underscore followed by anything must be escaped
+    if (name[0] == '_')
+        return false;
+    // we have checked the first character special cases, just make sure letters are valid now
+    for (char c : name) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || isDigit(c) || c == '.' || c == '_')
+            continue;
+        return false;
+    }
+    return true;            
+}
 
 static const map<SEXP, string> SPEC_ATTRIBUTES_NAMES = {
     {R_DimSymbol, ".Dim"},
@@ -89,7 +106,7 @@ private:
     static string escape_name(string const &name) {
         if (name.empty()) {
             return name;
-        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !regex_match(name, VALID_NAME)) {
+        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !isNameOk(name)) {
             return "`" + name + "`";
         } else {
             return name;
