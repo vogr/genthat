@@ -67,43 +67,68 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #' @title Generates test cases from traces
 #'
 #' @param traces from which to generate test cases
-#' @param output_dir target directory where to place generated test
 #'
 #' @description Generates tests cases from the captured traces.
 #' @export
 #'
-generate_tests <- function(traces, output_dir="generated_tests", include_trace_dump=FALSE) {
+generate_tests <- function(traces, include_trace_dump=FALSE) {
     stopifnot(is.list(traces) || is.environment(traces))
-    stopifnot(is.character(output_dir) && length(output_dir) == 1)
 
     if (length(traces) == 0) {
         return(list())
     }
 
+    pb <- txtProgressBar(min=0, max=length(traces), initial=0, style=3)
     results <-
         lapply(traces, function(x) {
             if (is_debug_enabled()) {
                 message("Generating test from a trace of ", x$fun)
             }
 
+            trace_str <- paste(capture.output(str(x)), collapse="\n")
+
             tryCatch({
                 test <- generate_test_code(x, include_trace_dump)
+
                 if (!is.null(test)) {
-                    attr(test, "generated") <- TRUE
+                    if (is_debug_enabled()) {
+                        message("Generated test for trace of ", x$fun)
+                    }
+
+                    structure(data.frame(list(code=test, trace=trace_str)), generated=TRUE)
+                } else {
+                    NULL
                 }
-                test
             }, error=function(e) {
                 msg <- e$message
+
                 if (is_debug_enabled()) {
-                    message("Unable to generate test trace of", x$fun, " ", msg)
+                    message("Unable to generate test for trace of ", x$fun, " ", msg)
                 }
-                attr(msg, "generated") <- FALSE
-                msg
+
+                structure(data.frame(list(message=msg, trace=trace_str)), generated=FALSE)
+            }, finally={
+                setTxtProgressBar(pb, getTxtProgressBar(pb)+1)
             })
         })
+    close(pb)
 
     tests <- filter(results, has_attr, name="generated", value=TRUE)
+    tests <- do.call(rbind, tests)
+    tests <- cbind(tests, id=row.names(tests))
+    row.names(tests) <- NULL
+
     errors <- filter(results, has_attr, name="generated", value=FALSE)
+    errors <- do.call(rbind, errors)
+    errors <- cbind(errors, id=row.names(errors))
+    row.names(errors) <- NULL
+
+    list(tests=tests, errors=errors)
+}
+
+save_tests <- function(output_dir, tests) {
+    stopifnot(is.character(output_dir) && length(output_dir) == 1)
+    stopifnot(is.data.frame(tests))
 
     if (!dir.exists(output_dir)) {
         if (!dir.create(output_dir)) {
@@ -111,10 +136,9 @@ generate_tests <- function(traces, output_dir="generated_tests", include_trace_d
         }
     }
 
-    fnames <- file.path(output_dir, paste0("test-", 1:length(tests), ".R"))
-    tests_with_fnames <- zip(fname=fnames, test=tests)
+    lapply(tests, function(x) {
+        fname <- file.path(output_dir, paste0("test-", x$id, ".R"))
+        write(x$test, file=fname)
+    })
 
-    lapply(tests_with_fnames, function(x) write(x$test, file=x$fname))
-
-    list(tests=fnames, errors=errors)
 }

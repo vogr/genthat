@@ -1,3 +1,11 @@
+stopwatch <- function(expr) {
+    time <- as.numeric(Sys.time())*1000
+    result <- force(expr)
+    time <- as.numeric(Sys.time())*1000 - time
+
+    list(result=result, time=time)
+}
+
 capture <- function(expr) {
     out <- tempfile()
     err <- tempfile()
@@ -8,25 +16,23 @@ capture <- function(expr) {
     sink(type="output", file=fout)
     sink(type="message", file=ferr)
 
-    time <- as.numeric(Sys.time())*1000
     result <- tryCatch({
-        force(expr)
+        stopwatch(expr)
     }, error=function(e) {
-        e
+        list(result=e)
     }, finally={
-        time <- as.numeric(Sys.time())*1000 - time
-
         sink(type="output")
         sink(type="message")
         close(fout)
         close(ferr)
     })
 
-    list(
-        result=result,
-        time=time,
-        out=paste(readLines(out), collapse="\n"),
-        err=paste(readLines(err), collapse="\n")
+    c(
+        result,
+        list(
+            out=paste(readLines(out), collapse="\n"),
+            err=paste(readLines(err), collapse="\n")
+        )
     )
 }
 
@@ -35,30 +41,45 @@ capture <- function(expr) {
 #' @export
 #'
 run_generated_tests <- function(tests) {
-    stopifnot(is.character(tests))
+    stopifnot(is.data.frame(tests))
 
+    pb <- txtProgressBar(min=0, max=length(tests), initial=0, style=3)
     result <-
-        lapply(tests, function(x) {
-            n <- tools::file_path_sans_ext(x)
-            r <- capture(testthat::test_file(x))
+        apply(tests, 1, function(x) {
+            x <- as.list(x)
+            tmp_test_file <- tempfile()
 
-            writeLines(r$out, paste0(n, ".out"))
-            writeLines(r$err, paste0(n, ".err"))
-            writeLines(as.character(r$time), paste0(n, ".time"))
+            write(x$code, file=tmp_test_file)
+
+            r <- capture(testthat::test_file(tmp_test_file))
+
+            setTxtProgressBar(pb, getTxtProgressBar(pb)+1)
 
             if (methods::is(r$result, "error")) {
+                msg <- r$result$message
                 if (is_debug_enabled()) {
-                    message("Test ", x, " failed: ", r$result$message)
+                    message("Test ", x, " failed: ", msg)
                 }
-                r <- data.frame(list(test=x, message=r$result$message), stringsAsFactors=FALSE)
-                attr(r, "passed") <- FALSE
-                r
+
+                r$message <- msg
+                r[["result"]] <- NULL
+
+                structure(as.data.frame(c(x, r), stringsAsFactors=FALSE), passed=FALSE)
             } else {
-                r <- as.data.frame(r$result)
-                attr(r, "passed") <- TRUE
-                r
+                if (is_debug_enabled()) {
+                    message("Test ", x, " succeeded")
+                }
+
+                r <-
+                    cbind(
+                        as.data.frame(r$result), # this one is the test result and has to be converted extra
+                        as.data.frame(x, stringsAsFactors=FALSE),
+                        as.data.frame(list(out=r$out, err=r$err), stringsAsFactors=FALSE))
+
+                structure(r, passed=TRUE)
             }
         })
+    close(pb)
 
     passed <- filter(result,  has_attr, name="passed", value=TRUE)
     passed <- do.call(rbind, passed)
