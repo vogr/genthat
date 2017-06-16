@@ -4,10 +4,26 @@
 \alias{generate_tests}
 \title{Generates test cases from traces}
 \usage{
-generate_tests(traces, include_trace_dump = FALSE)
+generate_tests(traces,
+  show_progress = isTRUE(getOption("genthat.show_progress")), ...)
 }
 \arguments{
 \item{traces}{from which to generate test cases}
+
+\item{show_progress}{(log) show progress during test generation}
+
+\item{...}{additional arguments supplied to `generate_test_code` function.}
+}
+\value{
+a list of two elements:
+- `tests`: a data frame with three columns and one row per successfully generated test
+  - `code`: (chr) string scalar with the actual test code
+  - `trace`: (chr) raw trace used to generate the test code formatted using `str` function
+  - `id`: (chr) the index of the trace from the `traces` argument
+- `errors`: a data frame with three columns and one row per unsuccessfully generated test
+  - `message`: (chr) the cause of unsuccessful generation, error message thrown from `generate_test_code` function
+  - `trace`: (chr) raw trace used to generate the test code formatted using `str` function
+  - `id`: (chr) the index of the trace from the `traces` argument
 }
 \description{
 Generates tests cases from the captured traces.

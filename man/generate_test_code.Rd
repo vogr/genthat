@@ -8,6 +8,9 @@ generate_test_code(trace, include_trace_dump = FALSE)
 }
 \arguments{
 \item{trace}{trace value}
+
+\item{include_trace_dump}{whether to include raw trace at the beginning of the test
+the trace is formatted using `str` function.}
 }
 \description{
 Given a genthat trace it generates a corresponding test case

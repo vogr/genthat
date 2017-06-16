@@ -1,5 +1,9 @@
 context("decoration")
 
+if (!requireNamespace("devtools", quietly=TRUE)) {
+    stop("devtools needed for this function to work. Please install it.", call. = FALSE)
+}
+
 test_that("create_function creates functions", {
     f <- create_function(pairlist(a=1, b=2), substitute(a+b))
     expect_equal(f(), 3)
@@ -104,7 +108,7 @@ test_that("do_decorate_function decorates a package function", {
 })
 
 test_that("is_decorated knows when a functions is decorated", {
-    on.exit(reset_replacements())
+    reset_genthat()
 
     f <- function() {}
     expect_false(is_decorated(f))
@@ -114,11 +118,9 @@ test_that("is_decorated knows when a functions is decorated", {
 })
 
 test_that("decorate_environment decorates all functions in the environment", {
-    on.exit({
-        # we do not want to test reset so we force reset the decoration
-        detach(package:samplepkg)
-        suppressWarnings(reset_replacements())
-    })
+    reset_genthat()
+
+    on.exit(detach(package:samplepkg))
 
     env <- devtools::load_all("samplepkg")$env
     original_size <- length(ls(env, all.names=TRUE))
@@ -160,6 +162,8 @@ test_that("create_duplicate duplicates a function", {
 })
 
 test_that("remove_replacement", {
+    reset_genthat()
+
     f <- function() {}
 
     r <- create_replacement("a", environment(f), f, f, f)

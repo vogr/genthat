@@ -59,7 +59,7 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
     vars <- zip(name=names, env=envs)
     vars <- filter(vars, function(x) {
         if (is.null(x$env)) {
-            # TODO: this does not seem to be correct 
+            # TODO: this does not seem to be correct
             warning("Symbol ", x$name, " could not be found in ", environmentName(env))
             FALSE
         } else {
@@ -116,6 +116,7 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
             environment(copy) <- new.env(parent=baseenv())
             copy
         } else {
+            needs_link <- length(filter(names, bag_contains_value, bag=.visited, value=env)) > 0
             unknowns <- filter_not(names, bag_contains_value, bag=.visited, value=env)
             vals <- get_symbol_values(unknowns, env)
 
@@ -135,11 +136,18 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
                     new.env(parent=baseenv())
                 } else {
                     e <- list2env(globals, parent=baseenv())
-                    link_environments(e)
+                    # we should only link the environments in the case it is necessary
+                    # i.e. any of the global functions need access to this environment
+                    # the idea is demonstrated in the test-capture.R
+                    link_environments(e, .fun_filter=function(x) is.local_closure(x) && isTRUE(attr(x, "genthat_needs_link")))
                     e
                 }
 
-            as.function(c(formals(fun), body(fun)), envir=new_env)
+            f <- as.function(c(formals(fun), body(fun)), envir=new_env)
+            if (needs_link) {
+                attr(f, "genthat_needs_link") <- TRUE
+            }
+            f
         }
 
     attr(new_fun, "genthat_extracted_closure") <- TRUE
@@ -168,12 +176,17 @@ create_trace_error <- function(fun, args, msg) {
     structure(list(fun=fun, args=as.list(args), msg=msg), class="genthat_trace_error")
 }
 
-# Clears the captured caches. 
+# Clears the captured caches.
+#' @export
+#'
 reset_call_traces <- function() {
+    # TODO: use Rcpp generated wrappers
     .Call("reset_traces")
 }
 
-# Creates a copy of traces captured so far and returns them as R list. 
-get_call_traces_copy <- function() {
-    .Call("copy_traces")  
+# Creates a copy of traces captured so far and returns them as R list.
+#' @export
+#'
+copy_call_traces <- function() {
+    .Call("copy_traces")
 }

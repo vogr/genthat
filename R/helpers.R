@@ -40,7 +40,12 @@ add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     stopifnot(is.character(pkg_name))
     stopifnot(dir.exists(lib))
 
-    load_script <- file.path(lib, pkg_name, "R", pkg_name)
+    r_dir <- file.path(lib, pkg_name, "R")
+    if (!dir.exists(r_dir)) {
+        stop("Unable to add package hook to ", pkg_name, ", the package is missing the `R` folder")
+    }
+
+    load_script <- file.path(r_dir, pkg_name)
     lines <- readLines(load_script)
 
     lines <- append(lines, "options(error = function() traceback(2))", 0)
@@ -53,18 +58,6 @@ add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     }
 
     writeLines(text=lines, con=load_script)
-}
-
-#' @importFrom utils head
-# from covr
-show_failures <- function(dir) {
-  fail_files <- list.files(dir, pattern = "fail$", recursive = TRUE, full.names = TRUE)
-  for (file in fail_files) {
-    lines <- readLines(file)
-    # Skip header lines (until first >)
-    lines <- lines[seq(head(which(grepl("^>", lines)), n = 1), length(lines))]
-    stop("Failure in `", file, "`\n", paste(lines, collapse = "\n"), call. = FALSE)
-  }
 }
 
 # from covr
@@ -205,11 +198,9 @@ get_package_name <- function(env) {
 #' @param env the environment in which to look for functions
 #' @param parent the environment to use as the parent environment of the functions
 #'
-#' @export
-#'
-link_environments <- function(env=parent.frame(), parent=parent.env(env)) {
+link_environments <- function(env=parent.frame(), parent=parent.env(env), .fun_filter=is.local_closure) {
     vars <- as.list(env)
-    funs <- filter(vars, is.local_closure)
+    funs <- filter(vars, .fun_filter)
 
     lapply(funs, function(x) {
         f_env <- environment(x)
@@ -228,18 +219,48 @@ with_env <- function(f, env) {
     f
 }
 
+test_file <- function(file) {
+    capture(as.data.frame(testthat::test_file(file)))
+}
 
-has_attr <- function(obj, name, value=NULL) {
-    stopifnot(is.character(name))
+stopwatch <- function(expr) {
+    time <- as.numeric(Sys.time())*1000
+    result <- force(expr)
+    time <- as.numeric(Sys.time())*1000 - time
 
-    if (is.null(obj)) {
-        FALSE
-    } else {
-        v <- attr(obj, name)
-        if (is.null(v)) {
-            is.null(value)
-        } else {
-            is.null(value) || attr(obj, name) == value
-        }
-    }
+    list(result=result, time=time)
+}
+
+capture <- function(expr, split=FALSE) {
+    out <- tempfile()
+    err <- tempfile()
+
+    fout = file(out, open="wt")
+    ferr = file(err, open="wt")
+
+    sink(type="output", file=fout, split=split)
+    sink(type="message", file=ferr)
+
+    result <- tryCatch({
+        stopwatch(expr)
+    }, error=function(e) {
+        list(error=e, time=NA)
+    }, finally={
+        sink(type="output")
+        sink(type="message")
+        close(fout)
+        close(ferr)
+    })
+
+    c(
+        result,
+        list(
+            out=paste(readLines(out), collapse="\n"),
+            err=paste(readLines(err), collapse="\n")
+        )
+    )
+}
+
+read_text_file <- function(f) {
+    paste(readLines(f), collapse="\n")
 }

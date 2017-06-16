@@ -1,75 +1,43 @@
-context("genthat integration tests")
+## context("genthat integration tests")
+
+if (!requireNamespace("devtools", quietly=TRUE)) {
+    stop("devtools needed for this function to work. Please install it.", call. = FALSE)
+}
 
 skip_if_not_integration_test <- function() {
     skip_if_not(getOption("genthat.run_integration_tests") == TRUE)
 }
 
-test_that("closures", {
-    on.exit(detach(package:samplepkg))
-    on.exit({reset_call_traces(); reset_replacements()}, add=TRUE)
+test_that("trace_package in samplepkg", {
+    ret <- trace_package("samplepkg", {
+        library(samplepkg)
+        my_public("Hello")
+    })
 
-    devtools::load_all("samplepkg")
-
-    decorate_functions(samplepkg::my_call)
-    decorate_functions(samplepkg::my_add)
-
-    samplepkg::my_call(samplepkg::my_add, 1, 2)
-
-    t <- get_call_trace(0)
-    expect_equal(t$fun, "samplepkg::my_call")
-    expect_equal(t$args, list(fn=quote(samplepkg::my_add), 1, 2))
-    expect_equal(t$globals, list())
-
-    expect_equal(t$retv, 3)
-
-    t <- get_call_trace(1)
-    expect_equal(t$fun, "samplepkg::my_add")
-    expect_equal(t$args, list(a=1, b=2))
-    expect_equal(t$globals, list())
-    expect_equal(t$retv, 3)
+    expect_equal(length(ret$traces), 1)
+    expect_equal(length(ret$replacements), 6)
 })
 
 test_that("gen_from_package works on samplepkg tests", {
     skip_if_not_integration_test()
 
-    tmp_dir <- tempfile()
+    ret <- trace_package("samplepkg", genthat::run_package("samplepkg"))
+    expect_equal(length(ret$traces), 9)
+    expect_equal(length(ret$replacements), 6)
 
-    if (is_debug_enabled()) {
-        message("The working dir: ", tmp_dir)
-        cat("The working dir: ", tmp_dir, "\n")
-    }
+    tests <- generate_tests(ret$traces, include_trace_dump=TRUE)
 
-    on.exit({
-        if (!is_debug_enabled()) {
-            unlink(tmp_dir, recursive=TRUE)
-        }
-        detach(package:samplepkg)
-    })
+    expect_equal(nrow(tests), 9)
+    expect_true(all(is.na(tests$error)))
+    expect_equal(sum(is.na(tests$code)), 1)
 
-    res <- gen_from_package(
-        "samplepkg",
-        output_dir=tmp_dir,
-        type="tests",
-        quiet=!is_debug_enabled())
-
-    if (is_debug_enabled()) {
-        message("Output from gen_from_package():")
-        print(res)
-    }
-
-    expect_equal(length(res$traces), 7)
-    expect_equal(length(res$errors), 1)
-    expect_equal(length(res$failures), 0)
-    expect_equal(length(res$tests), 6)
-
+    tests <- tests[!is.na(tests$code),]
     devtools::load_all("samplepkg")
+    runs <- genthat::run_generated_tests(tests)
 
-    x <- testthat::test_dir(tmp_dir, reporter="silent")
-    x <- as.data.frame(x)
-
-    expect_equal(nrow(x), 6)
-    expect_equal(sum(x[["failed"]]), 0)
-    expect_equal(sum(x[["error"]]), 0)
+    expect_equal(nrow(runs), 8)
+    expect_equal(sum(runs$result == 1), 8)
+    expect_equal(sum(is.na(runs$error)), 8)
 })
 
 test_that("gen_from_package works on stringr", {
@@ -90,33 +58,53 @@ test_that("gen_from_package works on stringr", {
         }
     })
 
-    pkg <- download_package(
+    path <- download_package(
         "stringr",
         pkg_tmp_dir,
+        extract=TRUE,
         repos=c("CRAN"="https://cran.rstudio.com/"),
-        quiet=!is_debug_enabled())
+        quiet=!is_debug_enabled()
+    )
 
-    res <- gen_from_package(pkg$path, output_dir=tmp_dir, type="tests", quiet=!is_debug_enabled())
-    if (is_debug_enabled()) {
-        message("Output from gen_from_package():")
-        print(res)
-    }
+    ret <- trace_package(path, genthat::run_package("stringr"))
+    expect_true(length(ret$traces) > 0)
+    expect_true(length(ret$replacements) > 0)
 
-    # somthing is captured - good for now
-    expect_true(length(res$traces) > 0)
+    tests <- generate_tests(ret$traces, include_trace_dump=TRUE)
+
+    expect_true(nrow(tests) > 0)
+    expect_true(length(is.na(tests$code)) > 0)
+
+    tests <- tests[!is.na(tests$code),]
+    devtools::load_all(path)
+    runs <- genthat::run_generated_tests(tests)
+
+    expect_true(nrow(runs) > 0)
+
+    cat("\nResults of stringr:\n")
+    print(
+        data.frame(
+            traces=length(ret$traces),
+            replacements=length(ret$replacements),
+            tests=length(is.na(tests$code)),
+            passed=length(runs[!is.na(runs$result), "result"] == 1)
+        )
+    )
 })
 
 test_that("tracing control work", {
+    reset_genthat()
+
     f <- function(x,y) x + y
     decorate_function(f)
 
     disable_tracing()
     f(1,2)
     expect_equal(is_tracing_enabled(), FALSE)
-    expect_equal(length(get_call_traces_copy()), 0)
+    expect_equal(length(copy_call_traces()), 0)
 
     enable_tracing()
     f(1,2)
     expect_equal(is_tracing_enabled(), TRUE)
-    expect_equal(length(get_call_traces_copy()), 1)
+    expect_equal(length(copy_call_traces()), 1)
 })

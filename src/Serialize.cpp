@@ -72,7 +72,7 @@ bool isNameOk(std::string const & name) {
             continue;
         return false;
     }
-    return true;            
+    return true;
 }
 
 static const map<SEXP, string> SPEC_ATTRIBUTES_NAMES = {
@@ -136,6 +136,11 @@ private:
                 continue;
             } else {
                 string name = attribute_name(tag);
+
+                if (name.find("genthat_") == 0) {
+                    continue;
+                }
+
                 elems += name + "=" + serialize(CAR(a), true);
                 elems += !Rf_isNull(CDR(a)) ? ", " : "";
             }
@@ -205,10 +210,6 @@ private:
 
         SEXP extracted = extract_closure_r(Rcpp::_["fun"] = fun);
 
-        // remove the attribute indicating the extracted closure
-        // so not to pollute the output
-        Rf_setAttrib(extracted, GENTHAT_EXTRACTED_CLOSURE_SYM, R_NilValue);
-
         return extracted;
     }
 
@@ -250,12 +251,12 @@ public:
 
             return wrap_in_attributes(s, "list(" + args + ")");
         }
-            // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
         case LGLSXP:
         case INTSXP:
         case REALSXP:
         case CPLXSXP:
         case STRSXP: {
+            // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
             StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
             string res = concatenate(deparsed, "\n");
             return res;
@@ -294,7 +295,7 @@ public:
 
             string parent_env_arg;
             if (!Rf_isNull(parent) && visited_environments.find(parent) == visited_environments.end()) {
-                string parent_env;
+                std::string parent_env;
 
                 if (parent == R_EmptyEnv) {
                     parent_env = "emptyenv()";
@@ -317,6 +318,12 @@ public:
                 }
 
                 parent_env_arg = ", parent=" + parent_env;
+            } else {
+                // this means that we mush have seen it (unless it is null)
+                // and so it will be eventually linked
+                // this seems better than to leave it empty:
+                // list2env(..., parent=emptyenv()) than list2env(...)
+                parent_env_arg = ", parent=emptyenv()";
             }
 
             visited_environments.erase(s);
@@ -325,7 +332,6 @@ public:
         }
         // TODO: do we need this one?
         case LISTSXP: {/* pairlists */
-
             RObject protected_s(s);
             stringstream outStr;
             outStr << "\"alist(";
@@ -405,18 +411,45 @@ public:
         case WEAKREFSXP:
             throw sexp_not_supported_error("WEAKREFSXP");
         case CLOSXP: {
+            RObject protected_s(s);
+
             SEXP extracted = extract_closure(s);
             SEXP env = CLOENV(extracted);
             string env_code = environment_name_as_code(env);
 
-            // if this is empty, the environment is not a empty / base / package / namespace
-            // and therefore we need to serialize it
-            if (env_code.empty()) {
+            // if this is empty, the environment is not a empty / base / package / namespace environment
+            // and therefore we need to serialize it as long as it has not already been serialized
+            if (env_code.empty() && visited_environments.find(env) == visited_environments.end()) {
                 env_code = serialize(env, false);
             }
 
-            string fun_code = concatenate(Rf_deparse1(extracted, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16), "\n");
-            string res = "genthat::with_env(" + fun_code + ", env=" + env_code + ")";
+            // temporary remove genthat_* attributes since we do not control the deparsing
+            // while it is tempting to remove the SHOWATTRIBUTES flag, that will unfortunately
+            // remove the attributes from all
+            RObject extracted_obj(extracted);
+            std::map<std::string, SEXP> attrs;
+
+            for (auto const& name : extracted_obj.attributeNames()) {
+                if (name.find("genthat_") == 0) {
+                    attrs[name] = extracted_obj.attr(name); 
+                    extracted_obj.attr(name) = R_NilValue;
+                }
+            }
+
+            auto fun_code = concatenate(Rf_deparse1(extracted, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16), "\n");
+
+            // we put them back
+            for (auto const& x : attrs) {
+                extracted_obj.attr(x.first) = x.second;
+            }
+
+            string res;
+
+            if (env_code.empty()) {
+                res = fun_code;
+            } else {
+                res = "genthat::with_env(" + fun_code + ", env=" + env_code + ")";
+            }
 
             return res;
         }

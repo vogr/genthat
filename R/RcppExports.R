@@ -5,6 +5,10 @@ serialize_value <- function(s) {
     .Call('genthat_serialize_value', PACKAGE = 'genthat', s)
 }
 
+run_generated_tests_cpp <- function(tests, show_progress) {
+    .Call('genthat_run_generated_tests_cpp', PACKAGE = 'genthat', tests, show_progress)
+}
+
 reassign_function <- function(target_fun, new_fun) {
     .Call('genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }

@@ -1,91 +1,292 @@
-stopwatch <- function(expr) {
-    time <- as.numeric(Sys.time())*1000
-    result <- force(expr)
-    time <- as.numeric(Sys.time())*1000 - time
+#' @importFrom utils txtProgressBar
+#' @importFrom utils setTxtProgressBar
+#' @importFrom utils getTxtProgressBar
+#' @export
+#'
+run_generated_tests <- function(tests, show_progress=isTRUE(getOption("genthat.show_progress"))) {
+    stopifnot(is.data.frame(tests))
 
-    list(result=result, time=time)
-}
+    if (show_progress) {
+        pb <- utils::txtProgressBar(min=0, max=nrow(tests), initial=0, style=3)
 
-capture <- function(expr) {
-    out <- tempfile()
-    err <- tempfile()
+        after_one_run <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb)+1)
+        after_all_runs <- function() close(pb)
+    } else {
+        after_one_run <- function() {}
+        after_all_runs <- function() {}
+    }
 
-    fout = file(out, open="wt")
-    ferr = file(err, open="wt")
+    missing <- which(is.na(tests$code))
+    if (length(missing)) {
+        stop("Missing code for traces #", paste(missing, collapse=","))
+    }
 
-    sink(type="output", file=fout)
-    sink(type="message", file=ferr)
+    runs <- apply(tests, 1, function(x) {
+        x <- as.list(x)
 
-    result <- tryCatch({
-        stopwatch(expr)
-    }, error=function(e) {
-        list(result=e)
-    }, finally={
-        sink(type="output")
-        sink(type="message")
-        close(fout)
-        close(ferr)
+        # run the test
+        tmp_test_file <- tempfile()
+        write(x$code, file=tmp_test_file)
+        test_result <- capture(testthat::test_file(tmp_test_file))
+        after_one_run()
+
+        result <- list(
+            trace=x$trace,
+            code=x$code,
+            out=test_result$out,
+            err=test_result$err,
+            time=test_result$time
+        )
+
+        if (is.null(test_result$error)) {
+            if (is_debug_enabled()) {
+                message("Test ", x, " succeeded")
+            }
+
+            test_run <- as.data.frame(test_result$result)
+
+            result$test <- test_run$test
+            result$result <-
+                if (test_run$failed) {
+                    2
+                } else if (test_run$error) {
+                    3
+                } else if (test_run$nb == 0) {
+                    4
+                } else {
+                    1
+                }
+
+            result$error <- NA
+        } else {
+            msg <- test_result$error$message
+            if (is_debug_enabled()) {
+                message("Test ", x, " failed: ", msg)
+            }
+
+            result$test <- NA
+            result$result <- NA
+            result$error <- msg
+        }
+
+        as.data.frame(result, stringsAsFactors=FALSE)
     })
 
-    c(
-        result,
-        list(
-            out=paste(readLines(out), collapse="\n"),
-            err=paste(readLines(err), collapse="\n")
+    after_all_runs()
+
+    if (requireNamespace("dplyr", quietly=TRUE)) {
+        dplyr::bind_rows(runs)
+    } else {
+        message("dplyr is not available, which is a pity since it will speed up things")
+        do.call(rbind, runs)
+    }
+}
+
+run_package_examples <- function(pkg, output_dir, lib_path=NULL, ...) {
+    stopifnot(is.character(pkg) && length(pkg) == 1)
+    stopifnot(dir.exists(output_dir))
+
+    if (is_debug_enabled()) {
+        message("Running examples for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir)
+    }
+
+    res <-
+        tools::testInstalledPackage(
+            pkg,
+            outDir=output_dir,
+            errorsAreFatal=FALSE,
+            lib.loc=lib_path,
+            types="examples",
+            ...
         )
+
+    output_files <- list.files(output_dir, pattern="Rout$", recursive=FALSE, full.names=TRUE)
+    output <- sapply(output_files, read_text_file)
+
+    fail_files <- list.files(output_dir, pattern="fail$", recursive=FALSE, full.names=TRUE)
+    fail <- sapply(fail_files, read_text_file)
+
+    list(
+        success=res == 0,
+        output=output,
+        fail=fail
     )
 }
 
+run_package_tests <- function(pkg, output_dir, lib_path=NULL, ...) {
+    stopifnot(is.character(pkg) && length(pkg) == 1)
+    stopifnot(dir.exists(output_dir))
 
-#' @importFrom methods is
+    if (is_debug_enabled()) {
+        message("Running tests for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir)
+    }
+
+    res <-
+        tools::testInstalledPackage(
+            pkg,
+            outDir=output_dir,
+            errorsAreFatal=FALSE,
+            lib.loc=lib_path,
+            types="tests",
+            ...
+        )
+
+    output_files <- list.files(output_dir, pattern="Rout$", recursive=TRUE, full.names=TRUE)
+    output <- sapply(output_files, read_text_file)
+
+    fail_files <- list.files(output_dir, pattern="fail$", recursive=TRUE, full.names=TRUE)
+    fail <- sapply(fail_files, read_text_file)
+
+    list(
+        success=res == 0,
+        output=output,
+        fail=fail
+    )
+}
+
+# inspired by run_vignettes form covr
+run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, ...) {
+    stopifnot(is.character(pkg) && length(pkg) == 1)
+    stopifnot(dir.exists(output_dir))
+
+    pkg_path <- find.package(pkg, lib.loc=lib_path)
+
+    if (is_debug_enabled()) {
+        message("Running examples for: ", pkg, " (", pkg_path, ") output: ", output_dir)
+    }
+
+    out_file <- file.path(output_dir, paste0(pkg, "-Vignette.Rout"))
+    fail_file <- paste(out_file, "fail", sep = "." )
+
+    cat("tools::buildVignettes(dir='", pkg_path, "', quiet=FALSE)\n", file=out_file, sep="")
+    cmd <- paste(
+        shQuote(file.path(R.home("bin"), "R")),
+        "CMD BATCH --vanilla --no-timing",
+        shQuote(out_file),
+        shQuote(fail_file)
+    )
+
+    res <- system(cmd)
+    if (res != 0) {
+        fail <- read_text_file(fail_file)
+        output <- NULL
+    } else {
+        file.rename(fail_file, out_file)
+
+        fail <- NULL
+        output <- read_text_file(out_file)
+    }
+
+    list(
+        success=res == 0,
+        output=output,
+        fail=fail
+    )
+}
+
+#'  @param ... commentDontrun, commentDonttest
+#'
 #' @export
 #'
-run_generated_tests <- function(tests) {
-    stopifnot(is.data.frame(tests))
+run_package <- function(pkg, types=c("examples", "tests", "vignettes"), clean=TRUE, lib_path=.libPaths(), ...) {
+    stopifnot(length(pkg) == 1)
+    types <- match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
+    pkg_path <- find.package(pkg, lib_path)
 
-    pb <- txtProgressBar(min=0, max=length(tests), initial=0, style=3)
-    result <-
-        apply(tests, 1, function(x) {
-            x <- as.list(x)
-            tmp_test_file <- tempfile()
+    ret <- list()
+    for (type in types) {
+        output_dir=tempfile()
+        stopifnot(dir.create(output_dir))
 
-            write(x$code, file=tmp_test_file)
+        if (clean) {
+            on.exit(unlink(output_dir, recursive=TRUE))
+        }
 
-            r <- capture(testthat::test_file(tmp_test_file))
+        if (is_debug_enabled()) {
+            message("Running package in ", pkg, "(from: ", pkg_path, ") in ", output_dir)
+        }
 
-            setTxtProgressBar(pb, getTxtProgressBar(pb)+1)
+        fce <- switch(
+            type,
+            examples=run_package_examples,
+            tests=run_package_tests,
+            vignettes=run_package_vignettes
+        )
 
-            if (methods::is(r$result, "error")) {
-                msg <- r$result$message
-                if (is_debug_enabled()) {
-                    message("Test ", x, " failed: ", msg)
-                }
+        ret[[type]] <- fce(pkg, output_dir, lib_path, ...)
 
-                r$message <- msg
-                r[["result"]] <- NULL
+        if (!clean) {
+            ret[[type]]$output_dir <- output_dir
+        }
+    }
 
-                structure(as.data.frame(c(x, r), stringsAsFactors=FALSE), passed=FALSE)
-            } else {
-                if (is_debug_enabled()) {
-                    message("Test ", x, " succeeded")
-                }
+    ret
+}
 
-                r <-
-                    cbind(
-                        as.data.frame(r$result), # this one is the test result and has to be converted extra
-                        as.data.frame(x, stringsAsFactors=FALSE),
-                        as.data.frame(list(out=r$out, err=r$err), stringsAsFactors=FALSE))
+run_r_code <- function(code, text=NULL, ...) {
+    script <-
+        if(is.null(text)) {
+            deparse(substitute(code))
+        } else {
+            text
+        }
 
-                structure(r, passed=TRUE)
-            }
-        })
-    close(pb)
+    script_file <- tempfile()
 
-    passed <- filter(result,  has_attr, name="passed", value=TRUE)
-    passed <- do.call(rbind, passed)
+    on.exit(file.remove(script_file))
 
-    failed <- filter(result,  has_attr, name="passed", value=FALSE)
-    failed <- do.call(rbind, failed)
+    writeLines(script, script_file)
 
-    list(passed=passed, failed=failed)
+    run_r_script(script_file, ...)
+}
+
+run_r_script <- function(script_file, args=character(), .lib_paths=NULL) {
+    stopifnot(file.exists(script_file))
+    stopifnot(is.null(.lib_paths) || all(dir.exists(.lib_paths)))
+
+    out_file = tempfile()
+
+    on.exit(if (file.exists(out_file)) file.remove(out_file))
+
+    Rcmd <- file.path(R.home("bin"), "R")
+    args <- c(
+        "CMD",
+        "BATCH",
+        "--vanilla",
+        "--no-timing",
+        shQuote(args),
+        shQuote(script_file),
+        shQuote(out_file))
+
+    env <-
+        if (is.null(.lib_paths)) {
+            character()
+        } else {
+            # This is fairly counter intuitive, but
+            # the problem is that in some cases some R
+            # code (e.g. tools::testInstalledPackage)
+            # sets R_LIBS to "" and therefore the .lib_paths
+            # won't work. Therefore reset the variables
+            # to be the same. This might break other things I guess
+            # but so far so good.
+            paths <- paste(c(.lib_paths,.libPaths()), collapse=.Platform$path.sep)
+            c(
+                paste("R_LIBS", paths, sep="="),
+                paste("R_LIBS_USER", paths, sep="="),
+                paste("R_LIBS_SITE", paths, sep="=")
+            )
+        }
+
+    tryCatch({
+        res <- system2(Rcmd, args, wait=TRUE, env=env)
+    }, finally={
+        out <- read_text_file(out_file)
+    })
+
+    list(
+        command=paste(c(Rcmd, args), collapse=" "),
+        script=read_text_file(script_file),
+        status=res,
+        out=out
+    )
 }

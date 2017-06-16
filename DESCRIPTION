@@ -7,21 +7,19 @@ Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: Package aimed at generating testthat compatible tests.
 License: GPL (>= 2)
 Imports:
-    Rcpp (>= 0.11.3),
     codetools,
-    utils,
-    tools,
-    devtools,
-    roxygen2 (>= 5.0.0),
     methods,
-    testthat,
-    covr,
-    withr
+    Rcpp (>= 0.11.3),
+    tools,
+    utils
 LinkingTo: Rcpp
 Suggests:
-    parallel,
+    devtools,
+    dplyr,
     knitr,
-    rmarkdown
+    rmarkdown,
+    roxygen2 (>= 5.0.0),
+    testthat
 LazyData: TRUE
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr

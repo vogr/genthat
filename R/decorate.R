@@ -157,7 +157,7 @@ decorate_and_replace_one <- function(name, fun) {
     name <- get_function_fqn(name, fun)
 
     if (is_debug_enabled()) {
-        message("Tracing: ", name)
+        message("Decorating function: ", name)
     }
 
     new_fun <- do_decorate_function(name=name, fun=fun)
@@ -189,10 +189,16 @@ reset_function <- function(name) {
     r <- remove_replacement(name)
 
     if (is_debug_enabled()) {
-        message("Resetting: ", name)
+        message("Resetting decorated function: ", name)
     }
 
     reassign_function(r$fun, r$orig_fun)
+}
+
+reset_all_functions <- function() {
+    lapply(get_replacements(), function(x) {
+        reset_function(x$name)
+    })
 }
 
 get_function_fqn <- function(name, fun) {
@@ -218,6 +224,8 @@ get_function_fqn <- function(name, fun) {
     }
 }
 
+#' @export
+#'
 get_replacements <- function() {
     cache$replacements
 }

@@ -55,7 +55,7 @@ download_package <- function(package, destdir, version=NULL, repos=getOption("re
             }
             file.remove(destfile)
         } else {
-            stop("File already exists ", destfile)
+            cat("File already exists ", destfile, "\n")
         }
     }
 
@@ -69,7 +69,6 @@ download_package <- function(package, destdir, version=NULL, repos=getOption("re
 
     if (extract) {
         pkgdir <- file.path(destdir, package)
-
         if (dir.exists(pkgdir)) {
             if (force) {
                 if (!quiet) {
@@ -77,7 +76,7 @@ download_package <- function(package, destdir, version=NULL, repos=getOption("re
                 }
                 unlink(pkgdir, recursive=TRUE)
             } else {
-                stop("Destination directory for extracting exists ", pkgdir)
+                cat("Destination directory for extracting exists ", pkgdir, "\n")
             }
         }
 
@@ -86,8 +85,8 @@ download_package <- function(package, destdir, version=NULL, repos=getOption("re
         }
 
         utils::untar(destfile, exdir=destdir, verbose=!quiet)
+        pkgdir
+    } else {
+        archive
     }
-
-    # TODO: can we remove this dependency
-    devtools::as.package(pkgdir)
 }

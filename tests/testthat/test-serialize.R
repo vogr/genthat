@@ -196,6 +196,36 @@ test_that("closure reference serialization", {
     expect_equal(serialize(ls)(), ls())
 })
 
+test_that("closure with cycles in environments", {
+    a <- 1
+    b <- 2
+    c <- 3
+
+    # this one needs to be linked
+    g <- function(x) x + b
+    expect_equal(serialize(function(x) g(x) + b)(1), 5)
+
+    # this one does not need to be linked
+    g <- function(x) x + x
+    expect_equal(serialize(function(x) g(x) + b)(1), 4)
+
+    # this one contains c, but does not need to be linked
+    g <- function(x) x + c
+    expect_equal(serialize(function(x) g(x) + b)(1), 6)
+
+    # this one contains c and needs to be linked
+    g <- function(x) x + c + b
+    expect_equal(serialize(function(x) g(x) + b)(1), 8)
+})
+
+
+## test_that("", {
+##     f <- function(a, b, c) a * b * c
+##     attr(f, "genthat_extracted_closure") <- TRUE
+
+##     str(serialize_value(f))
+## })
+
 #test_that('Can serialize vectors of reals.', {
 #    l1 <- c(12.3, 435.549)
 #    s1 <- serialize_r(l1);

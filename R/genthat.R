@@ -10,6 +10,7 @@ NULL
 # TODO: gen_from_function
 # TODO: gen_from_code
 # TODO: gen_from_source
+# TODO: gen_from_package
 
 #' @title Generate test cases for a package
 #'
@@ -17,168 +18,182 @@ NULL
 #' the code contained in the package examples, vignettes and tests.
 #' @export
 #'
-gen_from_package <- function(package=".", output_dir="generated_tests",
-                            type=c("tests", "vignettes", "examples"),
-                            clean=FALSE, quiet=FALSE) {
+gen_from_package <- function(package, output_dir="generated_tests",
+                            types=c("tests", "vignettes", "examples"),
+                            clean=FALSE, quiet=TRUE) {
 
-    # TODO: can we remove this dependency
-    pkg <- devtools::as.package(package)
+    browser()
+    ret <- trace_package(package, types, clean=clean, quiet=quiet)
+    tests <- generate_tests(ret$traces, include_trace_dump=TRUE)
 
-    if (missing(type)) {
-        type <- "tests"
+    ## res <- structure(
+    ##     list(
+    ##         traces=output$traces,
+    ##         errors=filter(output$traces, is, class2="genthat_trace_entry"),
+    ##         failures=filter(output$traces, is, class2="genthat_trace_error"),
+    ##         tests=tests
+    ##     ),
+    ##     class="genthat_result"
+    ## )
+
+    ## if (is_debug_enabled()) {
+    ##     res$output <- output_dir
+    ##     res$genthat_output <- genthat_output
+    ##     res$libs <- libs
+    ##     res$pkg_dir <- pkg_dir
+    ## }
+
+    ## res
+}
+
+# TODO: vectorize over package
+#' @export
+#'
+trace_package <- function(package, code_to_run, clean=TRUE, quiet=TRUE, .tmp_lib=tempfile("R_genthat_")) {
+    stopifnot(dir.exists(.tmp_lib) || dir.create(.tmp_lib))
+
+    # TODO: no a very good heuristics (read manually using read.dcf)
+    # TODO: add support for already installed packages
+    pkg_name <-
+        if (file.exists(package) && endsWith(package, ".tar.gz")) {
+            basename(untar(package, list=TRUE)[1])
+        } else if (dir.exists(package)) {
+            basename(package)
+        } else {
+            stop("Unsupported / non-existing package")
+        }
+
+    # where the package will be installed
+    pkg_dir <- file.path(.tmp_lib, pkg_name)
+
+    if (clean) {
+        on.exit(unlink(.tmp_lib, recursive=TRUE), add=TRUE)
     }
 
-    tmp_lib <- tempfile("R_LIBS")
-    stopifnot(dir.create(tmp_lib))
-
-    if (isTRUE(clean)) {
-        on.exit({
-            clean_objects(pkg$path)
-        }, add=TRUE)
+    # install the target package
+    if (is_debug_enabled()) {
+        message("Installing ", package, " into: ", pkg_dir)
     }
 
-    utils::install.packages(
-               repos=NULL,
-               lib=tmp_lib,
-               pkg$path,
-               type="source",
-               dependencies=c("Depends", "Imports", "LinkingTo", "Suggests"),
-               INSTALL_opts=c("--example", # TODO: only if we need it
-                   "--install-tests", # TODO: only if we need it
-                   "--with-keep.source",
-                   "--no-multiarch"),
-               quiet=quiet)
+    tryCatch({
+        utils::install.packages(
+            pkgs=package,
+            repos=NULL,
+            lib=.tmp_lib,
+            type="source",
+            dependencies=c("Depends", "Imports", "LinkingTo", "Suggests"),
+            INSTALL_opts=c(
+                "--example",
+                "--install-tests",
+                "--with-keep.source",
+                "--no-multiarch"),
+            quiet=quiet)
+    }, warning=function(e) {
+        stop("Installation of ", package, " failed with: ", e$message)
+    }, error=function(e) {
+        stop("Installation of ", package, " failed with: ", e$message)
+    })
 
-    libs <- env_path(tmp_lib, .libPaths())
-    pkg_dir <- file.path(tmp_lib, pkg$package)
+    # install genthat
+    # the dependencies should be already included since this is only called
+    # from an existing genthat installation
+    genthat_path <- find.package("genthat")
+    if (is_debug_enabled()) {
+        message("Installing genthat from: ", genthat_path, " into: ", .tmp_lib)
+    }
+    tryCatch({
+        utils::install.packages(
+            pkgs=genthat_path,
+            repos=NULL,
+            lib=.tmp_lib,
+            type="source",
+            quiet=quiet)
+    }, warning=function(e) {
+        stop("Installation of ", package, " failed with: ", e$message)
+    }, error=function(e) {
+        stop("Installation of ", package, " failed with: ", e$message)
+    })
+
+    libs <- env_path(.tmp_lib, .libPaths())
     genthat_output <- file.path(pkg_dir, "genthat.RDS")
 
-    if (is_debug_enabled()) {
-        cat("Working dir:", pkg_dir)
-    }
-
     add_package_hook(
-        pkg$package,
-        tmp_lib,
+        pkg_name,
+        .tmp_lib,
         on_load=substitute({
             message("Invoking genthat package loading hook")
-            install.packages(repos=NULL, type="source", pkgs=GENTHAT_PATH)
+            options(genthat.debug=GENTHAT_DEBUG)
+
             genthat::decorate_environment(ns)
-        }, list(GENTHAT_PATH=find.package("genthat"))),
+        }, list(GENTHAT_DEBUG=getOption("genthat.debug", default=FALSE))),
         on_gc_finalizer=substitute({
-            genthat::export_traces(GENTHAT_OUTPUT)
+            message("Invoking genthat package unloading hook")
+
+            saveRDS(
+                list(
+                    replacements=sapply(genthat::get_replacements(), `[[`, "name", USE.NAMES=FALSE),
+                    traces=genthat::copy_call_traces()
+                ),
+                GENTHAT_OUTPUT
+            )
         }, list(GENTHAT_OUTPUT=genthat_output))
     )
 
-    # TODO: debug trace
-    #cat(paste0(readLines(file.path(pkg_dir,"R","stringr")), collapse="\n"))
+    ret <- run_r_code(text=deparse(substitute(code_to_run)), .lib_paths=.tmp_lib)
 
-    withr::with_envvar(c(R_LIBS=libs, R_LIBS_USER=libs, R_LIBS_SITE=libs), {
-        ## if ("vignettes" %in% type) {
-        ##     type <- type[type != "vignettes"]
-        ##     run_vignettes(pkg, tmp_lib)
-        ## }
-
-        ## if ("examples" %in% type) {
-        ##     type <- type[type != "examples"]
-        ##     # testInstalledPackage explicitly sets R_LIBS="" on windows, and does
-        ##     # not restore it after, so we need to reset it ourselves.
-        ##     withr::with_envvar(c(R_LIBS = Sys.getenv("R_LIBS")), {
-        ##         result <- tools::testInstalledPackage(pkg$package, outDir = pkg_dir, types = "examples", lib.loc = tmp_lib) # TODO: add ...
-        ##         if (result != 0L) {
-        ##             show_failures(pkg_dir)
-        ##         }
-        ##     })
-        ## }
-
-        if ("tests" %in% type) {
-            result <- tools::testInstalledPackage(pkg$package, outDir=pkg_dir, types="tests", lib.loc=tmp_lib) # TODO: add ...
-
-            if (!quiet) {
-                out <- file.path(pkg_dir, paste0(pkg$package, "-tests"), "testthat.Rout")
-                if (file.exists(out)) cat(paste0(readLines(out), collapse="\n"))
-            }
-
-            if (result != 0L) {
-                show_failures(pkg_dir)
-            }
-        }
-    })
-
-    if (!file.exists(genthat_output)) {
-        stop("genthat output does not exist ", genthat_output)
+    if (file.exists(genthat_output)) {
+        output <- readRDS(genthat_output)
+        file.remove(genthat_output)
+    } else {
+        output <- list(traces=list(), replacements=list())
     }
 
-    output <- readRDS(genthat_output)
-
-    if (is_debug_enabled()) {
-        cat("Genthat RDS output: ", genthat_output, "\n")
-    }
-
-    stopifnot(is.environment(output))
-
-    tests <- generate_tests(output$traces, output_dir)
-
-    res <- structure(
-        list(
-            traces=output$traces,
-            errors=filter(output$traces, is, class2="genthat_trace_entry"),
-            failures=filter(output$traces, is, class2="genthat_trace_error"),
-            tests=tests
-        ),
-        class="genthat_result"
+    result <- list(
+        traces=output$traces,
+        replacements=output$replacements,
+        result=ret
     )
 
-    if (is_debug_enabled()) {
-        res$output <- output_dir
-        res$genthat_output <- genthat_output
-        res$libs <- libs
-        res$pkg_dir <- pkg_dir
-    }
+    attr(result, "class") <- "genthat_traces"
 
-    res
+    result
 }
 
-#' @title Exports recorded traces into RDS file
-#'
-#' @description Exports recorded traces into given file in RDS format using `saveRDS`.
 #' @export
 #'
-export_traces <- function(file) {
-    saveRDS(cache, file)
-}
-
-summarizes_genthat_results <- function(x) {
+as.data.frame.genthat_traces <- function (x, row.names = NULL, optional = FALSE, ...) {
+    x$replacements <- length(x$replacements)
     x$traces <- length(x$traces)
-    x$errors <- length(x$errors)
-    x$failures <- length(x$failures)
-    x$tests <- length(x$tests)
-
-    # to get rid of the attributes
+    x$result <- NULL
     c(x)
 }
 
 #' @export
-format.genthat_result <- function(x, ...) {
-    format(summarizes_genthat_results(x))
+#'
+format.genthat_traces <- function(x, ...) {
+    format(as.data.frame(x))
 }
 
 #' @export
-print.genthat_result <- function(x, ...) {
-    print(summarizes_genthat_results(x))
+#'
+print.genthat_traces <- function(x, ...) {
+    print(as.data.frame(x))
 }
 
 #' @export
+#'
 enable_tracing <- function() {
     cache$tracing <- TRUE
 }
 
 #' @export
+#'
 disable_tracing <- function() {
     cache$tracing <- FALSE
 }
 
 #' @export
+#'
 is_tracing_enabled <- function() {
     cache$tracing
 }

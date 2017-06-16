@@ -3,14 +3,14 @@ context("capture")
 test_that("on_function_entry correctly evaluates and stores arguments", {
     on.exit(reset_call_traces())
     reset_call_traces();
-  
+
     a <- 1
     b <- 2
 
     g <- function(y) a + y
     f <- function(x, y) x + y
 
-    
+
     index <- on_function_entry("f", fun=f, args=list(x=quote(b + 2), y=quote(g(1))))
 
     expect_equal(index, 0L)
@@ -29,7 +29,7 @@ test_that("on_function_entry correctly evaluates and stores arguments", {
 test_that("on_function_entry correctly evaluates and stores arguments with ...", {
     on.exit(reset_call_traces())
     reset_call_traces();
-  
+
     a <- 1
     b <- 2
     c <- 3
@@ -55,7 +55,7 @@ test_that("on_function_entry correctly evaluates and stores arguments with ...",
 test_that("on_function_entry called from a function body with argument matching", {
     on.exit(reset_call_traces())
     reset_call_traces();
-  
+
     # kind of a simulation of the injected code
     f <- function(x) {
         on_function_entry("f", as.list(match.call())[-1])
@@ -72,7 +72,7 @@ test_that("on_function_entry called from a function body with argument matching"
 test_that("on_function_entry correctly resolves the names in lexical scopes", {
     on.exit(reset_call_traces())
     reset_call_traces();
-  
+
     # x is here
     x <- 1
     # and x is here
@@ -92,9 +92,9 @@ test_that("on_function_entry correctly resolves the names in lexical scopes", {
 test_that("on_function_exit records exit value", {
     on.exit(reset_call_traces())
     reset_call_traces();
-    
+
     index = .Call("push_trace", create_trace("f"))
-  
+
     on_function_exit(index, 2)
 
     expect_equal(.Call("get_trace", index), create_trace("f", retv=2))
@@ -161,9 +161,11 @@ test_that("extract_closure works for a simple function", {
     f <- function(x) a + x
 
     sc <- extract_closure(f)
+    expect_equal(attr(sc, "genthat_extracted_closure"), TRUE)
     expect_equal(formals(sc), formals(f))
     expect_equal(body(sc), body(f))
     expect_equal(as.list(environment(sc)), list(a=1))
+    expect_identical(parent.env(environment(sc)), baseenv())
 })
 
 test_that("extract_closure works for nested closures", {
@@ -177,9 +179,50 @@ test_that("extract_closure works for nested closures", {
     expect_equal(formals(sc), formals(g))
     expect_equal(body(sc), body(g))
     expect_equal(environment(sc)$b, 2)
+    expect_identical(parent.env(environment(sc)), baseenv())
     expect_equal(formals(environment(sc)$f), formals(f))
     expect_equal(body(environment(sc)$f), body(f))
     expect_equal(as.list(environment(environment(sc)$f)), list(a=1))
+    expect_identical(parent.env(environment(environment(sc)$f)), environment(sc))
+})
+
+test_that("extract_closure only links environments when necessary", {
+    a <- 1
+    b <- 2
+    c <- 3
+
+    # this one needs to be linked
+    g <- function(x) x + b
+
+    ## debug(extract_closure)
+    sc <- extract_closure(function(x) g(x) + b)
+    env_g <- environment(environment(sc)$g)
+    expect_equal(length(env_g), 0)
+    expect_identical(parent.env(env_g), environment(sc))
+
+    # this one does not need to be linked
+    g <- function(x) x + x
+
+    sc <- extract_closure(function(x) g(x) + b)
+    env_g <- environment(environment(sc)$g)
+    expect_equal(length(env_g), 0)
+    expect_identical(parent.env(env_g), baseenv())
+
+
+    # this one contains c, but does not need to be linked
+    g <- function(x) x + c
+    sc <- extract_closure(function(x) g(x) + b)
+    env_g <- environment(environment(sc)$g)
+    expect_equal(as.list(env_g), list(c=3))
+    expect_identical(parent.env(env_g), baseenv())
+
+
+    # this one contains c and needs to be linked
+    g <- function(x) x + c + b
+    sc <- extract_closure(function(x) g(x) + b)
+    env_g <- environment(environment(sc)$g)
+    expect_equal(as.list(env_g), list(c=3))
+    expect_identical(parent.env(env_g), environment(sc))
 })
 
 # test for https://github.com/PRL-PRG/genthat/issues/16

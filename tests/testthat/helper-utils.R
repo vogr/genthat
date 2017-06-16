@@ -5,7 +5,7 @@ save_calling_args <- function(env, return_value=TRUE, ...) {
 
     function(...) {
         args <- list(...)
-        
+
         if (length(names) > 0) {
             stopifnot(length(names) == length(args))
             names(args) <- names
@@ -16,4 +16,9 @@ save_calling_args <- function(env, return_value=TRUE, ...) {
 
         return_value
     }
+}
+
+reset_genthat <- function() {
+    reset_all_functions()
+    reset_call_traces()
 }
