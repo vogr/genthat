@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 
 options(error=function() { traceback(2); if (!interactive()) quit("no", status=1, runLast=FALSE) })
+options(genthat.show_progress=TRUE)
 ## options(genthat.debug=T)
 
 library(testthat)
@@ -42,27 +43,38 @@ tests <- task("generating tests", {
     genthat::generate_tests(traces, include_trace_dump=TRUE)
 })
 
-result <- task("running generated tests", {
-    genthat::run_generated_tests(tests$tests)
+runs <- task("running generated tests", {
+    tests %>%
+        dplyr::filter(!is.na(code)) %>%
+        genthat::run_generated_tests()
 })
 
+## task("running generated tests in C++", {
+##     .Call('genthat_run_generated_tests_cpp', PACKAGE = 'genthat', tests, FALSE)
+## })
+
 task(paste("saving to database", db_file), {
-    message("- generation errors")
-    list(name=names(tests$errors), message=unlist(tests$errors)) %>%
-        as.data.frame() %>%
+    message("- test generation errors")
+    tests %>%
+        dplyr::filter(!is.na(code)) %>%
         copy_to(dest=db, name="test_gen_errors", temporary=FALSE) %>%
         invisible()
 
-    message("- passed tests")
-    result$passed %>%
-        copy_to(dest=db, name="test_passed", temporary=FALSE) %>%
+    message("- ran tests")
+    runs %>%
+        copy_to(dest=db, name="test_runs", temporary=FALSE) %>%
         invisible()
-
-    message("- failed tests")
-    result$failed %>%
-        copy_to(dest=db, name="test_failed", temporary=FALSE) %>%
-        invisible()
-
 })
 
 message("Done processing: ", traces_file)
+
+num_traces <- length(traces)
+message("Traces: ", num_traces)
+
+generated <- tests %>% dplyr::filter(!is.na(code)) %>% nrow()
+message("Generated tests: ", generated, " (", generated / num_traces * 100, "%)")
+
+all <- nrow(runs)
+passed <- runs %>% dplyr::filter(is.na(error)) %>% nrow()
+message("Passed tests: ", passed, " (", passed / all * 100, "%)")
+
