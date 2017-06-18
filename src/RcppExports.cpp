@@ -5,18 +5,6 @@
 
 using namespace Rcpp;
 
-// run_generated_tests_cpp
-Rcpp::List run_generated_tests_cpp(Rcpp::DataFrame const& tests, bool show_progress);
-RcppExport SEXP genthat_run_generated_tests_cpp(SEXP testsSEXP, SEXP show_progressSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::DataFrame const& >::type tests(testsSEXP);
-    Rcpp::traits::input_parameter< bool >::type show_progress(show_progressSEXP);
-    rcpp_result_gen = Rcpp::wrap(run_generated_tests_cpp(tests, show_progress));
-    return rcpp_result_gen;
-END_RCPP
-}
 // serialize_value
 std::string serialize_value(SEXP s);
 RcppExport SEXP genthat_serialize_value(SEXP sSEXP) {
@@ -81,7 +69,6 @@ RcppExport SEXP reset_traces();
 RcppExport SEXP update_trace(SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"genthat_run_generated_tests_cpp", (DL_FUNC) &genthat_run_generated_tests_cpp, 2},
     {"genthat_serialize_value", (DL_FUNC) &genthat_serialize_value, 1},
     {"genthat_reassign_function", (DL_FUNC) &genthat_reassign_function, 2},
     {"genthat_create_duplicate", (DL_FUNC) &genthat_create_duplicate, 1},
