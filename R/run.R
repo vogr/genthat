@@ -224,13 +224,16 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"), clean=TR
     ret
 }
 
-run_r_code <- function(code, save_image=FALSE, ...) {
+run_r_code <- function(code_to_run, save_image=FALSE, ...) {
     # TODO: warn if there are any free variables
 
-    if(typeof(code) != "language") {
-        code <- substitute(code)
-    }
-    script <- deparse(code)
+    code <- substitute(code_to_run)
+    script <-
+        if (typeof(code) == "language") {
+            deparse(code)
+        } else {
+            deparse(code_to_run)
+        }
 
     if (save_image) {
         image_file <- tempfile()

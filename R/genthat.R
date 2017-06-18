@@ -142,11 +142,12 @@ trace_package <- function(package, code_to_run, clean=TRUE, quiet=TRUE,
         }, list(GENTHAT_OUTPUT=genthat_output))
     )
 
-    if (typeof(code_to_run) != "language") {
-        code-to_run <- substitute(code_to_run)
+    code <- substitute(code_to_run)
+    if (typeof(code) == "language") {
+        ret <- run_r_code(code, save_image=TRUE, .lib_paths=.tmp_lib)
+    } else {
+        ret <- run_r_code(code_to_run, save_image=TRUE, .lib_paths=.tmp_lib)
     }
-
-    ret <- run_r_code(code_to_run, save_image=TRUE, .lib_paths=.tmp_lib)
 
     if (file.exists(genthat_output)) {
         output <- readRDS(genthat_output)
