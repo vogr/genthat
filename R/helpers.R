@@ -264,3 +264,21 @@ capture <- function(expr, split=FALSE) {
 read_text_file <- function(f) {
     paste(readLines(f), collapse="\n")
 }
+
+# TODO: remove
+extract_code <- function(code, n=1) {
+    browser()
+    if (typeof(code) == "language") {
+        return(code)
+    }
+
+    sub <- substitute(code)
+    if (typeof(sub) == "language") {
+        return(sub)
+    } else if (typeof(sub) == "symbol") {
+        code <- get(as.character(sub), envir=parent.frame(n))
+        extract_code(code, n+1)
+    } else {
+        stop("Unknown type ", typeof(sub))
+    }
+}

@@ -159,6 +159,7 @@ run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, ...) {
     fail_file <- paste(out_file, "fail", sep = "." )
 
     cat("tools::buildVignettes(dir='", pkg_path, "', quiet=FALSE)\n", file=out_file, sep="")
+    # TODO: move to run_r_code
     cmd <- paste(
         shQuote(file.path(R.home("bin"), "R")),
         "CMD BATCH --vanilla --no-timing",
@@ -223,13 +224,18 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"), clean=TR
     ret
 }
 
-run_r_code <- function(code, text=NULL, ...) {
-    script <-
-        if(is.null(text)) {
-            deparse(substitute(code))
-        } else {
-            text
-        }
+run_r_code <- function(code, save_image=FALSE, ...) {
+    # TODO: warn if there are any free variables
+
+    if(typeof(code) != "language") {
+        code <- substitute(code)
+    }
+    script <- deparse(code)
+
+    if (save_image) {
+        image_file <- tempfile()
+        script <- c(script, deparse(substitute(save.image(file=FILE), list(FILE=image_file))))
+    }
 
     script_file <- tempfile()
 
@@ -237,7 +243,15 @@ run_r_code <- function(code, text=NULL, ...) {
 
     writeLines(script, script_file)
 
-    run_r_script(script_file, ...)
+    ret <- run_r_script(script_file, ...)
+
+    if (save_image) {
+        e <- new.env(parent=emptyenv())
+        load(file=image_file, envir=e)
+        ret$image <- e
+    }
+
+    ret
 }
 
 run_r_script <- function(script_file, args=character(), .lib_paths=NULL) {
@@ -252,6 +266,7 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL) {
     args <- c(
         "CMD",
         "BATCH",
+        "--slave",
         "--vanilla",
         "--no-timing",
         shQuote(args),

@@ -49,7 +49,9 @@ gen_from_package <- function(package, output_dir="generated_tests",
 # TODO: vectorize over package
 #' @export
 #'
-trace_package <- function(package, code_to_run, clean=TRUE, quiet=TRUE, .tmp_lib=tempfile("R_genthat_")) {
+trace_package <- function(package, code_to_run, clean=TRUE, quiet=TRUE,
+                         .tmp_lib=tempfile("R_genthat_")) {
+
     stopifnot(dir.exists(.tmp_lib) || dir.create(.tmp_lib))
 
     # TODO: no a very good heuristics (read manually using read.dcf)
@@ -117,6 +119,7 @@ trace_package <- function(package, code_to_run, clean=TRUE, quiet=TRUE, .tmp_lib
     libs <- env_path(.tmp_lib, .libPaths())
     genthat_output <- file.path(pkg_dir, "genthat.RDS")
 
+    # TODO: always use a new file - save to directory
     add_package_hook(
         pkg_name,
         .tmp_lib,
@@ -139,7 +142,11 @@ trace_package <- function(package, code_to_run, clean=TRUE, quiet=TRUE, .tmp_lib
         }, list(GENTHAT_OUTPUT=genthat_output))
     )
 
-    ret <- run_r_code(text=deparse(substitute(code_to_run)), .lib_paths=.tmp_lib)
+    if (typeof(code_to_run) != "language") {
+        code-to_run <- substitute(code_to_run)
+    }
+
+    ret <- run_r_code(code_to_run, save_image=TRUE, .lib_paths=.tmp_lib)
 
     if (file.exists(genthat_output)) {
         output <- readRDS(genthat_output)
