@@ -218,6 +218,11 @@ test_that("closure with cycles in environments", {
     expect_equal(serialize(function(x) g(x) + b)(1), 8)
 })
 
+test_that("serialize properly escapes non-syntactic names", {
+    expect_equal(serialize_value(quote(`_a`())), "`_a`()")
+    expect_equal(serialize_value(quote(`_a`(`_1`=1))), "`_a`(`_1`=1)")
+    expect_equal(serialize_value(quote(`_a`)), "`_a`")
+})
 
 ## test_that("", {
 ##     f <- function(a, b, c) a * b * c

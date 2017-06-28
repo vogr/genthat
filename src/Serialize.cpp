@@ -103,16 +103,6 @@ private:
         }
     }
 
-    static string escape_name(string const &name) {
-        if (name.empty()) {
-            return name;
-        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !isNameOk(name)) {
-            return "`" + name + "`";
-        } else {
-            return name;
-        }
-    }
-
     static string attribute_name(SEXP const s) {
         auto e = SPEC_ATTRIBUTES_NAMES.find(s);
         if (e != SPEC_ATTRIBUTES_NAMES.end()) {
@@ -160,7 +150,7 @@ private:
             name = "";
             break;
         case SYMSXP:
-            name = escape_name(serialize(arg_name, false));
+            name = serialize(arg_name, false);
             break;
         default:
             throw serialization_error("Unexpected SEXPTYPE in function arguments: " + to_string(TYPEOF(arg_name)));
@@ -229,6 +219,16 @@ private:
     set<SEXP> visited_environments;
 
 public:
+
+    static string escape_name(string const &name) {
+        if (name.empty()) {
+            return name;
+        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !isNameOk(name)) {
+            return "`" + name + "`";
+        } else {
+            return name;
+        }
+    }
     string serialize(SEXP s, bool quote) {
         switch (TYPEOF(s)) {
         case NILSXP:
@@ -268,6 +268,7 @@ public:
             if (symbol.empty()) {
                 return quote ? "quote(expr=)" : "";
             } else {
+                symbol = escape_name(symbol);
                 return quote ? "quote(" + symbol  + ")" : symbol;
             }
         }
@@ -352,7 +353,7 @@ public:
         }
         case LANGSXP: {
             RObject protected_s(s);
-            string fun = serialize(CAR(s), false);
+            string fun = string(CHAR(PRINTNAME(CAR(s))));
             string res;
             s = CDR(s);
 
@@ -394,7 +395,7 @@ public:
                 res = "(" + args + ")";
             } else {
                 string args = format_arguments(s);
-                res = fun + "(" + args + ")";
+                res = escape_name(fun) + "(" + args + ")";
             }
 
             return res;
@@ -479,4 +480,9 @@ std::string serialize_value(SEXP s) {
     Serializer serializer;
 
     return serializer.serialize(s, false);
+}
+
+// [[Rcpp::export]]
+std::string escape_name(std::string const &name) {
+    return Serializer::escape_name(name);
 }

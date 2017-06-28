@@ -5,6 +5,10 @@ serialize_value <- function(s) {
     .Call('genthat_serialize_value', PACKAGE = 'genthat', s)
 }
 
+escape_name <- function(name) {
+    .Call('genthat_escape_name', PACKAGE = 'genthat', name)
+}
+
 reassign_function <- function(target_fun, new_fun) {
     .Call('genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }

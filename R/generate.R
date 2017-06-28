@@ -2,18 +2,19 @@
 format_args <- function(args) {
     args <- lapply(args, serialize_value)
 
-    args_str <- if (!is.null(names(args))) {
-                   pairs <- zip(name=names(args), value=args)
-                   lapply(pairs, function(x) {
-                       if(!is_empty_str(x$name)) {
-                           paste0(x$name, "=", x$value)
-                       } else {
-                           x$value
-                       }
-                   })
-               } else {
-                   args
-               }
+    args_str <-
+        if (!is.null(names(args))) {
+            pairs <- zip(name=names(args), value=args)
+            lapply(pairs, function(x) {
+                if(!is_empty_str(x$name)) {
+                    paste0(escape_name(x$name), "=", x$value)
+                } else {
+                    x$value
+                }
+            })
+        } else {
+            args
+        }
 
     paste(args_str, collapse=", ")
 }
