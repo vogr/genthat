@@ -56,32 +56,43 @@ if (length(args) != 1) {
 pkgs_dir <- args[1]
 stopifnot(dir.exists(pkgs_dir))
 
-all_pkgs <- list.files(pkgs_dir, pattern="tar\\.gz$", full.names=TRUE)
+all_pkgs <- list.files(pkgs_dir, recursive=FALSE, full.names=TRUE)
 
 db_file <- "traces.sqlite3"
 db <- src_sqlite(db_file, create=!file.exists(db_file))
 
-pb <- utils::txtProgressBar(min=0, max=length(all_pkgs), initial=0, style=3)
+i <- 0
+tmp <- NULL
+
 for (pkg in all_pkgs) {
-    tmp <- tempfile()
-
     tryCatch({
-        untar(pkg, exdir=tmp)
+        if (dir.exists(pkg)) {
+            pkg_dir <- pkg
+            tmp <- NULL
+        } else if (endsWith(pkg, ".tar.gz")) {
+            tmp <- tempfile()
+            untar(pkg, exdir=tmp)
+            pkg_dir <- list.dirs(tmp, recursive=FALSE)
 
-        pkg_dir <- list.dirs(tmp, recursive=FALSE)
-        if (length(pkg_dir) != 1) {
-            stop("Wrong package archive: ", pkg)
+            if (length(pkg_dir) != 1) {
+                message("Wrong package archive: ", pkg)
+                next();
+            }
+        } else {
+            next();
         }
 
-        df <- trace_one(pkg_dir)
+        time <- system.time(df <- trace_one(pkg_dir))
 
         db_insert_into(con=db$con, table="traces", values=df)
-    }, error=function(e) {
-        message("Error while processing", pkg, " : ", e$message)
-    }, finally={
-        unlink(tmp, recursive=TRUE)
-    })
+        i <- i + 1
 
-    utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb) + 1)
+        message(i, ": Processed ", pkg, " in ", time["elapsed"])
+    }, error=function(e) {
+        message(i, ": Error while processing", pkg, " : ", e$message)
+    }, finally={
+        if (!is.null(tmp) && dir.exists(tmp)) {
+            unlink(tmp, recursive=TRUE)
+        }
+    })
 }
-close(pb)
