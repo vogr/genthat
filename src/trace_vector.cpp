@@ -132,8 +132,9 @@ REXPORT SEXP trace_capacity() {
 
 /** Resets the trace vector, clearing all its contents, but keeping the capacity reserved. 
  */
-REXPORT void reset_traces() {
+REXPORT SEXP reset_traces() {
   tv().clear();
+  return R_NilValue;
 }
 
 /** Pushes the given trace to the trace vector and returns the index at which the trace is stored. Uses C-style indexing 
@@ -152,10 +153,11 @@ REXPORT SEXP get_trace(SEXP index) {
 
 /** Updates the index-th trace. Uses C style indexing (from 0).
  */
-REXPORT void update_trace(SEXP index, SEXP trace) {
+REXPORT SEXP update_trace(SEXP index, SEXP trace) {
     if (TYPEOF(index) != INTSXP || LENGTH(index) != 1)
         Rf_error("get_trace expects integer scalar as index");
     tv().update_trace(INTEGER(index)[0], trace);
+    return R_NilValue;
 }
 
 /** Returns a copy of the trace vector with the exact size. 
