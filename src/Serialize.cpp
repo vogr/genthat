@@ -52,23 +52,26 @@ static const set<string> KEYWORDS = {
     "NA_complex_", "NA_character_", "..."
 };
 
-bool isDigit(char c) {
+bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
 // A syntactically valid name consists of letters, numbers and the dot or underline
 // characters and starts with a letter or the dot not followed by a number
 // cf. https://stat.ethz.ch/R-manual/R-devel/library/base/html/make.names.html
-bool isNameOk(std::string const & name) {
+bool is_syntactically_valid_name(std::string const & name) {
     // dot followed by number must be escaped
-    if (name[0] == '.' && isDigit(name[1]))
+    if (name[0] == '.' && is_digit(name[1]))
+        return false;
+    // number at the beginning must be escaped
+    if (is_digit(name[0]))
         return false;
     // underscore followed by anything must be escaped
     if (name[0] == '_')
         return false;
     // we have checked the first character special cases, just make sure letters are valid now
     for (char c : name) {
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || isDigit(c) || c == '.' || c == '_')
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || is_digit(c) || c == '.' || c == '_')
             continue;
         return false;
     }
@@ -222,7 +225,7 @@ public:
     static string escape_name(string const &name) {
         if (name.empty()) {
             return name;
-        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !isNameOk(name)) {
+        } else if (KEYWORDS.find(name) != KEYWORDS.end() || !is_syntactically_valid_name(name)) {
             return "`" + name + "`";
         } else {
             return name;
@@ -244,7 +247,7 @@ public:
                 string value = serialize(VECTOR_ELT(s, i), true);
                 string name = escape_name(get_element_name(names, i));
 
-                args += name.empty() ? name : name + "=";
+                args += name.empty() ? "" : name + "=";
                 args += value;
                 args += i + 1 < size ? ", " : "";
             }

@@ -224,6 +224,19 @@ test_that("serialize properly escapes non-syntactic names", {
     expect_equal(serialize_value(quote(`_a`)), "`_a`")
 })
 
+test_that("list serialization", {
+    l <- list(1, 2, 3)
+    expect_equal(serialize(l), l)
+
+    l <- list(`1`=1, `2`=2, `3`=3)
+    expect_equal(serialize(l), l)
+})
+
+test_that("data frame serialization", {
+    df <- data.frame(x=c(1, 2, 3), y=c(4, 5, 6))
+    expect_equal(serialize(df), df)
+})
+
 ## test_that("", {
 ##     f <- function(a, b, c) a * b * c
 ##     attr(f, "genthat_extracted_closure") <- TRUE
