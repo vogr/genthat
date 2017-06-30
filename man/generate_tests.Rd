@@ -15,15 +15,12 @@ generate_tests(traces,
 \item{...}{additional arguments supplied to `generate_test_code` function.}
 }
 \value{
-a list of two elements:
-- `tests`: a data frame with three columns and one row per successfully generated test
-  - `code`: (chr) string scalar with the actual test code
-  - `trace`: (chr) raw trace used to generate the test code formatted using `str` function
-  - `id`: (chr) the index of the trace from the `traces` argument
-- `errors`: a data frame with three columns and one row per unsuccessfully generated test
-  - `message`: (chr) the cause of unsuccessful generation, error message thrown from `generate_test_code` function
-  - `trace`: (chr) raw trace used to generate the test code formatted using `str` function
-  - `id`: (chr) the index of the trace from the `traces` argument
+a data frame or a tibble with the following
+fun        : chr
+trace      : chr
+trace_type : chr
+code       : chr (can be NA)
+error      : chr (can be NA)
 }
 \description{
 Generates tests cases from the captured traces.

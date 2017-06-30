@@ -78,9 +78,9 @@ generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE) {
 
     paste0(
         header,
-        'test_that("', fun, '", {\n',
+        'test_that("', trace$fun, '", {\n',
         globals,
-        '\nexpect_equal(', fun, '(', args, '), ', retv, ')\n})'
+        '\nexpect_equal(', call, ', ', retv, ')\n})'
     )
 }
 
@@ -95,15 +95,12 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #' @param show_progress (log) show progress during test generation
 #' @param ... additional arguments supplied to `generate_test_code` function.
 #'
-#' @return a list of two elements:
-#' - `tests`: a data frame with three columns and one row per successfully generated test
-#'   - `code`: (chr) string scalar with the actual test code
-#'   - `trace`: (chr) raw trace used to generate the test code formatted using `str` function
-#'   - `id`: (chr) the index of the trace from the `traces` argument
-#' - `errors`: a data frame with three columns and one row per unsuccessfully generated test
-#'   - `message`: (chr) the cause of unsuccessful generation, error message thrown from `generate_test_code` function
-#'   - `trace`: (chr) raw trace used to generate the test code formatted using `str` function
-#'   - `id`: (chr) the index of the trace from the `traces` argument
+#' @return a data frame or a tibble with the following
+#' fun        : chr
+#' trace      : chr
+#' trace_type : chr
+#' code       : chr (can be NA)
+#' error      : chr (can be NA)
 #'
 #' @description Generates tests cases from the captured traces.
 #' @importFrom utils capture.output
@@ -134,47 +131,52 @@ generate_tests <- function(traces, show_progress=isTRUE(getOption("genthat.show_
         lapply(traces, function(x) {
 
             if (is_debug_enabled()) {
-                message("Generating test from a trace of ", x$fun)
+                message("Generating test from a trace of `", x$fun, "`")
             }
 
             result <- list(
+                fun=x$fun,
                 trace=paste(utils::capture.output(utils::str(x)), collapse="\n"),
-                trace_type=class(x)
+                trace_type=class(x),
+                code=NA,
+                error=NA
             )
 
-            tryCatch({
-                code <- generate_test_code(x, ...)
+            # this style is needed to we can set the error field from error handler
+            # which would otherwise create a new scope copying the result list
+            # on modification
+            result <-
+                tryCatch({
+                    code <- generate_test_code(x, ...)
 
-                if (!is.null(code)) {
+                    if (!is.null(code)) {
+                        if (is_debug_enabled()) {
+                            message("Generated test for trace of `", x$fun, "`")
+                        }
+
+                        result$code <- code
+                    }
+                    result
+                }, error=function(e) {
+                    msg <- e$message
+
                     if (is_debug_enabled()) {
-                        message("Generated test for trace of ", x$fun)
+                        message("Unable to generate test for trace of `", x$fun, "`: ", msg)
                     }
 
-                    result$code <- code
-                } else {
-                    result$code <- NA
-                }
-
-                result$error <- NA
-            }, error=function(e) {
-                msg <- e$message
-
-                if (is_debug_enabled()) {
-                    message("Unable to generate test for trace of ", x$fun, " ", msg)
-                }
-
-                result$code <- NA
-                result$error <- msg
-            }, finally={
-                after_one_trace()
-            })
+                    result$error <- msg
+                    result
+                }, finally={
+                    after_one_trace()
+                })
 
             as.data.frame(result, stringsAsFactors=FALSE)
         })
     after_all_traces()
 
     if (requireNamespace("dplyr", quietly=TRUE)) {
-        dplyr::bind_rows(tests)
+        df <- dplyr::bind_rows(tests)
+        as_data_frame(df)
     } else {
         message("dplyr is not available, which is a pity since it will speed up things")
         do.call(rbind, tests)

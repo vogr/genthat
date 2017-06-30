@@ -31,16 +31,20 @@ run_generated_tests <- function(tests, show_progress=isTRUE(getOption("genthat.s
         after_one_run()
 
         result <- list(
+            fun=x$fun,
             trace=x$trace,
             code=x$code,
             out=test_result$out,
             err=test_result$err,
-            time=test_result$time
+            time=test_result$time,
+            test=NA,
+            result=NA,
+            error=NA
         )
 
         if (is.null(test_result$error)) {
             if (is_debug_enabled()) {
-                message("Test ", x, " succeeded")
+                message("Test for function `", x$fun, "` succeeded")
             }
 
             test_run <- as.data.frame(test_result$result)
@@ -57,15 +61,12 @@ run_generated_tests <- function(tests, show_progress=isTRUE(getOption("genthat.s
                     1
                 }
 
-            result$error <- NA
         } else {
             msg <- test_result$error$message
             if (is_debug_enabled()) {
-                message("Test ", x, " failed: ", msg)
+                message("Test for function `", x, "` failed: ", msg)
             }
 
-            result$test <- NA
-            result$result <- NA
             result$error <- msg
         }
 
@@ -75,7 +76,7 @@ run_generated_tests <- function(tests, show_progress=isTRUE(getOption("genthat.s
     after_all_runs()
 
     if (requireNamespace("dplyr", quietly=TRUE)) {
-        dplyr::bind_rows(runs)
+        dplyr::as_data_frame(dplyr::bind_rows(runs))
     } else {
         message("dplyr is not available, which is a pity since it will speed up things")
         do.call(rbind, runs)

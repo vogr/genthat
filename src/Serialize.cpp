@@ -178,13 +178,13 @@ private:
     }
 
     SEXP extract_closure(SEXP fun) {
-        // TODO: make sure it is a function
-        Environment genthat("package:genthat");
-        Function extract_closure_r = genthat["extract_closure"];
+        // genthat:::extract_closure(fun)
+        auto call = Rf_lang2(
+            Rf_lang3(R_TripleColonSymbol, Rf_mkString("genthat"), Rf_mkString("extract_closure")),
+            fun
+        );
 
-        SEXP extracted = extract_closure_r(Rcpp::_["fun"] = fun);
-
-        return extracted;
+        return Rcpp_eval(call, R_GlobalEnv);
     }
 
     string concatenate(StringVector v, string sep) {

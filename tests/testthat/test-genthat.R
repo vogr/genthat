@@ -8,16 +8,6 @@ skip_if_not_integration_test <- function() {
     skip_if_not(getOption("genthat.run_integration_tests") == TRUE)
 }
 
-test_that("trace_package in samplepkg", {
-    ret <- trace_package("samplepkg", {
-        library(samplepkg)
-        my_public("Hello")
-    })
-
-    expect_equal(length(ret$traces), 1)
-    expect_equal(length(ret$replacements), 6)
-})
-
 test_that("gen_from_package works on samplepkg tests", {
     skip_if_not_integration_test()
 
