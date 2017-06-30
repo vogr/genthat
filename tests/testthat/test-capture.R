@@ -58,7 +58,7 @@ test_that("on_function_entry called from a function body with argument matching"
 
     # kind of a simulation of the injected code
     f <- function(x) {
-        on_function_entry("f", as.list(match.call())[-1])
+        on_function_entry("f", pkg=NULL, as.list(match.call())[-1])
     }
 
     f()
@@ -77,7 +77,7 @@ test_that("on_function_entry correctly resolves the names in lexical scopes", {
     x <- 1
     # and x is here
     f <- function(x, y) {
-        on_function_entry("f", as.list(match.call())[-1])
+        on_function_entry("f", pkg=NULL, as.list(match.call())[-1])
     }
 
     f(x, 2)
@@ -305,7 +305,7 @@ test_that("on_function_entry resolves caller and callee environments", {
 
     ## browser()
     # env$f(y=2*x, a+x+y)
-    on_function_entry("f", fun=env$f, list(x=quote(b(d)), quote(a)))
+    on_function_entry("f", pkg=NULL, fun=env$f, list(x=quote(b(d)), quote(a)))
 
     t <- .Call("get_trace", 0L)
     expect_equal(t$fun, "f")

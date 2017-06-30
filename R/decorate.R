@@ -81,7 +81,7 @@ is_decorated <- function(fun) {
     isTRUE(attr(fun, "genthat"))
 }
 
-do_decorate_function <- function(name, fun,
+do_decorate_function <- function(name, pkg, fun,
                              .entry=substitute(genthat:::on_function_entry),
                              .exit=substitute(genthat:::on_function_exit)) {
     stopifnot(is.character(name))
@@ -100,7 +100,7 @@ do_decorate_function <- function(name, fun,
                 on.exit(.Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE)))
 
                 .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
-                `__trace_index` <- ENTRY(name = NAME, args = as.list(match.call())[-1], env = parent.frame())
+                `__trace_index` <- ENTRY(name = NAME, pkg = PKG, args = as.list(match.call())[-1], env = parent.frame())
                 .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
 
                 retv <- BODY
@@ -113,7 +113,13 @@ do_decorate_function <- function(name, fun,
             } else {
                 BODY
             }
-        }, list(NAME=name, BODY=body(fun), ENTRY=.entry, EXIT=.exit)),
+        }, list(
+            NAME=name,
+            PKG=pkg,
+            BODY=body(fun),
+            ENTRY=.entry,
+            EXIT=.exit
+        )),
         env=environment(fun),
         attributes=list(genthat=TRUE))
 
@@ -154,13 +160,13 @@ decorate_and_replace_one <- function(name, fun) {
         fun
     }
 
-    name <- get_function_fqn(name, fun)
+    pkg <- get_function_package_name(fun)
 
     if (is_debug_enabled()) {
         message("Decorating function: ", name)
     }
 
-    new_fun <- do_decorate_function(name=name, fun=fun)
+    new_fun <- do_decorate_function(name=name, pkg=pkg, fun=fun)
     replacement <- create_replacement(
         name=name,
         env=environment(fun),
@@ -193,6 +199,7 @@ reset_function <- function(name) {
     }
 
     reassign_function(r$fun, r$orig_fun)
+    invisible(r$orig_fun)
 }
 
 reset_all_functions <- function() {
@@ -201,26 +208,20 @@ reset_all_functions <- function() {
     })
 }
 
-get_function_fqn <- function(name, fun) {
-    stopifnot(is.character(name))
+get_function_package_name <- function(fun) {
     stopifnot(is.function(fun))
 
     env <- environment(fun)
+    if (identical(env, .BaseNamespaceEnv)) {
+        return("base")
+    }
+
     pkg_name <- get_package_name(env)
 
-    names <- split_function_name(name)
-    if (is_empty_str(names$package)) {
-        if (is_empty_str(pkg_name) || identical(env, globalenv())) {
-            names$name
-        } else {
-            paste0(pkg_name, ":::", names$name)
-        }
+    if (is_empty_str(pkg_name) || identical(env, globalenv())) {
+        NULL
     } else {
-        # TODO: test
-        if (nchar(pkg_name) > 0 && names$package != pkg_name) {
-            warning("Mismatch with name and environment. Function ", name, " is defined in ", pkg_name)
-        }
-        name
+        pkg_name
     }
 }
 

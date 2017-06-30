@@ -87,22 +87,6 @@ static SEXP GENTHAT_EXTRACTED_CLOSURE_SYM = Rf_install("genthat_extracted_closur
 
 class Serializer {
 private:
-    static bool is_infix_fun_no_space(string const &fun) {
-        return BASE_INFIX_FUNS_NO_SPACE.find(fun) != BASE_INFIX_FUNS_NO_SPACE.end();
-    }
-
-    static bool is_infix_fun(string const &fun) {
-        if (BASE_INFIX_FUNS.find(fun) != BASE_INFIX_FUNS.end()) {
-            return true;
-        } else if (BASE_INFIX_FUNS_NO_SPACE.find(fun) != BASE_INFIX_FUNS_NO_SPACE.end()) {
-            return true;
-        } else if (fun[0] == '%' && fun[fun.size() - 1] == '%') {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     static string attribute_name(SEXP const s) {
         auto e = SPEC_ATTRIBUTES_NAMES.find(s);
         if (e != SPEC_ATTRIBUTES_NAMES.end()) {
@@ -219,6 +203,21 @@ private:
     set<SEXP> visited_environments;
 
 public:
+    static bool is_infix_fun_no_space(string const &fun) {
+        return BASE_INFIX_FUNS_NO_SPACE.find(fun) != BASE_INFIX_FUNS_NO_SPACE.end();
+    }
+
+    static bool is_infix_fun(string const &fun) {
+        if (BASE_INFIX_FUNS.find(fun) != BASE_INFIX_FUNS.end()) {
+            return true;
+        } else if (BASE_INFIX_FUNS_NO_SPACE.find(fun) != BASE_INFIX_FUNS_NO_SPACE.end()) {
+            return true;
+        } else if (fun[0] == '%' && fun[fun.size() - 1] == '%') {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     static string escape_name(string const &name) {
         if (name.empty()) {
@@ -229,6 +228,7 @@ public:
             return name;
         }
     }
+
     string serialize(SEXP s, bool quote) {
         switch (TYPEOF(s)) {
         case NILSXP:
@@ -480,6 +480,16 @@ std::string serialize_value(SEXP s) {
     Serializer serializer;
 
     return serializer.serialize(s, false);
+}
+
+// [[Rcpp::export]]
+bool is_infix_fun_no_space(std::string const &fun) {
+    return Serializer::is_infix_fun_no_space(fun);
+}
+
+// [[Rcpp::export]]
+bool is_infix_fun(std::string const &fun) {
+    return Serializer::is_infix_fun(fun);
 }
 
 // [[Rcpp::export]]

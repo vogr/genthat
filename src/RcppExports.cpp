@@ -16,6 +16,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// is_infix_fun_no_space
+bool is_infix_fun_no_space(std::string const& fun);
+RcppExport SEXP genthat_is_infix_fun_no_space(SEXP funSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string const& >::type fun(funSEXP);
+    rcpp_result_gen = Rcpp::wrap(is_infix_fun_no_space(fun));
+    return rcpp_result_gen;
+END_RCPP
+}
+// is_infix_fun
+bool is_infix_fun(std::string const& fun);
+RcppExport SEXP genthat_is_infix_fun(SEXP funSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string const& >::type fun(funSEXP);
+    rcpp_result_gen = Rcpp::wrap(is_infix_fun(fun));
+    return rcpp_result_gen;
+END_RCPP
+}
 // escape_name
 std::string escape_name(std::string const& name);
 RcppExport SEXP genthat_escape_name(SEXP nameSEXP) {
@@ -81,6 +103,8 @@ RcppExport SEXP update_trace(SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"genthat_serialize_value", (DL_FUNC) &genthat_serialize_value, 1},
+    {"genthat_is_infix_fun_no_space", (DL_FUNC) &genthat_is_infix_fun_no_space, 1},
+    {"genthat_is_infix_fun", (DL_FUNC) &genthat_is_infix_fun, 1},
     {"genthat_escape_name", (DL_FUNC) &genthat_escape_name, 1},
     {"genthat_reassign_function", (DL_FUNC) &genthat_reassign_function, 2},
     {"genthat_create_duplicate", (DL_FUNC) &genthat_create_duplicate, 1},

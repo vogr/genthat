@@ -1,6 +1,5 @@
 # Default function entry decorator. Creates the trace record and stores it into the trace vector. Returns the index of the trace record in the vector so that the trace can be updated later.
-on_function_entry <- function(name, args, fun=sys.function(-1), env=parent.frame()) {
-    stopifnot(is.character(name) && length(name) == 1)
+on_function_entry <- function(name, pkg=NULL, args, fun=sys.function(-1), env=parent.frame()) {
     stopifnot(is.list(args))
 
     # TODO: (performance) all this makes sense only if there are symbols anywhere in args
@@ -9,18 +8,28 @@ on_function_entry <- function(name, args, fun=sys.function(-1), env=parent.frame
     dummy <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
     callee <- as.list(environment(extract_closure(dummy)))
 
-    .Call("push_trace", create_trace(name, args, callee))
+    .Call("push_trace", create_trace(name, pkg, args, callee))
 }
 
 #' @importFrom methods is
 on_function_exit <- function(index, retv) {
     stopifnot(is.integer(index))
+
     trace <- .Call("get_trace", index)
+
     tryCatch({
-        trace <- create_trace(trace$fun, args=trace$args, globals=trace$globals, retv=retv)
+        trace <-
+            create_trace(
+                trace$fun,
+                pkg=trace$pkg,
+                args=trace$args,
+                globals=trace$globals,
+                retv=retv
+            )
     }, error=function(e) {
-        trace <- create_trace_error(trace$fun, trace$args, format(e))
+        trace <- create_trace_error(trace$fun, pkg=trace$pkg, trace$args, format(e))
     })
+
     .Call("update_trace", index, trace)
 }
 
@@ -154,10 +163,11 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
     new_fun
 }
 
-create_trace <- function(fun, args=list(), globals=list(), retv) {
-    stopifnot(is.character(fun))
+create_trace <- function(fun, pkg=NULL, args=list(), globals=list(), retv) {
+    stopifnot(is.character(fun) && length(fun) == 1)
+    stopifnot(is.null(pkg) || (is.character(pkg) && length(pkg) == 1))
 
-    xs <- list(fun=fun, args=as.list(args), globals=as.list(globals))
+    xs <- list(fun=fun, pkg=pkg, args=as.list(args), globals=as.list(globals))
 
     if (!missing(retv)) {
         xs$retv <- retv
@@ -170,13 +180,15 @@ create_trace <- function(fun, args=list(), globals=list(), retv) {
 }
 
 create_trace_error <- function(fun, args, msg) {
-    stopifnot(is.character(fun))
-    stopifnot(is.character(msg))
+    stopifnot(is.character(fun) && length(fun) == 1)
+    stopifnot(is.null(pkg) || (is.character(pkg) && length(pkg) == 1))
+    stopifnot(is.character(msg) && length(msg) == 1)
 
-    structure(list(fun=fun, args=as.list(args), msg=msg), class="genthat_trace_error")
+    structure(list(fun=fun, pkg=pkg, args=as.list(args), msg=msg), class="genthat_trace_error")
 }
 
 # Clears the captured caches.
+
 #' @export
 #'
 reset_call_traces <- function() {

@@ -4,6 +4,16 @@ if (!requireNamespace("devtools", quietly=TRUE)) {
     stop("devtools needed for this function to work. Please install it.", call. = FALSE)
 }
 
+test_that("get_function_package_name returns the package name", {
+    expect_equal(get_function_package_name(ls), "base")
+    expect_equal(get_function_package_name(`%in%`), "base")
+    expect_equal(get_function_package_name(tools::Rcmd), "tools")
+
+    my_f <- function() {}
+
+    expect_equal(get_function_package_name(my_f), NULL)
+})
+
 test_that("create_function creates functions", {
     f <- create_function(pairlist(a=1, b=2), substitute(a+b))
     expect_equal(f(), 3)
@@ -36,6 +46,7 @@ test_that("do_decorate_function decorates a function", {
     d <-
         do_decorate_function(
             "f",
+            NULL,
             f,
             .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
@@ -47,8 +58,8 @@ test_that("do_decorate_function decorates a function", {
     d(1, 2)
 
     expect_equal(length(entry), 1)
-    #expect_equal(entry$c1$call_id, 0)
     expect_equal(entry$c1$name, "f")
+    expect_equal(entry$c1$pkg, NULL)
     expect_equal(entry$c1$args, list(a=1, b=2))
 
     expect_equal(length(exit), 1)
@@ -69,6 +80,7 @@ test_that("on_function_entry works with multiline functions", {
     d <-
         do_decorate_function(
             "f",
+            NULL,
             f,
             .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
@@ -82,6 +94,32 @@ test_that("on_function_entry works with multiline functions", {
     expect_equal(exit$c1$retv, 5)
 })
 
+test_that("do_decorate_function works with ...", {
+    entry <- new.env()
+    exit <- new.env()
+
+    f <- function(...) sum(...)
+    d <-
+        do_decorate_function(
+            "f",
+            NULL,
+            f,
+            .entry=save_calling_args(entry, return_value = 0L),
+            .exit=save_calling_args(exit))
+
+    r <- d(a=1, b=2, 3, 4)
+
+    expect_equal(r, f(1:4))
+
+    expect_equal(length(entry), 1)
+    expect_equal(entry$c1$name, "f")
+    expect_equal(entry$c1$args, list(a=1, b=2, 3, 4))
+
+    expect_equal(length(exit), 1)
+    expect_equal(exit$c1$index, 0)
+    expect_equal(exit$c1$retv, f(1:4))
+})
+
 test_that("do_decorate_function decorates a package function", {
     entry <- new.env()
     exit <- new.env()
@@ -89,6 +127,7 @@ test_that("do_decorate_function decorates a package function", {
     d <-
         do_decorate_function(
             "file_path_sans_ext",
+            "tools",
             tools::file_path_sans_ext,
             .entry=save_calling_args(entry, return_value = 0L),
             .exit=save_calling_args(exit))
@@ -100,6 +139,7 @@ test_that("do_decorate_function decorates a package function", {
 
     expect_equal(length(entry), 1)
     expect_equal(entry$c1$name, "file_path_sans_ext")
+    expect_equal(entry$c1$pkg, "tools")
     expect_equal(entry$c1$args, list(x="a.b"))
 
     expect_equal(length(exit), 1)
@@ -113,7 +153,7 @@ test_that("is_decorated knows when a functions is decorated", {
     f <- function() {}
     expect_false(is_decorated(f))
 
-    d <- do_decorate_function("f", f)
+    d <- do_decorate_function("f", NULL, f)
     expect_true(is_decorated(d))
 })
 
@@ -124,9 +164,10 @@ test_that("decorate_environment decorates all functions in the environment", {
 
     env <- devtools::load_all("samplepkg")$env
     original_size <- length(ls(env, all.names=TRUE))
-    decorate_environment(env)
-    size <- length(ls(env, all.names=TRUE))
 
+    decorate_environment(env)
+
+    size <- length(ls(env, all.names=TRUE))
     expect_equal(original_size, size)
 
     names <- ls(env, all.names=TRUE)
@@ -140,7 +181,7 @@ test_that("decorate_environment decorates all functions in the environment", {
     expect_equal(length(get_replacements()), length(funs))
     expect_equivalent(
         sort(sapply(get_replacements(), `[[`, "name")),
-        sort(paste0("samplepkg:::",names(funs))))
+        sort(names(funs)))
 })
 
 test_that("reassign_function replaces function body and add attributes", {
@@ -189,31 +230,6 @@ test_that("reset_function", {
 
     expect_false(is_decorated(samplepkg::my_public))
     expect_equal(length(get_replacements()), 0)
-})
-
-test_that("do_decorate_function works with ...", {
-    entry <- new.env()
-    exit <- new.env()
-
-    f <- function(...) sum(...)
-    d <-
-        do_decorate_function(
-            "f",
-            f,
-            .entry=save_calling_args(entry, return_value = 0L),
-            .exit=save_calling_args(exit))
-
-    r <- d(a=1, b=2, 3, 4)
-
-    expect_equal(r, f(1:4))
-
-    expect_equal(length(entry), 1)
-    expect_equal(entry$c1$name, "f")
-    expect_equal(entry$c1$args, list(a=1, b=2, 3, 4))
-
-    expect_equal(length(exit), 1)
-    expect_equal(exit$c1$index, 0)
-    expect_equal(exit$c1$retv, f(1:4))
 })
 
 test_that("decorate_function returns decorated function", {

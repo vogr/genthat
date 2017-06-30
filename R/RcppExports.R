@@ -5,6 +5,14 @@ serialize_value <- function(s) {
     .Call('genthat_serialize_value', PACKAGE = 'genthat', s)
 }
 
+is_infix_fun_no_space <- function(fun) {
+    .Call('genthat_is_infix_fun_no_space', PACKAGE = 'genthat', fun)
+}
+
+is_infix_fun <- function(fun) {
+    .Call('genthat_is_infix_fun', PACKAGE = 'genthat', fun)
+}
+
 escape_name <- function(name) {
     .Call('genthat_escape_name', PACKAGE = 'genthat', name)
 }

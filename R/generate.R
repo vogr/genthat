@@ -1,22 +1,19 @@
-# TODO: rename to format_calling_args
-format_args <- function(args) {
+format_calling_args <- function(args, include_names=TRUE) {
     args <- lapply(args, serialize_value)
 
-    args_str <-
-        if (!is.null(names(args))) {
-            pairs <- zip(name=names(args), value=args)
-            lapply(pairs, function(x) {
-                if(!is_empty_str(x$name)) {
-                    paste0(escape_name(x$name), "=", x$value)
-                } else {
-                    x$value
-                }
-            })
-        } else {
-            args
-        }
+    if (include_names && !is.null(names(args))) {
+        pairs <- zip(name=names(args), value=args)
 
-    paste(args_str, collapse=", ")
+        lapply(pairs, function(x) {
+            if(!is_empty_str(x$name)) {
+                paste0(escape_name(x$name), "=", x$value)
+            } else {
+                x$value
+            }
+        })
+    } else {
+        args
+    }
 }
 
 dump_raw_trace <- function(trace) {
@@ -24,6 +21,35 @@ dump_raw_trace <- function(trace) {
     s <- paste("# ", s, collapse="\n")
     s <- paste0("# TRACE:\n", s, "\n\n")
     s
+}
+
+generate_call <- function(trace) {
+    stopifnot(is.character(trace$fun))
+    stopifnot(is.list(trace$args))
+
+    fun <- trace$fun
+
+    if (is_infix_fun(fun) && trace$pkg == "base") {
+        args <- format_calling_args(trace$args, include_names=FALSE)
+
+        if (length(args) != 2) {
+            stop("Call to infix function: `", fun,
+                "` does not have exactly two arguments, instead it has: ",
+                paste(args, collapse=", "))
+        }
+
+        sep <- if (is_infix_fun_no_space(fun)) "" else " "
+
+        paste(args[[1]], fun, args[[2]], collapse=sep)
+    } else {
+        args <- format_calling_args(trace$args, include_names=TRUE)
+        args_str <- paste(args, collapse=", ")
+        fun <- escape_name(fun)
+        pkg <- trace$pkg
+        pkg <- if (is.null(trace$pkg)) "" else paste0(pkg, ":::")
+
+        paste0(pkg, fun, '(', args_str, ')')
+    }
 }
 
 #' @title Generate test case code from a trace
@@ -41,11 +67,7 @@ generate_test_code <- function(trace, include_trace_dump=FALSE) {
 
 #' @export
 generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE) {
-    stopifnot(is.character(trace$fun))
-    stopifnot(is.list(trace$args))
-
-    fun <- trace$fun
-    args <- format_args(trace$args)
+    call <- generate_call(trace)
     globals <- paste(names(trace$globals), lapply(trace$globals, serialize_value), sep=" <- ", collapse="\n")
     retv <- serialize_value(trace$retv)
 
