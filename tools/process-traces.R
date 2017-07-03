@@ -56,7 +56,7 @@ runs <- task("running generated tests", {
 task(paste("saving to database", db_file), {
     message("- test generation errors")
     tests %>%
-        dplyr::filter(!is.na(code)) %>%
+        dplyr::filter(is.na(code)) %>%
         copy_to(dest=db, name="test_gen_errors", temporary=FALSE) %>%
         invisible()
 

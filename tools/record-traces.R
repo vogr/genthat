@@ -51,48 +51,26 @@ trace_one <- function(pkg_dir) {
 
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args) != 1) {
-  stop("Usage: <path to packages directory>")
+  stop("Usage: <path to package directory>")
 }
-pkgs_dir <- args[1]
-stopifnot(dir.exists(pkgs_dir))
+pkg_dir <- args[1]
+stopifnot(dir.exists(pkg_dir))
 
-all_pkgs <- list.files(pkgs_dir, recursive=FALSE, full.names=TRUE)
+db <-
+    src_mysql(
+        db_name="genthat",
+        host="ginger.ele.fit.cvut.cz",
+        password="genthat",
+        port="6612"
+    )
 
-db_file <- "traces.sqlite3"
-db <- src_sqlite(db_file, create=!file.exists(db_file))
+tryCatch({
+    time <- system.time(df <- trace_one(pkg_dir))
+    db_insert_into(con=db$con, table="traces", values=df)
+    message("Processed ", pkg, " in ", time["elapsed"])
+}, error=function(e) {
+    message("Error while processing", pkg, " : ", e$message)
+}, finally={
+    dbDisconnect(db$con)
+})
 
-i <- 0
-tmp <- NULL
-
-for (pkg in all_pkgs) {
-    tryCatch({
-        if (dir.exists(pkg)) {
-            pkg_dir <- pkg
-            tmp <- NULL
-        } else if (endsWith(pkg, ".tar.gz")) {
-            tmp <- tempfile()
-            untar(pkg, exdir=tmp)
-            pkg_dir <- list.dirs(tmp, recursive=FALSE)
-
-            if (length(pkg_dir) != 1) {
-                message("Wrong package archive: ", pkg)
-                next();
-            }
-        } else {
-            next();
-        }
-
-        time <- system.time(df <- trace_one(pkg_dir))
-
-        db_insert_into(con=db$con, table="traces", values=df)
-        i <- i + 1
-
-        message(i, ": Processed ", pkg, " in ", time["elapsed"])
-    }, error=function(e) {
-        message(i, ": Error while processing", pkg, " : ", e$message)
-    }, finally={
-        if (!is.null(tmp) && dir.exists(tmp)) {
-            unlink(tmp, recursive=TRUE)
-        }
-    })
-}
