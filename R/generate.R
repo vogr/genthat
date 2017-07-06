@@ -110,17 +110,17 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #' @importFrom utils txtProgressBar
 #' @export
 #'
-generate_tests <- function(traces, show_progress=isTRUE(getOption("genthat.show_progress")), ...) {
+generate_tests <- function(traces, quiet=TRUE, show_progress=isTRUE(getOption("genthat.show_progress")), ...) {
     stopifnot(is.list(traces) || is.environment(traces))
 
     if (length(traces) == 0) {
         return(list())
     }
 
-    if (show_progress) {
+    if (quiet && show_progress) {
         pb <- utils::txtProgressBar(min=0, max=length(traces), initial=0, style=3)
 
-        after_one_trace <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb)+1)
+        after_one_trace <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb) + 1)
         after_all_traces <- function() close(pb)
     } else {
         after_one_trace <- function() {}
@@ -128,16 +128,19 @@ generate_tests <- function(traces, show_progress=isTRUE(getOption("genthat.show_
     }
 
     tests <-
-        lapply(traces, function(x) {
+        lapply(zip(name=names(traces), value=traces), function(x) {
+            trace_id <- x$name
+            trace <- x$value
 
-            if (is_debug_enabled()) {
-                message("Generating test from a trace of `", x$fun, "`")
+            if (!quiet) {
+                message("Generating test from a trace: ", trace_id)
             }
 
             result <- list(
-                fun=x$fun,
-                trace=paste(utils::capture.output(utils::str(x)), collapse="\n"),
-                trace_type=class(x),
+                trace_id=trace_id,
+                trace_type=class(trace),
+                trace=paste(utils::capture.output(utils::str(trace)), collapse="\n"),
+                fun=trace$fun,
                 code=NA,
                 error=NA
             )
@@ -147,11 +150,11 @@ generate_tests <- function(traces, show_progress=isTRUE(getOption("genthat.show_
             # on modification
             result <-
                 tryCatch({
-                    code <- generate_test_code(x, ...)
+                    code <- generate_test_code(trace, ...)
 
                     if (!is.null(code)) {
-                        if (is_debug_enabled()) {
-                            message("Generated test for trace of `", x$fun, "`")
+                        if (!quiet) {
+                            message("Generated test for trace: ", trace_id)
                         }
 
                         result$code <- code
@@ -160,8 +163,8 @@ generate_tests <- function(traces, show_progress=isTRUE(getOption("genthat.show_
                 }, error=function(e) {
                     msg <- e$message
 
-                    if (is_debug_enabled()) {
-                        message("Unable to generate test for trace of `", x$fun, "`: ", msg)
+                    if (!quiet) {
+                        message("Unable to generate test for trace: ", trace_id ," - ", msg)
                     }
 
                     result$error <- msg

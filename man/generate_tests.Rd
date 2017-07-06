@@ -4,7 +4,7 @@
 \alias{generate_tests}
 \title{Generates test cases from traces}
 \usage{
-generate_tests(traces,
+generate_tests(traces, quiet = TRUE,
   show_progress = isTRUE(getOption("genthat.show_progress")), ...)
 }
 \arguments{

@@ -228,7 +228,7 @@ stopwatch <- function(expr) {
     result <- force(expr)
     time <- as.numeric(Sys.time())*1000 - time
 
-    list(result=result, time=time)
+    list(result=result, elapsed=time)
 }
 
 capture <- function(expr, split=FALSE) {
@@ -255,8 +255,8 @@ capture <- function(expr, split=FALSE) {
     c(
         result,
         list(
-            out=paste(readLines(out), collapse="\n"),
-            err=paste(readLines(err), collapse="\n")
+            stdout=paste(readLines(out), collapse="\n"),
+            stderr=paste(readLines(err), collapse="\n")
         )
     )
 }

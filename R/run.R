@@ -3,73 +3,56 @@
 #' @importFrom utils getTxtProgressBar
 #' @export
 #'
-run_generated_tests <- function(tests, show_progress=isTRUE(getOption("genthat.show_progress"))) {
+run_generated_tests <- function(tests, quiet=TRUE, show_progress=isTRUE(getOption("genthat.show_progress"))) {
     stopifnot(is.data.frame(tests))
 
-    if (show_progress) {
+    if (quiet && show_progress) {
         pb <- utils::txtProgressBar(min=0, max=nrow(tests), initial=0, style=3)
 
-        after_one_run <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb)+1)
+        after_one_run <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb) + 1)
         after_all_runs <- function() close(pb)
     } else {
         after_one_run <- function() {}
         after_all_runs <- function() {}
     }
 
-    missing <- which(is.na(tests$code))
-    if (length(missing)) {
-        stop("Missing code for traces #", paste(missing, collapse=","))
-    }
-
     runs <- apply(tests, 1, function(x) {
         x <- as.list(x)
 
-        # run the test
-        tmp_test_file <- tempfile()
-        write(x$code, file=tmp_test_file)
-        test_result <- capture(testthat::test_file(tmp_test_file))
-        after_one_run()
-
         result <- list(
-            fun=x$fun,
+            trace_id=x$trace_id,
             trace=x$trace,
+            fun=x$fun,
             code=x$code,
-            out=test_result$out,
-            err=test_result$err,
-            time=test_result$time,
+            out=NA,
+            err=NA,
+            time=NA,
             test=NA,
             result=NA,
             error=NA
         )
 
-        if (is.null(test_result$error)) {
-            if (is_debug_enabled()) {
-                message("Test for function `", x$fun, "` succeeded")
-            }
-
-            test_run <- as.data.frame(test_result$result)
-
-            result$test <- test_run$test
-            result$result <-
-                if (test_run$failed) {
-                    2
-                } else if (test_run$error) {
-                    3
-                } else if (test_run$nb == 0) {
-                    4
-                } else {
-                    1
+        tryCatch({
+            if (!is.na(x$code)) {
+                if (!quiet) {
+                    message("Running test from trace: ", x$trace_id, " (", nchar(x$code, type="bytes"), " bytes)")
                 }
 
-        } else {
-            msg <- test_result$error$message
-            if (is_debug_enabled()) {
-                message("Test for function `", x, "` failed: ", msg)
+                run <- run_generated_test(x$code, quiet)
+                result$test <- run$test
+                result$status <- run$status
+                result$error <- run$error
+                result$stdout <- run$stdout
+                result$stderr <- run$stderr
+                result$elapsed <- run$elapsed
             }
-
+        }, error=function(e) {
+            msg <- e$message
+            message("Unable to run tests from trace: ", x$trace_id, " - ", msg)
             result$error <- msg
-        }
+        })
 
+        after_one_run()
         as.data.frame(result, stringsAsFactors=FALSE)
     })
 
@@ -81,6 +64,66 @@ run_generated_tests <- function(tests, show_progress=isTRUE(getOption("genthat.s
         message("dplyr is not available, which is a pity since it will speed up things")
         do.call(rbind, runs)
     }
+}
+
+run_generated_test <- function(code, quiet=TRUE) {
+    stopifnot(is.character(code) && length(code) == 1)
+
+
+    tmp_test_file <- tempfile()
+    on.exit(file.remove(tmp_test_file))
+    write(code, file=tmp_test_file)
+
+    run <- capture(testthat::test_file(tmp_test_file))
+    result <- list(
+        test=NA,
+        status=NA,
+        error=NA,
+        stdout=run$stdout,
+        stderr=run$stderr,
+        elapsed=run$elapsed
+    )
+
+    if (!is.null(run$result) && is.null(run$error)) {
+        test_result <- as.data.frame(run$result)
+
+        result$test <- test_result$test
+        result$status <-
+            if (test_result$failed) {
+                if (!quiet) {
+                    message("Test failed")
+                }
+
+                2
+            } else if (test_result$error) {
+                if (!quiet) {
+                    message("Test threw an error")
+                }
+
+                3
+            } else if (test_result$nb == 0) {
+                if (!quiet) {
+                    message("Test did not run any tests")
+                }
+
+                4
+            } else {
+                if (!quiet) {
+                    message("Test succeeded")
+                }
+
+                1
+            }
+    } else {
+        msg <- result$error$message
+        if (is_debug_enabled()) {
+            message("Test for function `", x, "` could not be run: ", msg)
+        }
+
+        result$error <- msg
+    }
+
+    result
 }
 
 run_package_examples <- function(pkg, output_dir, lib_path=NULL, ...) {
@@ -238,18 +281,17 @@ run_r_code <- function(code_to_run, save_image=FALSE, ...) {
 
     if (save_image) {
         image_file <- tempfile()
+        on.exit(file.remove(image_file), add=TRUE)
         script <- c(script, deparse(substitute(save.image(file=FILE), list(FILE=image_file))))
     }
 
     script_file <- tempfile()
-
-    on.exit(file.remove(script_file))
-
     writeLines(script, script_file)
+    on.exit(file.remove(script_file))
 
     ret <- run_r_script(script_file, ...)
 
-    if (save_image) {
+    if (ret$status == 0 && save_image) {
         e <- new.env(parent=emptyenv())
         load(file=image_file, envir=e)
         ret$image <- e
