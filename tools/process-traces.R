@@ -1,80 +1,122 @@
 #!/usr/bin/env Rscript
 
 options(error=function() { traceback(2); if (!interactive()) quit("no", status=1, runLast=FALSE) })
-options(genthat.show_progress=TRUE)
-## options(genthat.debug=T)
+options(genthat.debug=isTRUE(as.logical(Sys.getenv("genthat.debug"))))
 
 library(testthat)
 library(devtools)
 library(readr)
 suppressPackageStartupMessages(suppressWarnings(library(dplyr)))
-library(RSQLite)
+library(genthat)
 
 task <- function(name, expr) {
-    message("Running ", name, "...")
-    r <- stopwatch(expr)
-    message("Finished ", name, " in ", r$time/1000, " sec")
+    message("PROCESS: Running ", name, "...")
+    time <- system.time(r <- expr)
+    message("PROCESS: Finished ", name, " in ", time["elapsed"], " sec")
 
-    invisible(r$result)
+    invisible(r)
 }
 
-devtools::load_all()
+process_batch <- function(batch, db, timestamp) {
+    tests <- task("generating tests", {
+        genthat::generate_tests(batch, quiet=FALSE, include_trace_dump=FALSE)
+    })
+
+    tests_generated <- tests %>% dplyr::filter(!is.na(code)) %>% nrow()
+    message("PROCESS: # of generated test: ", tests_generated)
+
+    runs <- task("running generated tests", {
+        genthat::run_generated_tests(tests, quiet=FALSE)
+    })
+
+    tests_passed <- runs %>% dplyr::filter(result == 1) %>% nrow()
+    message("PROCESS: # of passed tests: ", tests_passed)
+
+    task("saving to database table test_gens_error", {
+        tests %>%
+            dplyr::filter(!is.na(error)) %>%
+            dplyr::mutate(
+                timestamp=timestamp,
+                traces_file=traces_file
+            ) %>%
+            dplyr::select(timestamp, traces_file, dplyr::everything()) %>%
+            dplyr::db_insert_into(con=db$con, table="test_gens_error", values=.) %>%
+            invisible()
+    })
+
+    task("saving to database table test_runs", {
+        runs %>%
+            dplyr::mutate(
+                timestamp=timestamp,
+                traces_file=traces_file
+            ) %>%
+            dplyr::select(timestamp, traces_file, dplyr::everything()) %>%
+            dplyr::db_insert_into(con=db$con, table="test_runs", values=.) %>%
+            invisible()
+    })
+
+    data_frame(
+        num_generated=tests_generated,
+        num_passed=tests_passed,
+    )
+}
 
 args = commandArgs(trailingOnly=TRUE)
-if (length(args) != 1) {
-  stop("Usage: <RDS>")
+if (length(args) != 2) {
+    stop("Usage: <RDS> <batch-size>")
 }
 
 traces_file <- args[1]
 stopifnot(file.exists(traces_file))
+batch_size <- as.numeric(args[2])
+stopifnot(batch_size > 1)
 
-db_file <- paste0(tools::file_path_sans_ext(traces_file), ".sqlite3")
-if (file.exists(db_file)) {
-    stop("The db file: ", db_file, " exits")
-}
+db <- src_mysql(
+    dbname="genthat",
+    host="ginger.ele.fit.cvut.cz",
+    password="genthat",
+    port=6612
+)
+message("PROCESS: Connected to ", format(db))
 
-db <- src_sqlite(db_file, create=T)
-
-traces <- task("reading traces", {
+traces <- task("loading traces", {
     readRDS(traces_file)
 })
+message("PROCESS: Loaded: ", length(traces), " traces")
 
-tests <- task("generating tests", {
-    genthat::generate_tests(traces, include_trace_dump=TRUE)
+if (length(traces) == 0) {
+    message("PROCESS: no traces")
+    quit(save="no")
+}
+
+timestamp <- Sys.time()
+indexes <- 1:ceiling(length(traces) / batch_size)
+
+result <- lapply(indexes, function(x) {
+    lower <- (x - 1) * batch_size + 1
+    upper <- min(length(traces), lower + batch_size)
+    batch <- traces[lower:upper]
+
+    # add the trace_id
+    names(batch) <- lower:upper
+
+    message("PROCESS: traces ", lower, "-", upper, "/", length(traces))
+    process_batch(batch, db=db, timestamp=timestamp)
 })
 
-runs <- task("running generated tests", {
-    tests %>%
-        dplyr::filter(!is.na(code)) %>%
-        genthat::run_generated_tests()
-})
+result <- dplyr::bind_rows(result)
+message("PROCESS: Done processing: ", traces_file)
 
-## task("running generated tests in C++", {
-##     .Call('genthat_run_generated_tests_cpp', PACKAGE = 'genthat', tests, FALSE)
-## })
+stats <- result %>% dplyr::summarise(
+    timestamp=timestamp,
+    traces_file=traces_file,
+    num_traces=length(traces),
+    num_generated=sum(num_generated),
+    generated=num_generated / num_traces * 100,
+    num_passed=sum(num_passed),
+    passed=num_passed / num_generated * 100,
+    success_rate=num_passed / num_traces * 100
+)
 
-task(paste("saving to database", db_file), {
-    message("- test generation errors")
-    tests %>%
-        dplyr::filter(is.na(code)) %>%
-        copy_to(dest=db, name="test_gen_errors", temporary=FALSE) %>%
-        invisible()
-
-    message("- ran tests")
-    runs %>%
-        copy_to(dest=db, name="test_runs", temporary=FALSE) %>%
-        invisible()
-})
-
-message("Done processing: ", traces_file)
-
-num_traces <- length(traces)
-message("Traces: ", num_traces)
-
-generated <- tests %>% dplyr::filter(!is.na(code)) %>% nrow()
-message("Generated tests: ", generated, " (", generated / num_traces * 100, "%)")
-
-all <- nrow(runs)
-passed <- runs %>% dplyr::filter(is.na(error)) %>% nrow()
-message("Passed tests: ", passed, " (", passed / all * 100, "%)")
-
+db_insert_into(con=db$con, table="stats", values=stats)
+print(stats, width=Inf)
