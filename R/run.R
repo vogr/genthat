@@ -69,12 +69,12 @@ run_generated_tests <- function(tests, quiet=TRUE, show_progress=isTRUE(getOptio
 run_generated_test <- function(code, quiet=TRUE) {
     stopifnot(is.character(code) && length(code) == 1)
 
-
     tmp_test_file <- tempfile()
     on.exit(file.remove(tmp_test_file))
     write(code, file=tmp_test_file)
 
-    run <- capture(testthat::test_file(tmp_test_file))
+    run <- capture(test_result <- testthat::test_file(tmp_test_file))
+
     result <- list(
         test=NA,
         status=NA,
@@ -84,8 +84,8 @@ run_generated_test <- function(code, quiet=TRUE) {
         elapsed=run$elapsed
     )
 
-    if (!is.null(run$result) && is.null(run$error)) {
-        test_result <- as.data.frame(run$result)
+    if (!is.null(test_result) && is.null(run$error)) {
+        test_result <- as.data.frame(test_result)
 
         result$test <- test_result$test
         result$status <-
@@ -109,7 +109,7 @@ run_generated_test <- function(code, quiet=TRUE) {
                 4
             } else {
                 if (!quiet) {
-                    message("Test succeeded")
+                    message("Test succeeded in ", run$elapsed)
                 }
 
                 1
@@ -126,12 +126,12 @@ run_generated_test <- function(code, quiet=TRUE) {
     result
 }
 
-run_package_examples <- function(pkg, output_dir, lib_path=NULL, ...) {
+run_package_examples <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ...) {
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
-    if (is_debug_enabled()) {
-        message("Running examples for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir)
+    if (!quiet) {
+        cat("Running examples for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir, "\n")
     }
 
     res <-
@@ -151,17 +151,17 @@ run_package_examples <- function(pkg, output_dir, lib_path=NULL, ...) {
     fail <- sapply(fail_files, read_text_file)
 
     list(
-        success=res == 0,
+        status=res,
         output=output,
         fail=fail
     )
 }
 
-run_package_tests <- function(pkg, output_dir, lib_path=NULL, ...) {
+run_package_tests <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ...) {
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
-    if (is_debug_enabled()) {
+    if (!quiet) {
         message("Running tests for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir)
     }
 
@@ -182,27 +182,28 @@ run_package_tests <- function(pkg, output_dir, lib_path=NULL, ...) {
     fail <- sapply(fail_files, read_text_file)
 
     list(
-        success=res == 0,
+        status=res,
         output=output,
         fail=fail
     )
 }
 
 # inspired by run_vignettes form covr
-run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, ...) {
+run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ...) {
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
     pkg_path <- find.package(pkg, lib.loc=lib_path)
 
-    if (is_debug_enabled()) {
+    if (!quiet) {
         message("Running examples for: ", pkg, " (", pkg_path, ") output: ", output_dir)
     }
 
     out_file <- file.path(output_dir, paste0(pkg, "-Vignette.Rout"))
     fail_file <- paste(out_file, "fail", sep = "." )
 
-    cat("tools::buildVignettes(dir='", pkg_path, "', quiet=FALSE)\n", file=out_file, sep="")
+    cat("tools::buildVignettes(package='", pkg,"', dir='", pkg_path, "', quiet=", as.character(quiet),")\n",
+        file=out_file, sep="")
     # TODO: move to run_r_code
     cmd <- paste(
         shQuote(file.path(R.home("bin"), "R")),
@@ -223,7 +224,7 @@ run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, ...) {
     }
 
     list(
-        success=res == 0,
+        status=res,
         output=output,
         fail=fail
     )
@@ -233,8 +234,10 @@ run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, ...) {
 #'
 #' @export
 #'
-run_package <- function(pkg, types=c("examples", "tests", "vignettes"), clean=TRUE, lib_path=.libPaths(), ...) {
-    stopifnot(length(pkg) == 1)
+run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
+                       clean=TRUE, lib_path=.libPaths(), quiet=TRUE, ...) {
+
+    stopifnot(is.character(pkg) && length(pkg) == 1)
     types <- match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
     pkg_path <- find.package(pkg, lib_path)
 
@@ -247,8 +250,8 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"), clean=TR
             on.exit(unlink(output_dir, recursive=TRUE))
         }
 
-        if (is_debug_enabled()) {
-            message("Running package in ", pkg, "(from: ", pkg_path, ") in ", output_dir)
+        if (!quiet) {
+            message("Running ", pkg, " package ", paste(types, collapse=", "), " (from: ", pkg_path, ") in ", output_dir)
         }
 
         fce <- switch(
@@ -258,7 +261,7 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"), clean=TR
             vignettes=run_package_vignettes
         )
 
-        ret[[type]] <- fce(pkg, output_dir, lib_path, ...)
+        ret[[type]] <- fce(pkg, output_dir, lib_path, quiet, ...)
 
         if (!clean) {
             ret[[type]]$output_dir <- output_dir
