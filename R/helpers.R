@@ -219,21 +219,10 @@ with_env <- function(f, env) {
     f
 }
 
-test_file <- function(file) {
-    capture(as.data.frame(testthat::test_file(file)))
-}
-
-stopwatch <- function(expr) {
-    time <- as.numeric(Sys.time())*1000
-    result <- force(expr)
-    time <- as.numeric(Sys.time())*1000 - time
-
-    list(result=result, elapsed=time)
-}
-
 capture <- function(expr, split=FALSE) {
     out <- tempfile()
     err <- tempfile()
+    on.exit(file.remove(c(out, err)))
 
     fout = file(out, open="wt")
     ferr = file(err, open="wt")
@@ -241,24 +230,27 @@ capture <- function(expr, split=FALSE) {
     sink(type="output", file=fout, split=split)
     sink(type="message", file=ferr)
 
-    result <- tryCatch({
-        stopwatch(expr)
+    result <- list(
+        elapsed=NA,
+        error=NA
+    )
+
+    tryCatch({
+        time <- system.time(expr)
+        result$elapsed <- time["elapsed"]
     }, error=function(e) {
-        list(error=e, time=NA)
-    }, finally={
-        sink(type="output")
-        sink(type="message")
-        close(fout)
-        close(ferr)
+        result$error <- e
     })
 
-    c(
-        result,
-        list(
-            stdout=paste(readLines(out), collapse="\n"),
-            stderr=paste(readLines(err), collapse="\n")
-        )
-    )
+    sink(type="output")
+    sink(type="message")
+    close(fout)
+    close(ferr)
+
+    result$stdout=paste(readLines(out), collapse="\n")
+    result$stderr=paste(readLines(err), collapse="\n")
+
+    result
 }
 
 read_text_file <- function(f) {
