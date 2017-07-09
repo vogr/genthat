@@ -110,31 +110,17 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #' @importFrom utils txtProgressBar
 #' @export
 #'
-generate_tests <- function(traces, quiet=TRUE, show_progress=isTRUE(getOption("genthat.show_progress")), ...) {
+generate_tests <- function(traces, quiet=TRUE, ...) {
     stopifnot(is.list(traces) || is.environment(traces))
 
     if (length(traces) == 0) {
         return(list())
     }
 
-    if (quiet && show_progress) {
-        pb <- utils::txtProgressBar(min=0, max=length(traces), initial=0, style=3)
-
-        after_one_trace <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb) + 1)
-        after_all_traces <- function() close(pb)
-    } else {
-        after_one_trace <- function() {}
-        after_all_traces <- function() {}
-    }
-
     tests <-
-        lapply(zip(name=names(traces), value=traces), function(x) {
+        lapply(zip(name=1:length(traces), value=traces), function(x) {
             trace_id <- x$name
             trace <- x$value
-
-            if (!quiet) {
-                message("Generating test from a trace: ", trace_id)
-            }
 
             result <- list(
                 trace_id=trace_id,
@@ -142,6 +128,7 @@ generate_tests <- function(traces, quiet=TRUE, show_progress=isTRUE(getOption("g
                 trace=paste(utils::capture.output(utils::str(trace)), collapse="\n"),
                 fun=trace$fun,
                 code=NA,
+                elapsed=NA,
                 error=NA
             )
 
@@ -150,7 +137,9 @@ generate_tests <- function(traces, quiet=TRUE, show_progress=isTRUE(getOption("g
             # on modification
             result <-
                 tryCatch({
+                    start_time <- Sys.time()
                     code <- generate_test_code(trace, ...)
+                    result$elapsed <- Sys.time() - start_time
 
                     if (!is.null(code)) {
                         if (!quiet) {
@@ -169,13 +158,10 @@ generate_tests <- function(traces, quiet=TRUE, show_progress=isTRUE(getOption("g
 
                     result$error <- msg
                     result
-                }, finally={
-                    after_one_trace()
                 })
 
             as.data.frame(result, stringsAsFactors=FALSE)
         })
-    after_all_traces()
 
     if (requireNamespace("dplyr", quietly=TRUE)) {
         df <- dplyr::bind_rows(tests)
