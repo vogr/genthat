@@ -315,8 +315,8 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL) {
     args <- c(
         "CMD",
         "BATCH",
-        "--slave",
         "--vanilla",
+        "--silent",
         "--no-timing",
         shQuote(args),
         shQuote(script_file),
