@@ -126,69 +126,39 @@ run_generated_test <- function(code, quiet=TRUE) {
     result
 }
 
-run_package_examples <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ...) {
+run_package_ <- function(pkg, type, output_dir, lib_path=NULL, quiet=TRUE, ...) {
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
+    type <- match.arg(type, c("examples", "tests"), several.ok=FALSE)
+
+    pkg_path <- find.package(pkg, lib.loc=lib_path)
 
     if (!quiet) {
-        cat("Running examples for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir, "\n")
+        message("Running ", pkg, " package ", type, " (from: ", pkg_path, ") in ", output_dir)
     }
 
-    res <-
+    status <-
         tools::testInstalledPackage(
             pkg,
             outDir=output_dir,
             errorsAreFatal=FALSE,
             lib.loc=lib_path,
-            types="examples",
+            types=type,
             ...
         )
 
-    output_files <- list.files(output_dir, pattern="Rout$", recursive=FALSE, full.names=TRUE)
-    output <- sapply(output_files, read_text_file)
-
-    fail_files <- list.files(output_dir, pattern="fail$", recursive=FALSE, full.names=TRUE)
-    fail <- sapply(fail_files, read_text_file)
+    pattern <- if (status == 0) "Rout$" else "fail$"
+    output_files <- list.files(output_dir, pattern=pattern, recursive=TRUE, full.names=TRUE)
+    output <- paste(sapply(output_files, read_text_file), collapse="\n\n")
 
     list(
-        status=res,
-        output=output,
-        fail=fail
-    )
-}
-
-run_package_tests <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ...) {
-    stopifnot(is.character(pkg) && length(pkg) == 1)
-    stopifnot(dir.exists(output_dir))
-
-    if (!quiet) {
-        message("Running tests for: ", pkg, " (", find.package(pkg, lib.loc=lib_path), ") output: ", output_dir)
-    }
-
-    res <-
-        tools::testInstalledPackage(
-            pkg,
-            outDir=output_dir,
-            errorsAreFatal=FALSE,
-            lib.loc=lib_path,
-            types="tests",
-            ...
-        )
-
-    output_files <- list.files(output_dir, pattern="Rout$", recursive=TRUE, full.names=TRUE)
-    output <- sapply(output_files, read_text_file)
-
-    fail_files <- list.files(output_dir, pattern="fail$", recursive=TRUE, full.names=TRUE)
-    fail <- sapply(fail_files, read_text_file)
-
-    list(
-        status=res,
-        output=output,
-        fail=fail
+        status=status,
+        output=output
     )
 }
 
 # inspired by run_vignettes form covr
+# has to be handled separately since the testInstalledPackage does not work well with packages
 run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ...) {
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
@@ -196,37 +166,23 @@ run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ..
     pkg_path <- find.package(pkg, lib.loc=lib_path)
 
     if (!quiet) {
-        message("Running examples for: ", pkg, " (", pkg_path, ") output: ", output_dir)
+        message("Running ", pkg, " package vignettes (from: ", pkg_path, ") in ", output_dir)
     }
 
-    out_file <- file.path(output_dir, paste0(pkg, "-Vignette.Rout"))
-    fail_file <- paste(out_file, "fail", sep = "." )
+    code <- substitute({
+        options(error=function() { traceback(2); quit('no', status=1, runLast=TRUE) })
+        tools::buildVignettes(package=PKG, dir=PKG_PATH, quiet=QUIET)
+    }, list(
+        PKG=pkg,
+        PKG_PATH=pkg_path,
+        QUIET=quiet
+    ))
 
-    cat("tools::buildVignettes(package='", pkg,"', dir='", pkg_path, "', quiet=", as.character(quiet),")\n",
-        file=out_file, sep="")
-    # TODO: move to run_r_code
-    cmd <- paste(
-        shQuote(file.path(R.home("bin"), "R")),
-        "CMD BATCH --vanilla --no-timing",
-        shQuote(out_file),
-        shQuote(fail_file)
-    )
-
-    res <- system(cmd)
-    if (res != 0) {
-        fail <- read_text_file(fail_file)
-        output <- NULL
-    } else {
-        file.rename(fail_file, out_file)
-
-        fail <- NULL
-        output <- read_text_file(out_file)
-    }
+    run <- run_r_code(code)
 
     list(
-        status=res,
-        output=output,
-        fail=fail
+        status=run$status,
+        output=run$out
     )
 }
 
@@ -250,18 +206,12 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
             on.exit(unlink(output_dir, recursive=TRUE))
         }
 
-        if (!quiet) {
-            message("Running ", pkg, " package ", paste(types, collapse=", "), " (from: ", pkg_path, ") in ", output_dir)
+        if (type == "vignettes") {
+            # this is because testInstalledPackage fails running vignettes
+            ret[[type]] <- run_package_vignettes(pkg, output_dir, lib_path, quiet, ...)
+        } else {
+            ret[[type]] <- run_package_(pkg, type, output_dir, lib_path, quiet, ...)
         }
-
-        fce <- switch(
-            type,
-            examples=run_package_examples,
-            tests=run_package_tests,
-            vignettes=run_package_vignettes
-        )
-
-        ret[[type]] <- fce(pkg, output_dir, lib_path, quiet, ...)
 
         if (!clean) {
             ret[[type]]$output_dir <- output_dir
