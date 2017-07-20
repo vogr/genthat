@@ -219,6 +219,8 @@ with_env <- function(f, env) {
     f
 }
 
+#' @export
+#'
 capture <- function(expr, split=FALSE) {
     out <- tempfile()
     err <- tempfile()

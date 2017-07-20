@@ -5,7 +5,7 @@
 \title{@param ... commentDontrun, commentDonttest}
 \usage{
 run_package(pkg, types = c("examples", "tests", "vignettes"), clean = TRUE,
-  lib_path = .libPaths(), ...)
+  lib_path = .libPaths(), quiet = TRUE, ...)
 }
 \description{
 @param ... commentDontrun, commentDonttest

@@ -4,15 +4,14 @@
 \alias{generate_tests}
 \title{Generates test cases from traces}
 \usage{
-generate_tests(traces, quiet = TRUE,
-  show_progress = isTRUE(getOption("genthat.show_progress")), ...)
+generate_tests(traces, quiet = TRUE, ...)
 }
 \arguments{
 \item{traces}{from which to generate test cases}
 
-\item{show_progress}{(log) show progress during test generation}
-
 \item{...}{additional arguments supplied to `generate_test_code` function.}
+
+\item{show_progress}{(log) show progress during test generation}
 }
 \value{
 a data frame or a tibble with the following
