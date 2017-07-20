@@ -1,3 +1,9 @@
+#' status code:
+#'  0: OK
+#' -1: Test could not be run - i.e. a syntax error
+#'  1: Test failed
+#'  2: Test threw an exception
+#'  3: Test did not contain any tests (nb field in the testthat_result was 0)
 #' @importFrom utils txtProgressBar
 #' @importFrom utils setTxtProgressBar
 #' @importFrom utils getTxtProgressBar
@@ -24,12 +30,12 @@ run_generated_tests <- function(tests, quiet=TRUE, show_progress=isTRUE(getOptio
             trace=x$trace,
             fun=x$fun,
             code=x$code,
-            out=NA,
-            err=NA,
-            time=NA,
             test=NA,
-            result=NA,
-            error=NA
+            status=NA,
+            error=NA,
+            stdout=NA,
+            stderr=NA,
+            elapsed=NA
         )
 
         tryCatch({
@@ -50,6 +56,7 @@ run_generated_tests <- function(tests, quiet=TRUE, show_progress=isTRUE(getOptio
             msg <- e$message
             message("Unable to run tests from trace: ", x$trace_id, " - ", msg)
             result$error <- msg
+            result$status <- -1
         })
 
         after_one_run()
@@ -94,25 +101,25 @@ run_generated_test <- function(code, quiet=TRUE) {
                     message("Test failed")
                 }
 
-                2
+                1
             } else if (test_result$error) {
                 if (!quiet) {
                     message("Test threw an error")
                 }
 
-                3
+                2
             } else if (test_result$nb == 0) {
                 if (!quiet) {
                     message("Test did not run any tests")
                 }
 
-                4
+                3
             } else {
                 if (!quiet) {
                     message("Test succeeded in ", run$elapsed)
                 }
 
-                1
+                0
             }
     } else {
         msg <- result$error$message
