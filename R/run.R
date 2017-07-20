@@ -177,7 +177,7 @@ run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ..
     }
 
     code <- substitute({
-        options(error=function() { traceback(2); quit('no', status=1, runLast=TRUE) })
+        options(error=function() { quit('no', status=1, runLast=TRUE) })
         tools::buildVignettes(package=PKG, dir=PKG_PATH, quiet=QUIET)
     }, list(
         PKG=pkg,
@@ -186,11 +186,13 @@ run_package_vignettes <- function(pkg, output_dir, lib_path=NULL, quiet=TRUE, ..
     ))
 
     run <- run_r_code(code)
+    run
+    ## str(run)
 
-    list(
-        status=run$status,
-        output=run$out
-    )
+    ## list(
+    ##     status=run$status,
+    ##     output=run$out
+    ## )
 }
 
 #'  @param ... commentDontrun, commentDonttest
@@ -249,35 +251,28 @@ run_r_code <- function(code_to_run, save_image=FALSE, ...) {
     writeLines(script, script_file)
     on.exit(file.remove(script_file))
 
-    ret <- run_r_script(script_file, ...)
+    run <- run_r_script(script_file, ...)
 
-    if (ret$status == 0 && save_image) {
+    if (run$status == 0 && save_image) {
         e <- new.env(parent=emptyenv())
         load(file=image_file, envir=e)
-        ret$image <- e
+        run$image <- e
     }
 
-    ret
+    run
 }
 
-run_r_script <- function(script_file, args=character(), .lib_paths=NULL) {
+run_r_script <- function(script_file, args=character(), .lib_paths=NULL, split=TRUE) {
     stopifnot(file.exists(script_file))
     stopifnot(is.null(.lib_paths) || all(dir.exists(.lib_paths)))
 
     out_file = tempfile()
+    run_file = tempfile()
 
-    on.exit(if (file.exists(out_file)) file.remove(out_file))
-
-    Rcmd <- file.path(R.home("bin"), "R")
-    args <- c(
-        "CMD",
-        "BATCH",
-        "--vanilla",
-        "--silent",
-        "--no-timing",
-        shQuote(args),
-        shQuote(script_file),
-        shQuote(out_file))
+    on.exit({
+        if (file.exists(out_file)) file.remove(out_file)
+        if (file.exists(run_file)) file.remove(run_file)
+    })
 
     env <-
         if (is.null(.lib_paths)) {
@@ -290,24 +285,36 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL) {
             # won't work. Therefore reset the variables
             # to be the same. This might break other things I guess
             # but so far so good.
-            paths <- paste(c(.lib_paths,.libPaths()), collapse=.Platform$path.sep)
+            paths <- paste(shQuote(c(.lib_paths, .libPaths())), collapse=.Platform$path.sep)
             c(
-                paste("R_LIBS", paths, sep="="),
-                paste("R_LIBS_USER", paths, sep="="),
-                paste("R_LIBS_SITE", paths, sep="=")
+                paste("R_LIBS", paths, sep="=")
+                ## paste("R_LIBS_USER", paths, sep="="),
+                ## paste("R_LIBS_SITE", paths, sep="=")
             )
         }
 
-    tryCatch({
-        res <- system2(Rcmd, args, wait=TRUE, env=env)
-    }, finally={
-        out <- read_text_file(out_file)
-    })
+    env <- paste(env, collapse=" ")
+
+    Rscript <- file.path(R.home("bin"), "Rscript")
+    command <-
+        paste("(", env, " ", Rscript, shQuote(script_file), "; echo $? >", shQuote(run_file), ")",
+            if (split) "2>&1 | tee" else "&>",
+            shQuote(out_file)
+            , collapse=" ")
+
+    if (is_debug_enabled()) {
+        message("run_r_script: running: ", command)
+    }
+    status <- system(command)
+
+    if (status != 0) {
+        stop("Unable to run: ", command, " exit: ", status)
+    }
 
     list(
-        command=paste(c(Rcmd, args), collapse=" "),
+        command=command,
         script=read_text_file(script_file),
-        status=res,
-        out=out
+        status=as.numeric(read_text_file(run_file)),
+        output=read_text_file(out_file)
     )
 }
