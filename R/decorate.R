@@ -95,19 +95,17 @@ do_decorate_function <- function(name, pkg, fun,
     new_fun <- create_function(
         params=formals(fun),
         body=substitute({
-            `__genthat_cache` <- .Internal(get("cache", .Internal(getRegisteredNamespace("genthat")), "any", FALSE))
-            if (.Internal(get("tracing", `__genthat_cache`, "any", FALSE)) == TRUE) {
-                on.exit(.Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE)))
+            if (genthat::is_tracing_enabled()) {
+                on.exit(genthat::enable_tracing())
 
-                .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
+                genthat::disable_tracing()
                 `__trace_index` <- ENTRY(name = NAME, pkg = PKG, args = as.list(match.call())[-1], env = parent.frame())
-                .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
+                genthat::enable_tracing()
 
                 retv <- BODY
 
-                .Internal(assign("tracing", FALSE, `__genthat_cache`, FALSE))
+                genthat::disable_tracing()
                 EXIT(index = `__trace_index`, retv = retv)
-                .Internal(assign("tracing", TRUE, `__genthat_cache`, FALSE))
 
                 retv
             } else {
