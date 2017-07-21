@@ -323,9 +323,9 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
 
     env <- paste(env, collapse=" ")
 
-    Rscript <- file.path(R.home("bin"), "Rscript")
+    Rbin <- file.path(R.home("bin"), "R")
     command <-
-        paste("(", env, " ", Rscript, shQuote(script_file), "; echo $? >", shQuote(retval_file), ")",
+        paste("(", env, " ", Rbin, "--vanilla", "--silent", "<", shQuote(script_file), "; echo $? >", shQuote(retval_file), ")",
             if (!quiet) "2>&1 | tee" else "2>&1 >",
             shQuote(out_file)
             , collapse=" ")
