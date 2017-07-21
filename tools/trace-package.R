@@ -1,23 +1,32 @@
 #!/usr/bin/env Rscript
 
 options(error=function() { traceback(2); if (!interactive()) quit("no", status=1, runLast=FALSE) })
-options(genthat.debug=TRUE)
 
-suppressPackageStartupMessages(library("optparse"))
-tryCatch(library(genthat), error=function(e) devtools::load_all())
+suppressPackageStartupMessages(library(optparse))
+suppressPackageStartupMessages(library(knitr))
 suppressPackageStartupMessages(suppressWarnings(library(dplyr)))
 
-trace_package <- function(pkg, type, traces_dir, batch_size) {
+tryCatch(library(genthat), error=function(e) devtools::load_all())
+
+trace_package <- function(pkg, type, traces_dir, batch_size, quiet) {
     timestamp <- Sys.time()
 
-    code <- substitute(
+    code <- substitute({
+        options(genthat.debug=DEBUG)
         time <- system.time(
-            ret <- genthat::run_package(PACKAGE, types=TYPE, quiet=FALSE)
-        ),
-        list(PACKAGE=pkg$package, TYPE=type)
+            ret <- genthat::run_package(PACKAGE, types=TYPE, quiet=QUIET, clean=FALSE)
+        )},
+        list(
+            PACKAGE=pkg$package,
+            TYPE=type,
+            QUIET=quiet,
+            DEBUG=isTRUE(getOption("genthat.debug"))
+        )
     )
 
-    run <- genthat::capture(trace_result <- genthat::trace_package(pkg$path, code), split=TRUE)
+    run <- genthat::capture(
+        trace_result <- genthat::trace_package(pkg$path, code, quiet=quiet, clean=FALSE), split=TRUE)
+
     out <- c(run$stdout, run$stderr, trace_result$result$output)
     traces <- trace_result$traces
     replacements <- trace_result$replacements
@@ -56,6 +65,7 @@ trace_package <- function(pkg, type, traces_dir, batch_size) {
     )
 }
 
+# TODO add clean and verbose
 option_list <-
     list(
         make_option("--db-host", type="character", help="DB hostname", metavar="HOST"),
@@ -66,7 +76,9 @@ option_list <-
         make_option("--package", type="character", help="Package to trace", metavar="PATH"),
         make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
         make_option("--batch-size", type="integer", help="Batch size", default=500, metavar="NUM"),
-        make_option("--output", type="character", help="Name of the output directory for traces", metavar="PATH")
+        make_option("--output", type="character", help="Name of the output directory for traces", metavar="PATH"),
+        make_option(c("-d", "--debug"), help="Debugging", action="store_true", default=FALSE),
+        make_option(c("-v", "--verbose"), help="Verbose output", action="store_true", default=FALSE)
     )
 
 parser <- OptionParser(option_list=option_list)
@@ -84,6 +96,8 @@ pkg_dir <- opt$package
 type <- match.arg(opt$type, c("examples", "tests", "vignettes"), several.ok=FALSE)
 traces_dir <- opt$output
 batch_size <- opt$`batch-size`
+quiet <- !opt$`verbose`
+options(genthat.debug=opt$`debug`)
 
 stopifnot(dir.exists(traces_dir))
 stopifnot(batch_size > 0)
@@ -110,7 +124,7 @@ stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
 
 tryCatch({
     message("TRACE: ", pkg$package, " (type: ", type, ", batch_size: ", batch_size, ")")
-    time <- system.time(df <- trace_package(pkg, type, traces_dir, batch_size))
+    time <- system.time(df <- trace_package(pkg, type, traces_dir, batch_size, quiet))
 
     i <- 0
     while(i < 3) {
@@ -123,8 +137,10 @@ tryCatch({
         })
     }
 
+    df %>% knitr::kable()
+
     message("TRACE: ", pkg$package, " finished in ", time["elapsed"])
 }, error=function(e) {
     message("TRACE: ", pkg$package, " error while processing: ", e$message)
-    stop(e)
+    stop(e$message)
 })

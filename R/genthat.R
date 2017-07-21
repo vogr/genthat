@@ -22,9 +22,9 @@ gen_from_package <- function(package, output_dir="generated_tests",
                             types=c("tests", "vignettes", "examples"),
                             clean=FALSE, quiet=TRUE) {
 
-    browser()
-    ret <- trace_package(package, types, clean=clean, quiet=quiet)
-    tests <- generate_tests(ret$traces, include_trace_dump=TRUE)
+    ## browser()
+    ## ret <- trace_package(package, types, clean=clean, quiet=quiet)
+    ## tests <- generate_tests(ret$traces, include_trace_dump=TRUE)
 
     ## res <- structure(
     ##     list(
@@ -53,7 +53,7 @@ trace_package <- function(pkg_path, code_to_run, clean=TRUE, quiet=TRUE,
                          .tmp_lib=tempfile("R_genthat_")) {
 
     stopifnot(dir.exists(.tmp_lib) || dir.create(.tmp_lib))
-    if (is_debug_enabled() && !clean) {
+    if (!quiet && !clean) {
         message("Working in ", .tmp_lib)
     }
 
@@ -82,7 +82,7 @@ trace_package <- function(pkg_path, code_to_run, clean=TRUE, quiet=TRUE,
     }
 
     # install the target pkg_path
-    if (is_debug_enabled()) {
+    if (!quiet) {
         message("Installing ", pkg_path, " into: ", tmp_pkg_path)
     }
 
@@ -110,7 +110,7 @@ trace_package <- function(pkg_path, code_to_run, clean=TRUE, quiet=TRUE,
     # the dependencies should be already included since this is only called
     # from an existing genthat installation
     genthat_path <- find.package("genthat")
-    if (is_debug_enabled()) {
+    if (!quiet) {
         message("Installing genthat from: ", genthat_path, " into: ", .tmp_lib)
     }
     tryCatch({
@@ -161,11 +161,16 @@ trace_package <- function(pkg_path, code_to_run, clean=TRUE, quiet=TRUE,
     )
 
     code <- substitute(code_to_run)
-    if (typeof(code) == "language") {
-        run <- run_r_code(code, save_image=TRUE, .lib_paths=.tmp_lib)
-    } else {
-        run <- run_r_code(code_to_run, save_image=TRUE, .lib_paths=.tmp_lib)
-    }
+    code <-
+        if (typeof(code) == "language") {
+            code
+        } else {
+            code_to_run
+        }
+
+    # here the save image is OK, because the only code that will be saved
+    # comes from the supplied user code
+    run <- run_r_code(code, save_image=TRUE, .lib_paths=.tmp_lib, quiet=quiet, clean=clean)
 
     if (file.exists(genthat_output)) {
         output <- readRDS(genthat_output)
