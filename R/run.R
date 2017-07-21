@@ -145,7 +145,7 @@ run_package_examples <- function(pkg, pkg_path, output_dir,
     }
 
     run <- run_r_script(src_file, .lib_paths=lib_path, quiet=!is_debug_enabled(), clean=clean)
-    list(status=run$status, output=run$output)
+    list(status=run$status, output=run$output, elapsed=run$elapsed)
 }
 
 run_package_tests <- function(pkg, pkg_path, output_dir,
@@ -175,10 +175,12 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
     status <- sapply(result, `[[`, "status")
     status <- if (any(status != 0)) 1 else 0
     output <- paste(sapply(result, `[[`, "output"), collapse="\n\n##TEST\n\n")
+    elapsed <- sum(sapply(result, `[[`, "elapsed"))
 
     list(
         status=status,
-        output=output
+        output=output,
+        elapsed=elapsed
     )
 }
 
@@ -198,7 +200,7 @@ run_package_vignettes <- function(pkg, pkg_path, output_dir,
     ))
 
     run <- run_r_code(code,, quiet=!is_debug_enabled(), clean=clean)
-    list(status=run$status, output=run$output)
+    list(status=run$status, output=run$output, elapsed=run$elapsed)
 }
 
 #'  @param ... commentDontrun, commentDonttest
@@ -324,7 +326,7 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
     Rscript <- file.path(R.home("bin"), "Rscript")
     command <-
         paste("(", env, " ", Rscript, shQuote(script_file), "; echo $? >", shQuote(retval_file), ")",
-            if (!quiet) "2>&1 | tee" else "&>",
+            if (!quiet) "2>&1 | tee" else "2>&1 >",
             shQuote(out_file)
             , collapse=" ")
 
@@ -338,7 +340,7 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
         }
     }
 
-    status <- system(command)
+    time <- system.time(status <- system(command))
 
     if (status != 0) {
         stop("Unable to run: ", command, " exit: ", status)
@@ -348,6 +350,7 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
         command=command,
         script=read_text_file(script_file),
         status=as.numeric(read_text_file(retval_file)),
-        output=read_text_file(out_file)
+        output=read_text_file(out_file),
+        elapsed=time["elapsed"]
     )
 }

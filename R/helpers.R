@@ -276,3 +276,20 @@ extract_code <- function(code, n=1) {
         stop("Unknown type ", typeof(sub))
     }
 }
+
+resolve_package_name <- function(package) {
+    # TODO: no a very good heuristics (read manually description using read.dcf)
+    if (file.exists(package) && endsWith(package, ".tar.gz")) {
+        basename(untar(package, list=TRUE)[1])
+    } else if (dir.exists(package)) {
+        basename(package)
+    } else {
+        tryCatch({
+            # this throws an exception if it does not exist
+            find.package(package)
+            package
+        }, error=function(e) {
+            stop("Unsupported / non-existing package: ", package)
+        })
+    }
+}
