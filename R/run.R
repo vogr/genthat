@@ -199,7 +199,7 @@ run_package_vignettes <- function(pkg, pkg_path, output_dir,
         QUIET=quiet
     ))
 
-    run <- run_r_code(code,, quiet=!is_debug_enabled(), clean=clean)
+    run <- run_r_code(code, quiet=!is_debug_enabled(), clean=clean)
     list(status=run$status, output=run$output, elapsed=run$elapsed)
 }
 
@@ -326,9 +326,12 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
     Rbin <- file.path(R.home("bin"), "R")
     command <-
         paste("(", env, " ", Rbin, "--vanilla", "--silent", "<", shQuote(script_file), "; echo $? >", shQuote(retval_file), ")",
-            if (!quiet) "2>&1 | tee" else "2>&1 >",
-            shQuote(out_file)
-            , collapse=" ")
+            if (!quiet) {
+                paste("2>&1 | tee", shQuote(out_file))
+            } else {
+                paste(">", shQuote(out_file), "2>&1")
+            },
+            collapse=" ")
 
     if (is_debug_enabled()) {
         message("run_r_script: command: ", command)
