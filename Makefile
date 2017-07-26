@@ -19,3 +19,5 @@ install: build
 test:
 	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test()'
 
+docker: clean
+	docker build --rm -t genthat .

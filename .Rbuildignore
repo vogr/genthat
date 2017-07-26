@@ -18,3 +18,4 @@
 ^genthat_.*.tar.gz$
 ^tools$
 ^.*\.RDS$
+^\.dockerignore$
