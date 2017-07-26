@@ -112,6 +112,10 @@ trace_package <- function(package, code_to_run,
             repos=NULL,
             lib=.tmp_lib,
             type="source",
+            INSTALL_opts=c(
+                "--no-docs",
+                "--no-multiarch",
+                "--no-demo"),
             quiet=quiet)
     }, warning=function(e) {
         stop("Installation of ", pkg_path, " failed with: ", e$message)
