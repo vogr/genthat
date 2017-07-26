@@ -6,30 +6,30 @@ options(genthat.debug=isTRUE(as.logical(Sys.getenv("genthat.debug"))))
 library(testthat)
 library(devtools)
 library(readr)
+library(knitr)
+suppressPackageStartupMessages(library("optparse"))
 suppressPackageStartupMessages(suppressWarnings(library(dplyr)))
-library(genthat)
+tryCatch(library(genthat), error=function(e) devtools::load_all())
 
 task <- function(name, expr) {
     message("PROCESS: Running ", name, "...")
-    time <- system.time(r <- expr)
+    time <- system.time(expr)
     message("PROCESS: Finished ", name, " in ", time["elapsed"], " sec")
-
-    invisible(r)
 }
 
-process_batch <- function(batch, db, timestamp) {
-    tests <- task("generating tests", {
-        genthat::generate_tests(batch, quiet=FALSE, include_trace_dump=FALSE)
+process_traces <- function(traces, db, timestamp) {
+    task("generating tests", {
+        tests <- genthat::generate_tests(traces, quiet=FALSE, include_trace_dump=FALSE)
     })
 
     tests_generated <- tests %>% dplyr::filter(!is.na(code)) %>% nrow()
     message("PROCESS: # of generated test: ", tests_generated)
 
-    runs <- task("running generated tests", {
-        genthat::run_generated_tests(tests, quiet=FALSE)
+    task("running generated tests", {
+        runs <- genthat::run_generated_tests(teststests_generated, quiet=FALSE)
     })
 
-    tests_passed <- runs %>% dplyr::filter(result == 1) %>% nrow()
+    tests_passed <- runs %>% dplyr::filter(status == 1) %>% nrow()
     message("PROCESS: # of passed tests: ", tests_passed)
 
     task("saving to database table test_gens_error", {
@@ -61,62 +61,69 @@ process_batch <- function(batch, db, timestamp) {
     )
 }
 
-args = commandArgs(trailingOnly=TRUE)
-if (length(args) != 2) {
-    stop("Usage: <RDS> <batch-size>")
+option_list <-
+    list(
+        make_option("--db-host", type="character", help="DB hostname", metavar="HOST"),
+        make_option("--db-port", type="integer", help="DB port", metavar="PORT"),
+        make_option("--db-name", type="character", help="DB name", metavar="NAME"),
+        make_option("--db-user", type="character", help="DB username", metavar="USER"),
+        make_option("--db-password", type="character", help="DB password", metavar="PASSWORD"),
+        make_option("--traces", type="character", help="Package to trace", metavar="PATH")
+    )
+
+parser <- OptionParser(option_list=option_list)
+opt <- {
+    tryCatch({
+        parse_args(parser)
+    }, error=function(e) {
+        message("Error: ", e$message)
+        print_help(parser)
+        quit(save="no", status=1)
+    })
 }
 
-traces_file <- args[1]
+traces_file <- opt$traces
 stopifnot(file.exists(traces_file))
-batch_size <- as.numeric(args[2])
-stopifnot(batch_size > 1)
 
-db <- src_mysql(
-    dbname="genthat",
-    host="ginger.ele.fit.cvut.cz",
-    password="genthat",
-    port=6612
-)
+db <-
+    src_mysql(
+        dbname=opt$`db-name`,
+        host=opt$`db-host`,
+        port=opt$`db-port`,
+        user=opt$`db-user`,
+        password=opt$`db-password`
+    )
 message("PROCESS: Connected to ", format(db))
 
-traces <- task("loading traces", {
-    readRDS(traces_file)
+task("loading traces", {
+    traces <- readRDS(traces_file)
 })
-message("PROCESS: Loaded: ", length(traces), " traces")
+message("PROCESS: Loaded: ", length(traces), " traces from ", traces_file)
 
 if (length(traces) == 0) {
     message("PROCESS: no traces")
     quit(save="no")
 }
 
-timestamp <- Sys.time()
-indexes <- 1:ceiling(length(traces) / batch_size)
+start_time <- Sys.time()
+result <- process_traces(traces, db=db, timestamp=start_time)
+elapsed <- Sys.time() - start_time
 
-result <- lapply(indexes, function(x) {
-    lower <- (x - 1) * batch_size + 1
-    upper <- min(length(traces), lower + batch_size)
-    batch <- traces[lower:upper]
+message("PROCESS: Done processing: ", traces_file, " in ", elapsed)
 
-    # add the trace_id
-    names(batch) <- lower:upper
+stats <-
+    result %>%
+    dplyr::summarise(
+        timestamp=start_time,
+        traces_file=traces_file,
+        num_traces=length(traces),
+        num_generated=sum(num_generated),
+        generated=num_generated / num_traces * 100,
+        num_passed=sum(num_passed),
+        passed=num_passed / num_generated * 100,
+        success_rate=num_passed / num_traces * 100,
+        elapsed=elapsed
+    )
 
-    message("PROCESS: traces ", lower, "-", upper, "/", length(traces))
-    process_batch(batch, db=db, timestamp=timestamp)
-})
-
-result <- dplyr::bind_rows(result)
-message("PROCESS: Done processing: ", traces_file)
-
-stats <- result %>% dplyr::summarise(
-    timestamp=timestamp,
-    traces_file=traces_file,
-    num_traces=length(traces),
-    num_generated=sum(num_generated),
-    generated=num_generated / num_traces * 100,
-    num_passed=sum(num_passed),
-    passed=num_passed / num_generated * 100,
-    success_rate=num_passed / num_traces * 100
-)
-
-db_insert_into(con=db$con, table="stats", values=stats)
-print(stats, width=Inf)
+invisible(db_insert_into(con=db$con, table="stats", values=stats))
+knitr::kable(stats)
