@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-options(error=function() { traceback(2); if (!interactive()) quit("no", status=1, runLast=FALSE) })
+options(error=function() { traceback(3); quit(status=1, save="no") })
 
 suppressPackageStartupMessages(library(DBI))
 suppressPackageStartupMessages(library(RMySQL))
@@ -10,59 +10,47 @@ suppressPackageStartupMessages(suppressWarnings(library(dplyr)))
 
 tryCatch(library(genthat), error=function(e) devtools::load_all())
 
+default_or_val <- function(val, default) {
+    if (is.null(val)) {
+        default
+    } else {
+        val
+    }
+}
+
 do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
     timestamp <- Sys.time()
 
-    # We need the package name for the run_package which can only run
-    # a package that is installed. The trace_package will take care of that.
-    # This way we support all that trace_package supports
-    pkg_name <- genthat:::resolve_package_name(package)
-
-    code <- substitute({
-        options(genthat.debug=DEBUG)
-
-        # the ret variables will be available in the image
-        # after the run is completed
-        ret <- genthat::run_package(PKG_NAME, types=TYPE, quiet=FALSE, clean=CLEAN)
-        },
-        list(
-            PKG_NAME=pkg_name,
-            TYPE=type,
-            CLEAN=clean,
-            DEBUG=getOption("genthat.debug")
-        )
-    )
-
     run <- genthat::capture(
-        trace_result <- genthat::trace_package(
-            package, code, traces_dir, batch_size=batch_size, quiet=FALSE, clean=clean
+        trace_result <- genthat::gen_from_package(
+            package, type, traces_dir, batch_size=batch_size, quiet=FALSE, clean=clean
         ),
         split=TRUE
     )
 
     # the ret variable from the code supplied above
     run_pkg <- trace_result$run$image$ret[[type]]
-    log_file <- normalizePath(file.path(traces_dir, "execution.log"), mustWork=TRUE)
+
+    # TODO: the DB truncates the output
+    ## log_file <- file.path(traces_dir, "run_package.log")
+    ## write(run_pkg$output, log_file)
 
     row <-
         data_frame(
             timestamp=timestamp,
             type=type,
-
-            name=pkg_name,
             package=package,
 
             n_traced_functions=length(trace_result$traced_functions),
             traced_functions=paste(trace_result$traced_functions, collapse="\n"),
-            decorating_time=trace_result$decorating_time,
-            n_traces=trace_result$n_traces,
+            decorating_time=default_or_val(trace_result$decorating_time, 0),
+            n_traces=default_or_val(trace_result$n_traces, 0),
             trace_files=paste(trace_result$trace_files, collapse="\n"),
-            trace_saving_time=trace_result$saving_time,
+            trace_saving_time=default_or_val(trace_result$saving_time, 0),
 
             trace_package_output=paste(run$stdout, run$stderr, collapse="\n"),
             run_status=trace_result$run$status,
             run_output=trace_result$run$output,
-            run_output_log=log_file,
             run_command=trace_result$run$command,
             run_time=trace_result$run$elapsed,
 
@@ -70,9 +58,6 @@ do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
             run_package_status=run_pkg$status,
             run_package_time=run_pkg$elapsed
         )
-
-    # TODO: the DB truncates the output anyway
-    write(run_pkg$output, log_file)
 
     field_types <- as.list(sapply(names(row), function(x) dbDataType(RMySQL::MySQL(), row[[x]])))
     field_types$trace_package_output <- "longtext"
@@ -133,10 +118,10 @@ db <-
     )
 
 db_info <- dbGetInfo(db)
-message("TRACE: Connected to ", db_info$dbname, "@", db_info$conType)
+message("Connected to ", db_info$dbname, "@", db_info$conType)
 
 tryCatch({
-    message("TRACE: Tracing: ", package, " type: ", type, " (batch_size: ", batch_size, ") in ", traces_dir)
+    message("Tracing ", package, " ", type, " (batch_size: ", batch_size, ") in ", traces_dir)
     time <- system.time(row <- do_trace_package(package, type, traces_dir, batch_size, clean))
 
     i <- 0
@@ -151,12 +136,12 @@ tryCatch({
     }
 
     row %>%
-        dplyr::select(type, name, n_traced_functions, n_traces, run_status, run_time) %>%
+        dplyr::select(type, package,n_traced_functions, n_traces, run_status, run_time) %>%
         knitr::kable() %>%
         print()
 
-    message("\n\nTRACE: ", package, " finished in ", time["elapsed"])
+    message("\n\n Tracing of ", package, " ", type, " finished in ", time["elapsed"])
 }, error=function(e) {
-    message("TRACE: ", package, " error while processing: ", e$message)
+    message("Tracing of ", package, " ", type, " failed with: ", e$message)
     stop(e$message)
 })
