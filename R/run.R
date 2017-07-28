@@ -76,7 +76,7 @@ run_generated_tests <- function(tests, quiet=TRUE, show_progress=isTRUE(getOptio
 run_generated_test <- function(code, quiet=TRUE) {
     stopifnot(is.character(code) && length(code) == 1)
 
-    tmp_test_file <- tempfile()
+    tmp_test_file <- tempfile(pattern="run_generated_test-", fileext=".R")
     on.exit(file.remove(tmp_test_file))
     write(code, file=tmp_test_file)
 
@@ -134,12 +134,19 @@ run_generated_test <- function(code, quiet=TRUE) {
 }
 
 run_package_examples <- function(pkg, pkg_path, output_dir,
-                                lib_path=NULL, quiet=TRUE, clean=TRUE, ...) {
+                                fork=TRUE, quiet=TRUE, clean=TRUE,
+                                lib_path=NULL, ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
-    src_file <- file.path(getwd(), tools:::.createExdotR(pkg, pkg_path, silent=quiet, ...))
+    src_file <- tools:::.createExdotR(pkg, pkg_path, silent=quiet, ...)
+    if (is.null(src_file)) {
+        return(list(status=0, output="No examples (.createExdotR returned NULL)", elapsed=0))
+    }
+
+    src_file <- file.path(getwd(), src_file)
+
     if (!quiet) {
         message("  Running ", src_file)
     }
@@ -149,7 +156,8 @@ run_package_examples <- function(pkg, pkg_path, output_dir,
 }
 
 run_package_tests <- function(pkg, pkg_path, output_dir,
-                             lib_path=NULL, quiet=TRUE, clean=TRUE, ...) {
+                             fork=TRUE, quiet=TRUE, clean=TRUE,
+                             lib_path=NULL, ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
@@ -158,7 +166,7 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
 
     if (!dir.exists(test_dir)) {
         message("No tests found for package: ", pkg, " (from: ", pkg_path, ")")
-        return(list(status=0, output=""))
+        return(list(status=0, output="", elapsed=0))
     }
 
     file.copy(Sys.glob(file.path(test_dir, "*")), output_dir, recursive=TRUE)
@@ -185,13 +193,13 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
 }
 
 run_package_vignettes <- function(pkg, pkg_path, output_dir,
-                                 lib_path=NULL, quiet=TRUE, clean=TRUE, ...) {
+                                 fork=TRUE, quiet=TRUE, clean=TRUE,
+                                 lib_path=NULL, ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
     code <- substitute({
-        options(error=function() { quit('no', status=1, runLast=TRUE) })
         tools::buildVignettes(package=PKG, dir=PKG_PATH, quiet=QUIET)
     }, list(
         PKG=pkg,
@@ -208,7 +216,8 @@ run_package_vignettes <- function(pkg, pkg_path, output_dir,
 #' @export
 #'
 run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
-                       lib_path=.libPaths(), quiet=TRUE, clean=TRUE, ...) {
+                       fork=TRUE, quiet=TRUE, clean=TRUE,
+                       lib_path=.libPaths(), ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
     types <- match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
@@ -216,7 +225,7 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
     ret <- list()
     for (type in types) {
-        output_dir=tempfile()
+        output_dir=tempfile(pattern="run_package-", fileext=".out")
         stopifnot(dir.create(output_dir))
 
         if (clean) {
@@ -234,15 +243,14 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         }
 
         owd <- setwd(output_dir)
+        on.exit(setwd(owd), add=TRUE)
 
         ret[[type]] <-
             tryCatch({
-                fun(pkg, pkg_path, output_dir, lib_path, quiet, clean, ...)
+                fun(pkg, pkg_path, output_dir=output_dir, fork=fork, quiet=quiet, clean=clean, lib_path=lib_path, ...)
             }, error=function(e) {
                 message("Running failed: ", e$message)
                 list(status=NA, output=e$message)
-            }, finally={
-                setwd(owd)
             })
 
         if (!clean) {
@@ -256,7 +264,7 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     ret
 }
 
-run_r_code <- function(code_to_run, save_image=FALSE, ...) {
+run_r_code <- function(code_to_run, save_image=FALSE, quiet=TRUE, clean=TRUE, ...) {
     # TODO: warn if there are any free variables
 
     code <- substitute(code_to_run)
@@ -267,17 +275,19 @@ run_r_code <- function(code_to_run, save_image=FALSE, ...) {
             deparse(code_to_run)
         }
 
+    # TODO: save_image should be moved to run_r_script and it should be a filename
     if (save_image) {
-        image_file <- tempfile()
-        on.exit(file.remove(image_file), add=TRUE)
+        image_file <- tempfile(pattern="run_r_script-", fileext=".Rimage")
         script <- c(script, deparse(substitute(save.image(file=FILE), list(FILE=image_file))))
     }
 
-    script_file <- tempfile()
+    script_file <- tempfile(pattern="run_r_code-", fileext=".R")
+    if (clean) {
+        on.exit(file.remove(script_file))
+    }
     writeLines(script, script_file)
-    on.exit(file.remove(script_file))
 
-    run <- run_r_script(script_file, ...)
+    run <- run_r_script(script_file, quiet=quiet, clean=clean, ...)
 
     if (run$status == 0 && save_image) {
         e <- new.env(parent=emptyenv())
@@ -292,11 +302,24 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
     stopifnot(file.exists(script_file))
     stopifnot(is.null(.lib_paths) || all(dir.exists(.lib_paths)))
 
-    out_file = tempfile()
-    retval_file = tempfile()
+    out_file <- tempfile(pattern="run_r_script-", fileext=".out")
+    retval_file <- tempfile(pattern="run_r_script-", fileext=".ret")
+    input_file <- tempfile(pattern="run_r_script-", fileext=".R")
+    wd <- dirname(script_file)
+    frame_dump_file <- paste0(input_file, ".dump")
+
+    writeLines(
+        c(
+            paste0('options(error=function() { traceback(3); dump.frames("', frame_dump_file, '", TRUE); quit(status=1, save="no")})'),
+            paste0('setwd("', wd, '")'),
+            paste0('source("', script_file, '", echo=TRUE)')
+        ),
+        input_file
+    )
 
     if (clean) {
         on.exit({
+            file.remove(input_file)
             if (file.exists(out_file)) file.remove(out_file)
             if (file.exists(retval_file)) file.remove(retval_file)
         })
@@ -325,7 +348,7 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
 
     Rbin <- file.path(R.home("bin"), "R")
     command <-
-        paste("(", env, " ", Rbin, "--vanilla", "--silent", "<", shQuote(script_file), "; echo $? >", shQuote(retval_file), ")",
+        paste("(", env, " ", Rbin, "--vanilla", "--silent", "<", shQuote(input_file), "; echo $? >", shQuote(retval_file), ")",
             if (!quiet) {
                 paste("2>&1 | tee", shQuote(out_file))
             } else {
@@ -337,7 +360,8 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
         message("run_r_script: command: ", command)
 
         if (!clean) {
-            message("run_r_script: script: ", script_file)
+            message("run_r_script: source file to run: ", input_file)
+            message("run_r_script: actual script: ", script_file)
             message("run_r_script: output: ", out_file)
             message("run_r_script: retval: ", retval_file)
         }
