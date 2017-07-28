@@ -7,7 +7,7 @@ using namespace Rcpp;
 
 // serialize_value
 std::string serialize_value(SEXP s);
-RcppExport SEXP genthat_serialize_value(SEXP sSEXP) {
+RcppExport SEXP _genthat_serialize_value(SEXP sSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -18,7 +18,7 @@ END_RCPP
 }
 // is_infix_fun_no_space
 bool is_infix_fun_no_space(std::string const& fun);
-RcppExport SEXP genthat_is_infix_fun_no_space(SEXP funSEXP) {
+RcppExport SEXP _genthat_is_infix_fun_no_space(SEXP funSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -29,7 +29,7 @@ END_RCPP
 }
 // is_infix_fun
 bool is_infix_fun(std::string const& fun);
-RcppExport SEXP genthat_is_infix_fun(SEXP funSEXP) {
+RcppExport SEXP _genthat_is_infix_fun(SEXP funSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -40,7 +40,7 @@ END_RCPP
 }
 // escape_name
 std::string escape_name(std::string const& name);
-RcppExport SEXP genthat_escape_name(SEXP nameSEXP) {
+RcppExport SEXP _genthat_escape_name(SEXP nameSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -51,7 +51,7 @@ END_RCPP
 }
 // reassign_function
 SEXP reassign_function(SEXP target_fun, SEXP new_fun);
-RcppExport SEXP genthat_reassign_function(SEXP target_funSEXP, SEXP new_funSEXP) {
+RcppExport SEXP _genthat_reassign_function(SEXP target_funSEXP, SEXP new_funSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -63,7 +63,7 @@ END_RCPP
 }
 // create_duplicate
 SEXP create_duplicate(SEXP target);
-RcppExport SEXP genthat_create_duplicate(SEXP targetSEXP) {
+RcppExport SEXP _genthat_create_duplicate(SEXP targetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -74,7 +74,7 @@ END_RCPP
 }
 // environment_name
 std::string environment_name(SEXP env);
-RcppExport SEXP genthat_environment_name(SEXP envSEXP) {
+RcppExport SEXP _genthat_environment_name(SEXP envSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -85,7 +85,7 @@ END_RCPP
 }
 // environment_name_as_code
 std::string environment_name_as_code(SEXP env);
-RcppExport SEXP genthat_environment_name_as_code(SEXP envSEXP) {
+RcppExport SEXP _genthat_environment_name_as_code(SEXP envSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -102,19 +102,19 @@ RcppExport SEXP reset_traces();
 RcppExport SEXP update_trace(SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"genthat_serialize_value", (DL_FUNC) &genthat_serialize_value, 1},
-    {"genthat_is_infix_fun_no_space", (DL_FUNC) &genthat_is_infix_fun_no_space, 1},
-    {"genthat_is_infix_fun", (DL_FUNC) &genthat_is_infix_fun, 1},
-    {"genthat_escape_name", (DL_FUNC) &genthat_escape_name, 1},
-    {"genthat_reassign_function", (DL_FUNC) &genthat_reassign_function, 2},
-    {"genthat_create_duplicate", (DL_FUNC) &genthat_create_duplicate, 1},
-    {"genthat_environment_name", (DL_FUNC) &genthat_environment_name, 1},
-    {"genthat_environment_name_as_code", (DL_FUNC) &genthat_environment_name_as_code, 1},
-    {"copy_traces",                      (DL_FUNC) &copy_traces,                      0},
-    {"get_trace",                        (DL_FUNC) &get_trace,                        1},
-    {"push_trace",                       (DL_FUNC) &push_trace,                       1},
-    {"reset_traces",                     (DL_FUNC) &reset_traces,                     0},
-    {"update_trace",                     (DL_FUNC) &update_trace,                     2},
+    {"_genthat_serialize_value", (DL_FUNC) &_genthat_serialize_value, 1},
+    {"_genthat_is_infix_fun_no_space", (DL_FUNC) &_genthat_is_infix_fun_no_space, 1},
+    {"_genthat_is_infix_fun", (DL_FUNC) &_genthat_is_infix_fun, 1},
+    {"_genthat_escape_name", (DL_FUNC) &_genthat_escape_name, 1},
+    {"_genthat_reassign_function", (DL_FUNC) &_genthat_reassign_function, 2},
+    {"_genthat_create_duplicate", (DL_FUNC) &_genthat_create_duplicate, 1},
+    {"_genthat_environment_name", (DL_FUNC) &_genthat_environment_name, 1},
+    {"_genthat_environment_name_as_code", (DL_FUNC) &_genthat_environment_name_as_code, 1},
+    {"copy_traces",                       (DL_FUNC) &copy_traces,                       0},
+    {"get_trace",                         (DL_FUNC) &get_trace,                         1},
+    {"push_trace",                        (DL_FUNC) &push_trace,                        1},
+    {"reset_traces",                      (DL_FUNC) &reset_traces,                      0},
+    {"update_trace",                      (DL_FUNC) &update_trace,                      2},
     {NULL, NULL, 0}
 };
 

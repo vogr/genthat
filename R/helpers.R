@@ -48,7 +48,7 @@ add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     load_script <- file.path(r_dir, pkg_name)
     lines <- readLines(load_script)
 
-    lines <- append(lines, "options(error = function() traceback(2))", 0)
+    lines <- append(lines, "options(error=function() {traceback(3); quit(status=1, save='no')})", 0)
 
     if (!missing(on_load)) {
         lines <- append(lines, create_std_package_hook("onLoad", on_load), after=length(lines) - 1L)
@@ -229,30 +229,23 @@ capture <- function(expr, split=FALSE) {
     fout = file(out, open="wt")
     ferr = file(err, open="wt")
 
-    sink(type="output", file=fout, split=split)
     sink(type="message", file=ferr)
-
-    result <- list(
-        elapsed=NA,
-        error=NA
-    )
+    sink(type="output", file=fout, split=split)
 
     tryCatch({
         time <- system.time(expr)
-        result$elapsed <- time["elapsed"]
-    }, error=function(e) {
-        result$error <- e
+    }, finally={
+        sink(type="message")
+        sink(type="output")
+        close(fout)
+        close(ferr)
     })
 
-    sink(type="output")
-    sink(type="message")
-    close(fout)
-    close(ferr)
-
-    result$stdout=paste(readLines(out), collapse="\n")
-    result$stderr=paste(readLines(err), collapse="\n")
-
-    result
+    list(
+        elapsed=time["elapsed"],
+        stdout=paste(readLines(out), collapse="\n"),
+        stderr=paste(readLines(err), collapse="\n")
+    )
 }
 
 read_text_file <- function(f) {

@@ -18,32 +18,27 @@ NULL
 #' the code contained in the package examples, vignettes and tests.
 #' @export
 #'
-gen_from_package <- function(package, output_dir="generated_tests",
-                            types=c("tests", "vignettes", "examples"),
-                            clean=FALSE, quiet=TRUE) {
+gen_from_package <- function(package, types=c("examples", "tests", "vignettes"),
+                            output_dir=".",
+                            batch_size=0,
+                            clean=TRUE, quiet=TRUE,
+                            .tmp_lib=tempfile("R_genthat_")) {
 
-    ## browser()
-    ## ret <- trace_package(package, types, clean=clean, quiet=quiet)
-    ## tests <- generate_tests(ret$traces, include_trace_dump=TRUE)
+    pkg_name <- resolve_package_name(package)
 
-    ## res <- structure(
-    ##     list(
-    ##         traces=output$traces,
-    ##         errors=filter(output$traces, is, class2="genthat_trace_entry"),
-    ##         failures=filter(output$traces, is, class2="genthat_trace_error"),
-    ##         tests=tests
-    ##     ),
-    ##     class="genthat_result"
-    ## )
+    code <- substitute({
+        options(genthat.debug=DEBUG)
+        ret <- genthat::run_package(PKG_NAME, types=TYPE, quiet=FALSE, clean=CLEAN)
+        },
+        list(
+            PKG_NAME=pkg_name,
+            TYPE=type,
+            CLEAN=clean,
+            DEBUG=getOption("genthat.debug")
+        )
+    )
 
-    ## if (is_debug_enabled()) {
-    ##     res$output <- output_dir
-    ##     res$genthat_output <- genthat_output
-    ##     res$libs <- libs
-    ##     res$pkg_dir <- pkg_dir
-    ## }
-
-    ## res
+    trace_package(package, code, output_dir, batch_size=batch_size, quiet=quiet, clean=clean)
 }
 
 # TODO: vectorize over package
@@ -152,7 +147,6 @@ trace_package <- function(package, code_to_run,
                 system.time({
                     traces <- genthat::copy_call_traces()
                     n_traces <- length(traces)
-                    message("Saving ", n_traces, " into ", OUTPUT_DIR)
 
                     trace_files <-
                         genthat:::export_traces(
@@ -165,14 +159,19 @@ trace_package <- function(package, code_to_run,
 
             message("Saved in ", time["elapsed"])
 
-            output <- readRDS(GENTHAT_OUTPUT)
+            if (!file.exists(GENTHAT_OUTPUT)) {
+                message("The genthat inserted package hook for ", PKG, " did not work.")
+                message("Missing ", GENTHAT_OUTPUT)
+            } else {
+                output <- readRDS(GENTHAT_OUTPUT)
 
-            output$n_traces <- n_traces
-            output$saving_time <- time["elapsed"]
-            output$trace_files <- trace_files
-            output$traced_functions <- sapply(genthat::get_replacements(), `[[`, "name", USE.NAMES=FALSE)
+                output$n_traces <- n_traces
+                output$saving_time <- time["elapsed"]
+                output$trace_files <- trace_files
+                output$traced_functions <- sapply(genthat::get_replacements(), `[[`, "name", USE.NAMES=FALSE)
 
-            saveRDS(output, GENTHAT_OUTPUT)
+                saveRDS(output, GENTHAT_OUTPUT)
+            }
         }, list(
             PKG=pkg_name,
             OUTPUT_DIR=output_dir,
@@ -214,15 +213,17 @@ export_traces <- function(traces, prefix, output_dir, batch_size) {
     stopifnot(batch_size >= 0)
 
     n_traces <- length(traces)
+    if (n_traces == 0) {
+        return(character())
+    } else {
+        message("Saving ", n_traces, "traces into ", output_dir)
+    }
 
     if (batch_size == 0) {
         batch_size <- n_traces
     }
 
     n_batches <- ceiling(n_traces / batch_size)
-    if (n_batches == 0) {
-        return(character())
-    }
 
     batches <- sapply(1:n_batches, function(i) {
         lower <- (i - 1) * batch_size + 1

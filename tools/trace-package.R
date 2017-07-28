@@ -31,33 +31,52 @@ do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
     # the ret variable from the code supplied above
     run_pkg <- trace_result$run$image$ret[[type]]
 
-    # TODO: the DB truncates the output
-    ## log_file <- file.path(traces_dir, "run_package.log")
-    ## write(run_pkg$output, log_file)
+    # columns
+    timestamp <- timestamp
+    type <- type
+    package <- package
 
-    row <-
-        data_frame(
-            timestamp=timestamp,
-            type=type,
-            package=package,
+    n_traced_functions <- length(trace_result$traced_functions)
+    traced_functions <- paste(trace_result$traced_functions, collapse="\n")
+    decorating_time <- default_or_val(trace_result$decorating_time, 0)
 
-            n_traced_functions=length(trace_result$traced_functions),
-            traced_functions=paste(trace_result$traced_functions, collapse="\n"),
-            decorating_time=default_or_val(trace_result$decorating_time, 0),
-            n_traces=default_or_val(trace_result$n_traces, 0),
-            trace_files=paste(trace_result$trace_files, collapse="\n"),
-            trace_saving_time=default_or_val(trace_result$saving_time, 0),
+    n_traces <- default_or_val(trace_result$n_traces, 0)
+    trace_files <- paste(trace_result$trace_files, collapse="\n")
+    trace_size <- sum(file.size(default_or_val(trace_result$trace_files, character())))
+    trace_saving_time <- default_or_val(trace_result$saving_time, 0)
+    trace_output <- paste(run$stdout, run$stderr, collapse="\n")
+    trace_time <- run$elapsed
 
-            trace_package_output=paste(run$stdout, run$stderr, collapse="\n"),
-            run_status=trace_result$run$status,
-            run_output=trace_result$run$output,
-            run_command=trace_result$run$command,
-            run_time=trace_result$run$elapsed,
+    run_status <- trace_result$run$status
+    run_output <- trace_result$run$output
+    run_command <- trace_result$run$command
+    run_time <- trace_result$run$elapsed
 
-            run_package_output=run_pkg$output,
-            run_package_status=run_pkg$status,
-            run_package_time=run_pkg$elapsed
-        )
+    run_package_output <- default_or_val(run_pkg$output, "")
+    run_package_status <- default_or_val(run_pkg$status, 0)
+    run_package_time <- default_or_val(run_pkg$elapsed, 0)
+
+    row <- data_frame(
+        timestamp,
+        type,
+        package,
+        n_traced_functions,
+        traced_functions,
+        decorating_time,
+        n_traces,
+        trace_files,
+        trace_size,
+        trace_saving_time,
+        trace_output,
+        trace_time,
+        run_status,
+        run_output,
+        run_command,
+        run_time,
+        run_package_output,
+        run_package_status,
+        run_package_time
+    )
 
     field_types <- as.list(sapply(names(row), function(x) dbDataType(RMySQL::MySQL(), row[[x]])))
     field_types$trace_package_output <- "longtext"
@@ -122,6 +141,7 @@ message("Connected to ", db_info$dbname, "@", db_info$conType)
 
 tryCatch({
     message("Tracing ", package, " ", type, " (batch_size: ", batch_size, ") in ", traces_dir)
+
     time <- system.time(row <- do_trace_package(package, type, traces_dir, batch_size, clean))
 
     i <- 0
@@ -142,6 +162,6 @@ tryCatch({
 
     message("\n\n Tracing of ", package, " ", type, " finished in ", time["elapsed"])
 }, error=function(e) {
-    message("Tracing of ", package, " ", type, " failed with: ", e$message)
+    message("Tracing of ", package, " ", type, " failed with: ", e$message, "\n")
     stop(e$message)
 })

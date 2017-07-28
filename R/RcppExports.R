@@ -2,34 +2,34 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 serialize_value <- function(s) {
-    .Call('genthat_serialize_value', PACKAGE = 'genthat', s)
+    .Call('_genthat_serialize_value', PACKAGE = 'genthat', s)
 }
 
 is_infix_fun_no_space <- function(fun) {
-    .Call('genthat_is_infix_fun_no_space', PACKAGE = 'genthat', fun)
+    .Call('_genthat_is_infix_fun_no_space', PACKAGE = 'genthat', fun)
 }
 
 is_infix_fun <- function(fun) {
-    .Call('genthat_is_infix_fun', PACKAGE = 'genthat', fun)
+    .Call('_genthat_is_infix_fun', PACKAGE = 'genthat', fun)
 }
 
 escape_name <- function(name) {
-    .Call('genthat_escape_name', PACKAGE = 'genthat', name)
+    .Call('_genthat_escape_name', PACKAGE = 'genthat', name)
 }
 
 reassign_function <- function(target_fun, new_fun) {
-    .Call('genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
+    .Call('_genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }
 
 create_duplicate <- function(target) {
-    .Call('genthat_create_duplicate', PACKAGE = 'genthat', target)
+    .Call('_genthat_create_duplicate', PACKAGE = 'genthat', target)
 }
 
 environment_name <- function(env) {
-    .Call('genthat_environment_name', PACKAGE = 'genthat', env)
+    .Call('_genthat_environment_name', PACKAGE = 'genthat', env)
 }
 
 environment_name_as_code <- function(env) {
-    .Call('genthat_environment_name_as_code', PACKAGE = 'genthat', env)
+    .Call('_genthat_environment_name_as_code', PACKAGE = 'genthat', env)
 }
 
