@@ -3,3 +3,5 @@ tmp/
 .*
 genthat.Rproj
 TAGS
+src/*.o
+src/*.so

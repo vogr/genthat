@@ -17,6 +17,57 @@ task <- function(name, expr) {
     message("PROCESS: Finished ", name, " in ", time["elapsed"], " sec")
 }
 
+process_trace <- function(id, trace) {
+    result <- list(
+        id=id,
+        trace=format(trace),
+        fun=trace$fun,
+        test_gen_code=NA,
+        test_gen_error=NA,
+        test_gen_elapsed=NA,
+        run_status=NA,
+        run_error=NA,
+        run_output=NA,
+        run_elapsed=NA
+        )
+
+    result <- tryCatch({
+        test <- generate_test(trace)
+
+        result$test_gen_code <- test$code
+        result$test_gen_error <- test$error
+        result$test_gen_elapsed <- test$elapsed
+
+        result
+    }, error=function(e) {
+        result$test_gen_error <- e$message
+
+        result
+    })
+
+    if (!is.na(test$code)) {
+        return(result)
+    }
+
+    result <- tryCatch({
+        run <- run_generated_test(test)
+
+        result$run_status <- run$status
+        result$run_error <- run$error
+        result$run_output <- run$output
+        result$run_elapsed <- run$elapsed
+
+        result
+    }, error=function(e) {
+        result$run_error <- e$message
+
+        result
+    })
+
+    result
+}
+
+
 process_traces <- function(traces, db, timestamp) {
     task("generating tests", {
         tests <- genthat::generate_tests(traces, quiet=FALSE, include_trace_dump=FALSE)

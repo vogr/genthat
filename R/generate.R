@@ -89,6 +89,64 @@ generate_test_code.default <- function(trace, include_trace_dump) {
     NULL
 }
 
+
+#' @title generate test from a trace
+#' @description given a trace, it generates a test
+#' @return a data frame or a tibble with the following
+#' trace      : chr
+#' fun        : chr
+#' code       : chr (can be NA)
+#' error      : chr (can be NA)
+#' elapsed    : numeric
+#'
+#' @export
+#'
+generate_test <- function(trace, ...) {
+    UseMethod("generate_test")
+}
+
+generate_test.genthat_trace_entry <- function(trace, ...) {
+    list(
+        trace=format(trace),
+        fun=trace$fun,
+        code=NA,
+        error="No return value recorded",
+        elapsed=NA
+    )
+}
+
+generate_test.genthat_trace <- function(trace, ...) {
+    stopifnot(class(trace) %in% c("genthat_trace"))
+
+    result <- list(
+        trace=format(trace),
+        fun=trace$fun,
+        code=NA,
+        error=NA,
+        elapsed=NA
+    )
+
+    # this style is needed so we can set the error field from error handler
+    # which would otherwise create a new scope copying the result list
+    # on modification
+    result <-
+        tryCatch({
+            time <- system.time(code <- generate_test_code(trace, ...))
+            result$elapsed <- time["elapsed"]
+
+            if (!is.null(code)) {
+                result$code <- code
+            }
+
+            result
+        }, error=function(e) {
+            result$error <- e$message
+            result
+        })
+
+    result
+}
+
 #' @title Generates test cases from traces
 #'
 #' @param traces from which to generate test cases
@@ -107,10 +165,11 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #' @importFrom utils getTxtProgressBar
 #' @importFrom utils setTxtProgressBar
 #' @importFrom utils str
-#' @importFrom utils txtProgressBar
 #' @export
 #'
 generate_tests <- function(traces, quiet=TRUE, ...) {
+    # TODO: update to use the generate_test
+
     stopifnot(is.list(traces) || is.environment(traces))
 
     if (length(traces) == 0) {

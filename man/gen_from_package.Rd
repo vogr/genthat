@@ -4,8 +4,9 @@
 \alias{gen_from_package}
 \title{Generate test cases for a package}
 \usage{
-gen_from_package(package, output_dir = "generated_tests", types = c("tests",
-  "vignettes", "examples"), clean = FALSE, quiet = TRUE)
+gen_from_package(package, types = c("examples", "tests", "vignettes"),
+  output_dir = ".", batch_size = 0, clean = TRUE, quiet = TRUE,
+  .tmp_lib = tempfile("R_genthat_"))
 }
 \description{
 Decorates all functions in a package and then generates test cases based on

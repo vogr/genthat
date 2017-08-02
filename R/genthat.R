@@ -28,11 +28,11 @@ gen_from_package <- function(package, types=c("examples", "tests", "vignettes"),
 
     code <- substitute({
         options(genthat.debug=DEBUG)
-        ret <- genthat::run_package(PKG_NAME, types=TYPE, quiet=FALSE, clean=CLEAN)
+        ret <- genthat::run_package(PKG_NAME, types=TYPES, quiet=FALSE, clean=CLEAN)
         },
         list(
             PKG_NAME=pkg_name,
-            TYPE=type,
+            TYPES=types,
             CLEAN=clean,
             DEBUG=getOption("genthat.debug")
         )
@@ -216,7 +216,7 @@ export_traces <- function(traces, prefix, output_dir, batch_size) {
     if (n_traces == 0) {
         return(character())
     } else {
-        message("Saving ", n_traces, "traces into ", output_dir)
+        message("Saving ", n_traces, " traces into ", output_dir)
     }
 
     if (batch_size == 0) {

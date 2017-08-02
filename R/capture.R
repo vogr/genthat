@@ -5,6 +5,7 @@ on_function_entry <- function(name, pkg=NULL, args, fun=sys.function(-1), env=pa
     # TODO: (performance) all this makes sense only if there are symbols anywhere in args
     # get callee globals (free variables) that we need to capture
     # we do that by abusing the extract closure
+    args <- create_duplicate(args)
     dummy <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
     callee <- as.list(environment(extract_closure(dummy)))
 
@@ -185,6 +186,16 @@ create_trace_error <- function(fun, args, msg) {
     stopifnot(is.character(msg) && length(msg) == 1)
 
     structure(list(fun=fun, pkg=pkg, args=as.list(args), msg=msg), class="genthat_trace_error")
+}
+
+#' @export
+format.genthat_trace <- function(x, ...) {
+    paste(utils::capture.output(utils::str(x)), collapse="\n")
+}
+
+#' @export
+format.genthat_trace_entry <- function(x, ...) {
+    paste(utils::capture.output(utils::str(x)), collapse="\n")
 }
 
 # Clears the captured caches.

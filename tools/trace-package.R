@@ -19,20 +19,17 @@ default_or_val <- function(val, default) {
 }
 
 do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
-    timestamp <- Sys.time()
+    time_stamp <- Sys.time()
 
-    run <- genthat::capture(
-        trace_result <- genthat::gen_from_package(
-            package, type, traces_dir, batch_size=batch_size, quiet=FALSE, clean=clean
-        ),
-        split=TRUE
+    trace_result <- genthat::gen_from_package(
+        package, type, traces_dir, batch_size=batch_size, quiet=FALSE, clean=clean
     )
 
     # the ret variable from the code supplied above
     run_pkg <- trace_result$run$image$ret[[type]]
 
     # columns
-    timestamp <- timestamp
+    time_stamp <- time_stamp
     type <- type
     package <- package
 
@@ -44,20 +41,16 @@ do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
     trace_files <- paste(trace_result$trace_files, collapse="\n")
     trace_size <- sum(file.size(default_or_val(trace_result$trace_files, character())))
     trace_saving_time <- default_or_val(trace_result$saving_time, 0)
-    trace_output <- paste(run$stdout, run$stderr, collapse="\n")
-    trace_time <- run$elapsed
 
-    run_status <- trace_result$run$status
-    run_output <- trace_result$run$output
-    run_command <- trace_result$run$command
-    run_time <- trace_result$run$elapsed
+    trace_status <- trace_result$run$status
+    trace_output <- trace_result$run$output
+    trace_time <- trace_result$run$elapsed
 
-    run_package_output <- default_or_val(run_pkg$output, "")
     run_package_status <- default_or_val(run_pkg$status, 0)
     run_package_time <- default_or_val(run_pkg$elapsed, 0)
 
     row <- data_frame(
-        timestamp,
+        time_stamp,
         type,
         package,
         n_traced_functions,
@@ -67,23 +60,17 @@ do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
         trace_files,
         trace_size,
         trace_saving_time,
+        trace_status,
         trace_output,
         trace_time,
-        run_status,
-        run_output,
-        run_command,
-        run_time,
-        run_package_output,
         run_package_status,
         run_package_time
     )
 
     field_types <- as.list(sapply(names(row), function(x) dbDataType(RMySQL::MySQL(), row[[x]])))
-    field_types$trace_package_output <- "longtext"
-    field_types$run_status <- "integer"
-    field_types$run_output <- "longtext"
+    field_types$trace_output <- "longtext"
+    field_types$trace_status <- "integer"
     field_types$run_package_status <- "integer"
-    field_types$run_package_output <- "longtext"
 
     attr(row, "types") <- field_types
     row
@@ -99,7 +86,7 @@ option_list <-
         make_option("--package", type="character", help="Package to trace", metavar="PATH"),
         make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
         make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
-        make_option("--output", type="character", help="Name of the output directory for traces", metavar="PATH"),
+        make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
         make_option("--no-clean", help="Leave the temporary files in place", action="store_true", default=FALSE),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE)
     )
@@ -156,7 +143,7 @@ tryCatch({
     }
 
     row %>%
-        dplyr::select(type, package,n_traced_functions, n_traces, run_status, run_time) %>%
+        dplyr::select(type, package,n_traced_functions, n_traces, trace_status, trace_time) %>%
         knitr::kable() %>%
         print()
 
