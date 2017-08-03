@@ -38,9 +38,20 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         result[[type]] <-
             tryCatch({
                 fun(pkg, pkg_path, output_dir=output_dir, fork=fork, quiet=quiet, clean=clean, lib_path=lib_path, ...)
+            }, empty=function(e) {
+                msg <- paste("No", type, "for package", pkg)
+                if (!quiet) {
+                    message(msg)
+                }
+                
+                list(status=-1, output=msg, elapsed=NA)
             }, error=function(e) {
-                message("Running failed: ", e$message)
-                list(status=NA, output=e$message)
+                msg <- paste("Running failed: ", e$message)
+                if (!quiet) {
+                    message(msg)
+                }
+                
+                list(status=-2, output=e$message, elapsed=NA)
             })
 
         if (!clean) {
@@ -61,17 +72,9 @@ run_package_examples <- function(pkg, pkg_path, output_dir,
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
-    result <- list(
-        status=-1,
-        output=NA,
-        elapsed=NA
-    )
-
     src_file <- tools:::.createExdotR(pkg, pkg_path, silent=quiet, ...)
     if (is.null(src_file)) {
-        result$output <- "No examples"
-
-        return(result)
+        signal_empty()
     }
 
     src_file <- file.path(getwd(), src_file)
@@ -82,11 +85,11 @@ run_package_examples <- function(pkg, pkg_path, output_dir,
 
     run <- run_r_script(src_file, .lib_paths=lib_path, quiet=!is_debug_enabled(), clean=clean)
 
-    result$status <- run$status
-    result$output <- run$output
-    result$elapsed <- run$elapsed
-
-    result
+    list(
+        status=run$status,
+        output=run$output,
+        elapsed=run$elapsed
+    )
 }
 
 run_package_tests <- function(pkg, pkg_path, output_dir,
@@ -96,18 +99,10 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
-    result <- list(
-        status=-1,
-        output=NA,
-        elapsed=NA
-    )
-
     test_dir <- file.path(pkg_path, "tests")
 
     if (!dir.exists(test_dir)) {
-        result$output <- "No tests"
-
-        return(result)
+        signal_empty()
     }
 
     file.copy(Sys.glob(file.path(test_dir, "*")), output_dir, recursive=TRUE)
@@ -121,11 +116,15 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
         run_r_script(test, .lib_paths=lib_path, quiet=!is_debug_enabled(), clean=clean)
     })
 
-    result$status <- if (any(sapply(run, `[[`, "status") != 0)) 1 else 0
-    result$output <- paste(sapply(run, `[[`, "output"), collapse="\n\n##TEST\n\n")
-    result$elapsed <- sum(sapply(run, `[[`, "elapsed"))
+    status <- if (any(sapply(run, `[[`, "status") != 0)) 1 else 0
+    output <- paste(sapply(run, `[[`, "output"), collapse="\n\n##TEST\n\n")
+    elapsed <- sum(sapply(run, `[[`, "elapsed"))
 
-    result
+    list(
+        status=status,
+        output=output,
+        elapsed=elapsed
+    )
 }
 
 run_package_vignettes <- function(pkg, pkg_path, output_dir,
@@ -135,22 +134,13 @@ run_package_vignettes <- function(pkg, pkg_path, output_dir,
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(output_dir))
 
-    result <- list(
-        status=-1,
-        output=NA,
-        elapsed=NA
-    )
-
     vignettes <- tools::getVignetteInfo(pkg, lib.loc=lib_path, all=TRUE)
     if (length(vignettes) == 0) {
-        result$output <- "No vignettes"
-
-        return(result)
+        signal_empty()
     }
 
-
     code <- substitute({
-        tools::buildVignettes(package=PKG, dir=PKG_PATH, quiet=QUIET)
+        tools::buildVignettes(package=PKG, dir=PKG_PATH, quiet=QUIET, tangle=TRUE)
     }, list(
         PKG=pkg,
         PKG_PATH=pkg_path,
@@ -159,10 +149,14 @@ run_package_vignettes <- function(pkg, pkg_path, output_dir,
 
     run <- run_r_code(code, quiet=!is_debug_enabled(), clean=clean)
 
-    result$status <- run$status
-    result$output <- run$output
-    result$elapsed <- run$elapsed
-
-    result
+    list(
+        status=run$status,
+        output=run$output,
+        elapsed=run$elapsed
+    )
 }
 
+signal_empty <- function() {
+    cond <- structure(list(message="", call=NULL), class=c("empty", "condition"))
+    signalCondition(cond)
+}
