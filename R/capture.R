@@ -1,37 +1,18 @@
-# Default function entry decorator. Creates the trace record and stores it into the trace vector. Returns the index of the trace record in the vector so that the trace can be updated later.
-on_function_entry <- function(name, pkg=NULL, args, fun=sys.function(-1), env=parent.frame()) {
-    stopifnot(is.list(args))
+# Default function entry decorator.
+# Creates the trace record and stores it into the trace vector.
+record_trace <- function(name, pkg=NULL, args, retv, error,
+                        env=parent.frame(), tracer=get_tracer()) {
 
     # TODO: (performance) all this makes sense only if there are symbols anywhere in args
     # get callee globals (free variables) that we need to capture
     # we do that by abusing the extract closure
-    args <- create_duplicate(args)
-    dummy <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
-    callee <- as.list(environment(extract_closure(dummy)))
+    # TODO: will this help us with promises?
+    # args <- create_duplicate(args)
+    callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
+    globals <- as.list(environment(extract_closure(callee)))
+    trace <- create_trace(name, pkg, args, globals, retv, error)
 
-    .Call("push_trace", create_trace(name, pkg, args, callee))
-}
-
-#' @importFrom methods is
-on_function_exit <- function(index, retv) {
-    stopifnot(is.integer(index))
-
-    trace <- .Call("get_trace", index)
-
-    tryCatch({
-        trace <-
-            create_trace(
-                trace$fun,
-                pkg=trace$pkg,
-                args=trace$args,
-                globals=trace$globals,
-                retv=retv
-            )
-    }, error=function(e) {
-        trace <- create_trace_error(trace$fun, pkg=trace$pkg, trace$args, format(e))
-    })
-
-    .Call("update_trace", index, trace)
+    store_trace(tracer, trace)
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {
@@ -162,54 +143,4 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
 
     attr(new_fun, "genthat_extracted_closure") <- TRUE
     new_fun
-}
-
-create_trace <- function(fun, pkg=NULL, args=list(), globals=list(), retv) {
-    stopifnot(is.character(fun) && length(fun) == 1)
-    stopifnot(is.null(pkg) || (is.character(pkg) && length(pkg) == 1))
-
-    xs <- list(fun=fun, pkg=pkg, args=as.list(args), globals=as.list(globals))
-
-    if (!missing(retv)) {
-        xs$retv <- retv
-        clazz <- "genthat_trace"
-    } else {
-        clazz <- "genthat_trace_entry"
-    }
-
-    structure(xs, class=clazz)
-}
-
-create_trace_error <- function(fun, args, msg) {
-    stopifnot(is.character(fun) && length(fun) == 1)
-    stopifnot(is.null(pkg) || (is.character(pkg) && length(pkg) == 1))
-    stopifnot(is.character(msg) && length(msg) == 1)
-
-    structure(list(fun=fun, pkg=pkg, args=as.list(args), msg=msg), class="genthat_trace_error")
-}
-
-#' @export
-format.genthat_trace <- function(x, ...) {
-    paste(utils::capture.output(utils::str(x)), collapse="\n")
-}
-
-#' @export
-format.genthat_trace_entry <- function(x, ...) {
-    paste(utils::capture.output(utils::str(x)), collapse="\n")
-}
-
-# Clears the captured caches.
-
-#' @export
-#'
-reset_call_traces <- function() {
-    # TODO: use Rcpp generated wrappers
-    .Call("reset_traces")
-}
-
-# Creates a copy of traces captured so far and returns them as R list.
-#' @export
-#'
-copy_call_traces <- function() {
-    .Call("copy_traces")
 }

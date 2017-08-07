@@ -83,18 +83,21 @@ test_that("gen_from_package works on stringr", {
 })
 
 test_that("tracing control work", {
-    reset_genthat()
+    capture <- list()
 
     f <- function(x,y) x + y
-    decorate_function(f)
+    decorate_functions(f, .recorder=function(...) capture <<- list(...))
 
     disable_tracing()
-    f(1,2)
+    f(1L, 2L)
+
     expect_equal(is_tracing_enabled(), FALSE)
-    expect_equal(length(copy_call_traces()), 0)
+    expect_equal(length(capture), 0L)
 
     enable_tracing()
-    f(1,2)
+    f(1L, 2L)
+
     expect_equal(is_tracing_enabled(), TRUE)
-    expect_equal(length(copy_call_traces()), 1)
+    expect_equal(length(capture), 5L)
+    expect_equal(capture$retv, 3L)
 })

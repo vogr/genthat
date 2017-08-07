@@ -34,8 +34,8 @@ generate_call <- function(trace) {
 
         if (length(args) != 2) {
             stop("Call to infix function: `", fun,
-                "` does not have exactly two arguments, instead it has: ",
-                paste(args, collapse=", "))
+                 "` does not have exactly two arguments, instead it has: ",
+                 paste(args, collapse=", "))
         }
 
         sep <- if (is_infix_fun_no_space(fun)) "" else " "
@@ -115,9 +115,11 @@ generate_test.genthat_trace_entry <- function(trace, ...) {
     )
 }
 
+#' @importFrom utils capture.output
+#' @importFrom utils getTxtProgressBar
+#' @importFrom utils setTxtProgressBar
+#' @importFrom utils str
 generate_test.genthat_trace <- function(trace, ...) {
-    stopifnot(class(trace) %in% c("genthat_trace"))
-
     result <- list(
         trace=format(trace),
         fun=trace$fun,
@@ -129,20 +131,19 @@ generate_test.genthat_trace <- function(trace, ...) {
     # this style is needed so we can set the error field from error handler
     # which would otherwise create a new scope copying the result list
     # on modification
-    result <-
-        tryCatch({
-            time <- system.time(code <- generate_test_code(trace, ...))
-            result$elapsed <- time["elapsed"]
+    result <- tryCatch({
+        time <- system.time(code <- generate_test_code(trace, ...))
+        result$elapsed <- time["elapsed"]
 
-            if (!is.null(code)) {
-                result$code <- code
-            }
+        if (!is.null(code)) {
+            result$code <- code
+        }
 
-            result
-        }, error=function(e) {
-            result$error <- e$message
-            result
-        })
+        result
+    }, error=function(e) {
+        result$error <- e$message
+        result
+    })
 
     result
 }
@@ -161,72 +162,25 @@ generate_test.genthat_trace <- function(trace, ...) {
 #' error      : chr (can be NA)
 #'
 #' @description Generates tests cases from the captured traces.
-#' @importFrom utils capture.output
-#' @importFrom utils getTxtProgressBar
-#' @importFrom utils setTxtProgressBar
-#' @importFrom utils str
 #' @export
 #'
 generate_tests <- function(traces, quiet=TRUE, ...) {
-    # TODO: update to use the generate_test
-
     stopifnot(is.list(traces) || is.environment(traces))
 
     if (length(traces) == 0) {
-        return(list())
+        return(data.frame())
     }
 
-    tests <-
-        lapply(zip(name=1:length(traces), value=traces), function(x) {
-            trace_id <- x$name
-            trace <- x$value
-
-            result <- list(
-                trace_id=trace_id,
-                trace_type=class(trace),
-                trace=paste(utils::capture.output(utils::str(trace)), collapse="\n"),
-                fun=trace$fun,
-                code=NA,
-                elapsed=NA,
-                error=NA
-            )
-
-            # this style is needed to we can set the error field from error handler
-            # which would otherwise create a new scope copying the result list
-            # on modification
-            result <-
-                tryCatch({
-                    start_time <- Sys.time()
-                    code <- generate_test_code(trace, ...)
-                    result$elapsed <- Sys.time() - start_time
-
-                    if (!is.null(code)) {
-                        if (!quiet) {
-                            message("Generated test for trace: ", trace_id)
-                        }
-
-                        result$code <- code
-                    }
-                    result
-                }, error=function(e) {
-                    msg <- e$message
-
-                    if (!quiet) {
-                        message("Unable to generate test for trace: ", trace_id ," - ", msg)
-                    }
-
-                    result$error <- msg
-                    result
-                })
-
-            as.data.frame(result, stringsAsFactors=FALSE)
-        })
+    tests <- lapply(traces, function(x) {
+        message(appendLF=FALSE)
+        generate_test(x, ...)
+    })
 
     if (requireNamespace("dplyr", quietly=TRUE)) {
         df <- dplyr::bind_rows(tests)
         as_data_frame(df)
     } else {
-        message("dplyr is not available, which is a pity since it will speed up things")
+        message("dplyr is not available, which is a pity since `do.call(rbind, ...)` is super slow")
         do.call(rbind, tests)
     }
 }
@@ -245,5 +199,4 @@ save_tests <- function(output_dir, tests) {
         fname <- file.path(output_dir, paste0("test-", x$id, ".R"))
         write(x$test, file=fname)
     })
-
 }

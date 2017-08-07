@@ -1,4 +1,4 @@
-run_r_code <- function(code_to_run, save_image=FALSE, quiet=TRUE, clean=TRUE, ...) {
+run_r_code <- function(code_to_run, save_image=FALSE, quiet=TRUE, ...) {
     # TODO: warn if there are any free variables
 
     code <- substitute(code_to_run)
@@ -16,12 +16,9 @@ run_r_code <- function(code_to_run, save_image=FALSE, quiet=TRUE, clean=TRUE, ..
     }
 
     script_file <- tempfile(pattern="run_r_code-", fileext=".R")
-    if (clean) {
-        on.exit(file.remove(script_file))
-    }
     writeLines(script, script_file)
 
-    run <- run_r_script(script_file, quiet=quiet, clean=clean, ...)
+    run <- run_r_script(script_file, quiet=quiet, ...)
 
     if (run$status == 0 && save_image) {
         e <- new.env(parent=emptyenv())
@@ -32,7 +29,7 @@ run_r_code <- function(code_to_run, save_image=FALSE, quiet=TRUE, clean=TRUE, ..
     run
 }
 
-run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=TRUE, clean=TRUE) {
+run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=TRUE) {
     stopifnot(file.exists(script_file))
     stopifnot(is.null(.lib_paths) || all(dir.exists(.lib_paths)))
 
@@ -50,14 +47,6 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
         ),
         input_file
     )
-
-    if (clean) {
-        on.exit({
-            file.remove(input_file)
-            if (file.exists(out_file)) file.remove(out_file)
-            if (file.exists(retval_file)) file.remove(retval_file)
-        })
-    }
 
     env <-
         if (is.null(.lib_paths)) {
@@ -93,7 +82,7 @@ run_r_script <- function(script_file, args=character(), .lib_paths=NULL, quiet=T
     if (is_debug_enabled()) {
         message("run_r_script: command: ", command)
 
-        if (!clean) {
+        if (!quiet) {
             message("run_r_script: source file to run: ", input_file)
             message("run_r_script: actual script: ", script_file)
             message("run_r_script: output: ", out_file)

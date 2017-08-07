@@ -1,31 +1,21 @@
-# TODO: rename to a better name
-cache <- new.env(parent=emptyenv())
-
-
-set_genthat_options <- function(..., force=FALSE) {
-    ops <- list(...)
-    names <- names(ops)
-
-    stopifnot(is.character(names))
-    names <- paste0("genthat.", names)
-
-    to_set <- !(names %in% names(options()))
-    if (any(to_set)) {
-        options(ops[to_set])
-    }
-}
-
-is_debug_enabled <- function(name) {
-    isTRUE(getOption(paste0("genthat.debug")))
-}
-
 .onLoad <- function(libname, pkgname) {
-    reset_call_traces()
-    reset_replacements()
+    options(genthat.debug=getOption("genthat.debug", default=FALSE))
+    options(genthat.tryCatchDepth=try_catch_stack_depth())
+    enable_tracing()
 
-    cache$tracing <- TRUE
-
-    set_genthat_options(debug=FALSE)
+    set_tracer(create_set_tracer())
 
     invisible()
+}
+
+# finds how depth is try catch call
+try_catch_stack_depth <- function() {
+    tryCatch({
+        stop()
+    }, error=function(e) {
+        call_stack <- sapply(sys.calls(), '[[', 1)
+        idx <- max(which(call_stack == as.name("tryCatch")))
+        stopifnot(length(idx) == 1)
+        abs(idx - sys.nframe())
+    })
 }

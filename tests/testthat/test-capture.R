@@ -1,8 +1,11 @@
 context("capture")
 
-test_that("on_function_entry correctly evaluates and stores arguments", {
-    on.exit(reset_call_traces())
-    reset_call_traces();
+get_trace <- function(tracer, idx) {
+    copy_traces(tracer)[[idx]]
+}
+
+test_that("record_trace correctly evaluates and stores arguments", {
+    tracer <- create_sequence_tracer()
 
     a <- 1
     b <- 2
@@ -10,11 +13,9 @@ test_that("on_function_entry correctly evaluates and stores arguments", {
     g <- function(y) a + y
     f <- function(x, y) x + y
 
+    record_trace("f", args=list(x=quote(b + 2), y=quote(g(1))), tracer=tracer)
 
-    index <- on_function_entry("f", fun=f, args=list(x=quote(b + 2), y=quote(g(1))))
-
-    expect_equal(index, 0L)
-    t <- .Call("get_trace", 0L)
+    t <- get_trace(tracer, 1L)
 
     expect_equal(t$fun, "f")
     expect_equal(t$args, list(x=quote(b + 2), y=quote(g(1))))
@@ -26,9 +27,8 @@ test_that("on_function_entry correctly evaluates and stores arguments", {
     expect_equal(as.list(environment(t$globals$g)), list(a=1))
 })
 
-test_that("on_function_entry correctly evaluates and stores arguments with ...", {
-    on.exit(reset_call_traces())
-    reset_call_traces();
+test_that("record_trace correctly evaluates and stores arguments with ...", {
+    tracer <- create_sequence_tracer()
 
     a <- 1
     b <- 2
@@ -40,9 +40,10 @@ test_that("on_function_entry correctly evaluates and stores arguments with ...",
     f <- function(x, ...) x
 
     # f(b+1, 2, 3, g(c))
-    on_function_entry("f", fun=f, args=list(quote(b + 1), 2, 3, quote(g(c))))
+    record_trace("f", args=list(quote(b + 1), 2, 3, quote(g(c))), tracer=tracer)
 
-    t <- .Call("get_trace", 0L)
+    t <- get_trace(tracer, 1L)
+
     expect_equal(t$fun, "f")
     expect_equal(t$args, list(quote(b + 1), 2, 3, quote(g(c))))
     expect_equal(length(t$globals), 3)
@@ -52,61 +53,45 @@ test_that("on_function_entry correctly evaluates and stores arguments with ...",
     expect_equal(environment(environment(t$globals$g)$h)$d, 4)
 })
 
-test_that("on_function_entry called from a function body with argument matching", {
-    on.exit(reset_call_traces())
-    reset_call_traces();
+test_that("record_trace called from a function body with argument matching", {
+    tracer <- create_sequence_tracer()
 
     # kind of a simulation of the injected code
     f <- function(x) {
-        on_function_entry("f", pkg=NULL, as.list(match.call())[-1])
+        record_trace("f", pkg=NULL, as.list(match.call())[-1], tracer=tracer)
     }
 
     f()
 
-    t <- .Call("get_trace", 0L)
+    t <- get_trace(tracer, 1L)
+
     expect_equal(t$fun, "f")
     expect_equal(t$args, list())
     expect_equal(t$globals, list())
 })
 
-test_that("on_function_entry correctly resolves the names in lexical scopes", {
-    on.exit(reset_call_traces())
-    reset_call_traces();
+test_that("record_trace correctly resolves the names in lexical scopes", {
+    tracer <- create_sequence_tracer()
 
     # x is here
     x <- 1
     # and x is here
     f <- function(x, y) {
-        on_function_entry("f", pkg=NULL, as.list(match.call())[-1])
+        record_trace("f", pkg=NULL, as.list(match.call())[-1], tracer=tracer)
     }
 
     f(x, 2)
 
-    t <- .Call("get_trace", 0L)
+    t <- get_trace(tracer, 1L)
+
     expect_equal(t$fun, "f")
     expect_equal(t$args, list(x=quote(x), y=2))
     expect_equal(length(t$globals), 1)
     expect_equal(t$globals$x, 1)
 })
 
-test_that("on_function_exit records exit value", {
-    on.exit(reset_call_traces())
-    reset_call_traces();
-
-    index = .Call("push_trace", create_trace("f"))
-
-    on_function_exit(index, 2)
-
-    expect_equal(.Call("get_trace", index), create_trace("f", retv=2))
-})
-
-test_that("create_trace returns entry trace if no return value is specified", {
-    expect_true(methods::is(create_trace(fun="f"), "genthat_trace_entry"))
-    expect_true(methods::is(create_trace(fun="f", retv=1), "genthat_trace"))
-})
-
 test_that("find_symbol_env finds symbols", {
-    e1 <- new.env()
+    e1 <- new.env(parent=emptyenv())
     e2 <- new.env(parent=e1)
     e3 <- new.env(parent=e2)
 
@@ -284,9 +269,9 @@ test_that("extract_closure works with cycles", {
     expect_equal(length(environment(environment(environment(sc)$a)$b)), 0)
 })
 
-test_that("on_function_entry resolves caller and callee environments", {
-    on.exit(reset_call_traces())
-    reset_call_traces()
+test_that("record_trace resolves caller and callee environments", {
+    tracer <- create_sequence_tracer()
+
     env <- new.env(parent=baseenv())
     env$a <- function(x) x
     env$b <- function(x) x+2
@@ -305,9 +290,10 @@ test_that("on_function_entry resolves caller and callee environments", {
 
     ## browser()
     # env$f(y=2*x, a+x+y)
-    on_function_entry("f", pkg=NULL, fun=env$f, list(x=quote(b(d)), quote(a)))
+    record_trace("f", pkg=NULL, list(x=quote(b(d)), quote(a)), tracer=tracer)
 
-    t <- .Call("get_trace", 0L)
+    t <- get_trace(tracer, 1L)
+
     expect_equal(t$fun, "f")
     expect_equal(t$args, list(x=quote(b(d)), quote(a)))
     expect_equal(length(t$globals), 3)
@@ -316,16 +302,4 @@ test_that("on_function_entry resolves caller and callee environments", {
     expect_equal(formals(t$globals$b), formals(b))
     expect_equal(body(t$globals$b), body(b))
     expect_equal(as.list(environment(t$globals$b)), list(e=40))
-})
-
-test_that("get_call_trace works", {
-    on.exit(reset_call_traces())
-    reset_call_traces()
-
-    t <- create_trace("f")
-    .Call("push_trace", t);
-
-    expect_equal(.Call("get_trace", 0L), t)
-    expect_error(get_call_trace(1L))
-    expect_error(get_call_trace(1))
 })

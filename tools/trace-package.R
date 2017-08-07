@@ -9,6 +9,7 @@ suppressPackageStartupMessages(library(knitr))
 suppressPackageStartupMessages(suppressWarnings(library(dplyr)))
 
 tryCatch(library(genthat), error=function(e) devtools::load_all())
+genthat_version <- devtools::as.package(find.package("genthat"))$version
 
 default_or_val <- function(val, default) {
     if (is.null(val)) {
@@ -18,11 +19,11 @@ default_or_val <- function(val, default) {
     }
 }
 
-do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
+do_trace_package <- function(package, type, traces_dir, batch_size) {
     time_stamp <- Sys.time()
 
     trace_result <- genthat::gen_from_package(
-        package, type, traces_dir, batch_size=batch_size, quiet=FALSE, clean=clean
+        package, type, traces_dir, batch_size=batch_size, quiet=FALSE
     )
 
     # the ret variable from the code supplied above
@@ -76,6 +77,19 @@ do_trace_package <- function(package, type, traces_dir, batch_size, clean) {
     row
 }
 
+store_stats <- function(db, stats) {
+    i <- 0
+    while(i < 3) {
+        tryCatch({
+            dbWriteTable(db, name="traces", value=row, append=TRUE, row.names=FALSE, field.types=attr(row, "types"))
+            break()
+        }, error=function(e) {
+            message("Storing to DB did not work: ", e$message, " - retrying")
+            i <<- i + 1
+        })
+    }
+}
+
 option_list <-
     list(
         make_option("--db-host", type="character", help="DB hostname", metavar="HOST"),
@@ -87,7 +101,6 @@ option_list <-
         make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
         make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
-        make_option("--no-clean", help="Leave the temporary files in place", action="store_true", default=FALSE),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE)
     )
 
@@ -106,15 +119,16 @@ package <- opt$package
 type <- match.arg(opt$type, c("examples", "tests", "vignettes"), several.ok=FALSE)
 traces_dir <- opt$output
 batch_size <- opt$`batch-size`
-clean <- !opt$`no-clean`
-
-options(genthat.debug=opt$`debug`)
 
 stopifnot(batch_size > 0)
 stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
 
-db <-
-    dbConnect(
+options(genthat.debug=opt$`debug`)
+
+if (is.null(opt$`db-name`)) {
+    db <- NULL
+} else {
+    db <- dbConnect(
         RMySQL::MySQL(),
         dbname=opt$`db-name`,
         host=opt$`db-host`,
@@ -123,31 +137,39 @@ db <-
         password=opt$`db-password`
     )
 
-db_info <- dbGetInfo(db)
-message("Connected to ", db_info$dbname, "@", db_info$conType)
+    db_info <- dbGetInfo(db)
+    message("Connected to ", db_info$dbname, "@", db_info$conType)
+}
 
 tryCatch({
     message("Tracing ", package, " ", type, " (batch_size: ", batch_size, ") in ", traces_dir)
 
-    time <- system.time(row <- do_trace_package(package, type, traces_dir, batch_size, clean))
+    time <- system.time(row <- do_trace_package(package, type, traces_dir, batch_size))
 
-    i <- 0
-    while(i < 3) {
-        tryCatch({
-            dbWriteTable(db, name="traces", value=row, append=TRUE, row.names=FALSE, field.types=attr(row, "types"))
-            break()
-        }, error=function(e) {
-            message("Storing to DB did not work: ", e$message, " - retrying")
-            i <<- i + 1
-        })
+    if (!is.null(db)) {
+        row <- cbind(row, genthat=genthat_version)
+        store_stats(db, row)
     }
 
+    message("\nTracing of ", package, " ", type, " finished in ", time["elapsed"])
     row %>%
-        dplyr::select(type, package,n_traced_functions, n_traces, trace_status, trace_time) %>%
-        knitr::kable() %>%
-        print()
+        select(
+            package,
+            type,
+            n_traced_functions,
+            decorating_time,
+            n_traces,
+            trace_size,
+            trace_saving_time,
+            trace_status,
+            trace_time,
+            run_package_status,
+            run_package_time
+        ) %>%
+        tidyr::gather() %>%
+        apply(1, function(x) cat(x["key"], ":", x["value"], "\n"))
 
-    message("\n\n Tracing of ", package, " ", type, " finished in ", time["elapsed"])
+    invisible(NULL)
 }, error=function(e) {
     message("Tracing of ", package, " ", type, " failed with: ", e$message, "\n")
     stop(e$message)

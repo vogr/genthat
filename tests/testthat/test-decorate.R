@@ -36,40 +36,46 @@ test_that("create_function assigns attributes", {
     expect_equal(attributes(f), attrs)
 })
 
-test_that("do_decorate_function decorates a function", {
-    reset_call_traces()
-    entry <- new.env()
-    exit <- new.env()
+test_that("decorated function calls recorded with retv on success", {
+    capture <- list()
 
-    f <- function(a,b) { a + b }
+    f <- function(a,b,c) { if (a) b + c else stop("an error") }
 
-    d <-
-        do_decorate_function(
-            "f",
-            NULL,
-            f,
-            .entry=save_calling_args(entry, return_value = 0L),
-            .exit=save_calling_args(exit))
+    d <- do_decorate_function(
+        "f",
+        NULL,
+        f,
+        .recorder=function(...) capture <<- list(...)
+    )
 
     expect_equal(formals(d), formals(d))
     expect_equal(environment(d), environment(f))
-    expect_equal(attributes(d), list(genthat=T))
+    expect_equal(attributes(d), list(`__genthat_original_fun`=f))
 
-    d(1, 2)
+    # TEST retv
+    d(TRUE, 1L, 2L)
 
-    expect_equal(length(entry), 1)
-    expect_equal(entry$c1$name, "f")
-    expect_equal(entry$c1$pkg, NULL)
-    expect_equal(entry$c1$args, list(a=1, b=2))
+    expect_equal(length(capture), 5L)
+    expect_equal(capture$name, "f")
+    expect_equal(capture$pkg, NULL)
+    expect_equal(capture$args, list(a=TRUE, b=1L, c=2L))
+    expect_false(is.null(capture$env))
+    expect_equal(capture$retv, 3L)
 
-    expect_equal(length(exit), 1)
-    expect_equal(exit$c1$index, 0L)
-    expect_equal(exit$c1$retv, 3)
+    # TEST error
+    expect_error(d(FALSE, 1L, 2L))
+
+    expect_equal(length(capture), 5L)
+    expect_equal(capture$name, "f")
+    expect_equal(capture$pkg, NULL)
+    expect_equal(capture$args, list(a=FALSE, b=1L, c=2L))
+    expect_false(is.null(capture$env))
+    expect_equal(capture$error$message, "an error")
+    expect_false(is.null(capture$error$call))
 })
 
-test_that("on_function_entry works with multiline functions", {
-    entry <- new.env()
-    exit <- new.env()
+test_that("decorated functions can be multiline function", {
+    capture <- list()
 
     f <- function(x, y) {
         x1 <- x + 1
@@ -77,111 +83,87 @@ test_that("on_function_entry works with multiline functions", {
         x1 + y1
     }
 
-    d <-
-        do_decorate_function(
+    d <- do_decorate_function(
             "f",
             NULL,
             f,
-            .entry=save_calling_args(entry, return_value = 0L),
-            .exit=save_calling_args(exit))
-
-    expect_equal(formals(d), formals(d))
-    expect_equal(environment(d), environment(f))
-    expect_equal(attributes(d), list(genthat=T))
+            .recorder=function(...) capture <<- list(...)
+    )
 
     d(1, 2)
 
-    expect_equal(exit$c1$retv, 5)
+    expect_equal(capture$retv, 5)
 })
 
-test_that("do_decorate_function works with ...", {
-    entry <- new.env()
-    exit <- new.env()
+test_that("decorated function supports ...", {
+    capture <- list()
 
     f <- function(...) sum(...)
-    d <-
-        do_decorate_function(
+    d <- do_decorate_function(
             "f",
             NULL,
             f,
-            .entry=save_calling_args(entry, return_value = 0L),
-            .exit=save_calling_args(exit))
+            .recorder=function(...) capture <<- list(...)
+    )
 
-    r <- d(a=1, b=2, 3, 4)
+    expect_equal(d(a=1L, b=2L, 3L, 4L), 10L)
 
-    expect_equal(r, f(1:4))
-
-    expect_equal(length(entry), 1)
-    expect_equal(entry$c1$name, "f")
-    expect_equal(entry$c1$args, list(a=1, b=2, 3, 4))
-
-    expect_equal(length(exit), 1)
-    expect_equal(exit$c1$index, 0)
-    expect_equal(exit$c1$retv, f(1:4))
+    expect_equal(length(capture), 5L)
+    expect_equal(capture$name, "f")
+    expect_equal(capture$args, list(a=1L, b=2L, 3L, 4L))
+    expect_equal(capture$retv, 10L)
 })
 
 test_that("do_decorate_function decorates a package function", {
-    entry <- new.env()
-    exit <- new.env()
+    capture <- list()
 
-    d <-
-        do_decorate_function(
+    d <- do_decorate_function(
             "file_path_sans_ext",
             "tools",
             tools::file_path_sans_ext,
-            .entry=save_calling_args(entry, return_value = 0L),
-            .exit=save_calling_args(exit))
+            .recorder=function(...) capture <<- list(...)
+    )
 
     expect_equal(formals(d), formals(tools::file_path_sans_ext))
     expect_equal(environment(d), environment(tools::file_path_sans_ext))
 
     d("a.b")
 
-    expect_equal(length(entry), 1)
-    expect_equal(entry$c1$name, "file_path_sans_ext")
-    expect_equal(entry$c1$pkg, "tools")
-    expect_equal(entry$c1$args, list(x="a.b"))
-
-    expect_equal(length(exit), 1)
-    expect_equal(exit$c1$index, 0)
-    expect_equal(exit$c1$retv, "a")
+    expect_equal(capture$name, "file_path_sans_ext")
+    expect_equal(capture$pkg, "tools")
+    expect_equal(capture$args, list(x="a.b"))
+    expect_equal(capture$retv, "a")
 })
 
 test_that("is_decorated knows when a functions is decorated", {
-    reset_genthat()
-
     f <- function() {}
     expect_false(is_decorated(f))
 
-    d <- do_decorate_function("f", NULL, f)
+    d <- do_decorate_function("f", NULL, f, .recorder=function(...) {})
     expect_true(is_decorated(d))
 })
 
 test_that("decorate_environment decorates all functions in the environment", {
-    reset_genthat()
+    env <- new.env(parent=emptyenv())
 
-    on.exit(detach(package:samplepkg))
+    env$f <- function(x) x
+    environment(env$f) <- env
 
-    env <- devtools::load_all("samplepkg")$env
-    original_size <- length(ls(env, all.names=TRUE))
+    env$g <- function(x) x+1
+    environment(env$g) <- env
+
+    env$h <- sin
+
+    expect_equal(length(env), 3)
 
     decorate_environment(env)
 
-    size <- length(ls(env, all.names=TRUE))
-    expect_equal(original_size, size)
+    expect_equal(length(env), 3)
 
-    names <- ls(env, all.names=TRUE)
-    funs <- lapply(names, get, envir=env)
-    names(funs) <- names
+    expect_true(is_decorated(env$f))
+    expect_true(is_decorated(env$g))
 
-    funs <- filter(funs, is.function)
-
-    expect_true(all(sapply(funs, is_decorated)), TRUE)
-
-    expect_equal(length(get_replacements()), length(funs))
-    expect_equivalent(
-        sort(sapply(get_replacements(), `[[`, "name")),
-        sort(names(funs)))
+    expect_false(is_decorated(env$h)) # it is a primitive function
 })
 
 test_that("reassign_function replaces function body and add attributes", {
@@ -202,47 +184,79 @@ test_that("create_duplicate duplicates a function", {
     expect_error(create_duplicate(NULL))
 })
 
-test_that("remove_replacement", {
-    reset_genthat()
+test_that("resolve_decorating_fun_args works with all cases", {
+    f <- function() 1
+    g <- function() 2
 
-    f <- function() {}
+    xs <- resolve_decorating_fun_args("f")
+    expect_equal(
+        xs,
+        list(f=list(name="f", fun=f))
+    )
 
-    r <- create_replacement("a", environment(f), f, f, f)
-    add_replacement(r)
+    xs <- resolve_decorating_fun_args("f", "g")
+    expect_equal(
+        xs,
+        list(f=list(name="f", fun=f), g=list(name="g", fun=g))
+    )
 
-    r2 <- remove_replacement("a")
+    xs <- resolve_decorating_fun_args("f", g)
+    expect_equal(
+        xs,
+        list(f=list(name="f", fun=f), g=list(name="g", fun=g))
+    )
 
-    expect_equal(r, r2)
-    expect_equal(length(get_replacements()), 0)
+    xs <- resolve_decorating_fun_args(f, g)
+    expect_equal(
+        xs,
+        list(f=list(name="f", fun=f), g=list(name="g", fun=g))
+    )
+
+    xs <- resolve_decorating_fun_args(c("f", "g"))
+    expect_equal(
+        xs,
+        list(f=list(name="f", fun=f), g=list(name="g", fun=g))
+    )
+
+    xs <- resolve_decorating_fun_args(list(f=f, g=g))
+    expect_equal(
+        xs,
+        list(f=list(name="f", fun=f), g=list(name="g", fun=g))
+    )
 })
 
+test_that("decorate_functions returns decorated function", {
+    f <- function(x) x
+
+    decoration <- decorate_functions(f)
+
+    expect_equal(length(decoration), 1)
+
+    expect_true(is.function(decoration$f))
+    expect_true(is.function(f))
+    expect_equal(decoration$f, f)
+    expect_equal(attr(f, "__genthat_original_fun"), function(x) x)
+})
 
 test_that("reset_function", {
-    on.exit(detach(package:samplepkg))
-
-    devtools::load_all("samplepkg")
-
-    decorate_functions(samplepkg::my_public)
-
-    expect_true(is_decorated(samplepkg::my_public))
-
-    reset_functions(samplepkg::my_public)
-
-    expect_false(is_decorated(samplepkg::my_public))
-    expect_equal(length(get_replacements()), 0)
-})
-
-test_that("decorate_function returns decorated function", {
     f <- function(x) x
-    decorated <- decorate_function(f)
-    expect_true(is.function(decorated))
-    expect_equal(decorated, f)
+
+    decorate_functions(f)
+    reset <- reset_functions(f)
+
+    expect_equal(length(reset), 1)
+
+    expect_true(is.function(reset$f))
+    expect_true(is.function(f))
+    expect_equal(reset$f, f)
+    expect_equal(reset$f, function(x) x)
+    expect_equal(attr(f, "__genthat_original_fun"), NULL)
 })
 
-test_that("decorate_and_replace_one checks for primitive functions", {
-    expect_error(decorate_and_replace_one("$", `$`), regexp="\\$: is a primitive function")
+test_that("decorate_function checks for primitive functions", {
+    expect_error(decorate_function(`$`, "$"), regexp="\\$: is a primitive function")
 })
 
-# TODO: test that we cannot decorate builtins
+## # TODO: test that we cannot decorate builtins
 
-# TODO: test imported namespaces
+## # TODO: test imported namespaces

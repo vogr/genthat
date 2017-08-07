@@ -48,7 +48,7 @@ add_package_hook <- function(pkg_name, lib, on_load, on_gc_finalizer) {
     load_script <- file.path(r_dir, pkg_name)
     lines <- readLines(load_script)
 
-    lines <- append(lines, "options(error=function() {traceback(3); quit(status=1, save='no')})", 0)
+    lines <- append(lines, "options(error=function() {traceback(3); if(!interactive()) quit(status=1, save='no')})", 0)
 
     if (!missing(on_load)) {
         lines <- append(lines, create_std_package_hook("onLoad", on_load), after=length(lines) - 1L)
@@ -284,5 +284,36 @@ resolve_package_name <- function(package) {
         }, error=function(e) {
             stop("Unsupported / non-existing package: ", package)
         })
+    }
+}
+
+resolve_function <- function(name, in_env=parent.frame()) {
+    fun <- if (is.function(name)) {
+        fun
+    } else if (is.name(name) || is.character(name)){
+        get(name, envir=in_env)
+    }
+
+    if (!is.function(fun)) {
+        stop("Not a function: ", name)
+    }
+
+    fun
+}
+
+get_function_package_name <- function(fun) {
+    stopifnot(is.function(fun))
+
+    env <- environment(fun)
+    if (identical(env, .BaseNamespaceEnv)) {
+        return("base")
+    }
+
+    pkg_name <- get_package_name(env)
+
+    if (is_empty_str(pkg_name) || identical(env, globalenv())) {
+        NULL
+    } else {
+        pkg_name
     }
 }

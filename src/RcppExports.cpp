@@ -5,6 +5,50 @@
 
 using namespace Rcpp;
 
+// sequence_tracer_create
+SEXP sequence_tracer_create();
+RcppExport SEXP _genthat_sequence_tracer_create() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(sequence_tracer_create());
+    return rcpp_result_gen;
+END_RCPP
+}
+// sequence_tracer_reset_traces
+SEXP sequence_tracer_reset_traces(SEXP tracer_xp);
+RcppExport SEXP _genthat_sequence_tracer_reset_traces(SEXP tracer_xpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type tracer_xp(tracer_xpSEXP);
+    rcpp_result_gen = Rcpp::wrap(sequence_tracer_reset_traces(tracer_xp));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sequence_tracer_store_trace
+SEXP sequence_tracer_store_trace(SEXP tracer_xp, SEXP trace);
+RcppExport SEXP _genthat_sequence_tracer_store_trace(SEXP tracer_xpSEXP, SEXP traceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type tracer_xp(tracer_xpSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type trace(traceSEXP);
+    rcpp_result_gen = Rcpp::wrap(sequence_tracer_store_trace(tracer_xp, trace));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sequence_tracer_copy_traces
+SEXP sequence_tracer_copy_traces(SEXP tracer_xp);
+RcppExport SEXP _genthat_sequence_tracer_copy_traces(SEXP tracer_xpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type tracer_xp(tracer_xpSEXP);
+    rcpp_result_gen = Rcpp::wrap(sequence_tracer_copy_traces(tracer_xp));
+    return rcpp_result_gen;
+END_RCPP
+}
 // serialize_value
 std::string serialize_value(SEXP s);
 RcppExport SEXP _genthat_serialize_value(SEXP sSEXP) {
@@ -95,13 +139,11 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP copy_traces();
-RcppExport SEXP get_trace(SEXP);
-RcppExport SEXP push_trace(SEXP);
-RcppExport SEXP reset_traces();
-RcppExport SEXP update_trace(SEXP, SEXP);
-
 static const R_CallMethodDef CallEntries[] = {
+    {"_genthat_sequence_tracer_create", (DL_FUNC) &_genthat_sequence_tracer_create, 0},
+    {"_genthat_sequence_tracer_reset_traces", (DL_FUNC) &_genthat_sequence_tracer_reset_traces, 1},
+    {"_genthat_sequence_tracer_store_trace", (DL_FUNC) &_genthat_sequence_tracer_store_trace, 2},
+    {"_genthat_sequence_tracer_copy_traces", (DL_FUNC) &_genthat_sequence_tracer_copy_traces, 1},
     {"_genthat_serialize_value", (DL_FUNC) &_genthat_serialize_value, 1},
     {"_genthat_is_infix_fun_no_space", (DL_FUNC) &_genthat_is_infix_fun_no_space, 1},
     {"_genthat_is_infix_fun", (DL_FUNC) &_genthat_is_infix_fun, 1},
@@ -110,11 +152,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genthat_create_duplicate", (DL_FUNC) &_genthat_create_duplicate, 1},
     {"_genthat_environment_name", (DL_FUNC) &_genthat_environment_name, 1},
     {"_genthat_environment_name_as_code", (DL_FUNC) &_genthat_environment_name_as_code, 1},
-    {"copy_traces",                       (DL_FUNC) &copy_traces,                       0},
-    {"get_trace",                         (DL_FUNC) &get_trace,                         1},
-    {"push_trace",                        (DL_FUNC) &push_trace,                        1},
-    {"reset_traces",                      (DL_FUNC) &reset_traces,                      0},
-    {"update_trace",                      (DL_FUNC) &update_trace,                      2},
     {NULL, NULL, 0}
 };
 

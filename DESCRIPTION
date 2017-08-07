@@ -1,13 +1,14 @@
 Package: genthat
 Type: Package
 Title: A Framework for Unit Tests Generation
-Version: 0.1.0
+Version: 0.1.1
 Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: Package aimed at generating testthat compatible tests.
 License: GPL (>= 2)
 Imports:
     codetools,
+    digest,
     methods,
     Rcpp (>= 0.11.3),
     tools,

@@ -5,7 +5,8 @@
 #' @export
 #'
 run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
-                       fork=TRUE, quiet=TRUE, clean=TRUE,
+                       output_dir=tempfile(pattern="run_package-output-dir"),
+                       fork=TRUE, quiet=TRUE,
                        lib_path=.libPaths(), ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
@@ -15,12 +16,7 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     result <- list()
 
     for (type in types) {
-        output_dir <- tempfile(pattern="run_package-", fileext=".out")
-        stopifnot(dir.create(output_dir))
-
-        if (clean) {
-            on.exit(unlink(output_dir, recursive=TRUE), add=TRUE)
-        }
+        stopifnot(dir.exists(output_dir) || dir.create(output_dir))
 
         fun <-
             switch(type,
@@ -37,36 +33,40 @@ run_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
         result[[type]] <-
             tryCatch({
-                fun(pkg, pkg_path, output_dir=output_dir, fork=fork, quiet=quiet, clean=clean, lib_path=lib_path, ...)
+                fun(pkg, pkg_path, output_dir=output_dir, fork=fork, quiet=quiet, lib_path=lib_path, ...)
             }, empty=function(e) {
                 msg <- paste("No", type, "for package", pkg)
                 if (!quiet) {
                     message(msg)
                 }
-                
+
                 list(status=-1, output=msg, elapsed=NA)
             }, error=function(e) {
                 msg <- paste("Running failed: ", e$message)
                 if (!quiet) {
                     message(msg)
                 }
-                
+
                 list(status=-2, output=e$message, elapsed=NA)
             })
 
-        if (!clean) {
-            result[[type]]$output_dir <- output_dir
-            if (!quiet) {
-                message("Output stored in ", output_dir)
-            }
+
+        result[[type]]$output_dir <- output_dir
+
+        output_file <- file.path(output_dir, paste0(type, ".out"))
+        write(x=result[[type]]$output, file=output_file)
+
+        if (!quiet) {
+            message("Output stored in ", output_dir)
         }
+
     }
 
     result
 }
 
 run_package_examples <- function(pkg, pkg_path, output_dir,
-                                fork=TRUE, quiet=TRUE, clean=TRUE,
+                                fork=TRUE, quiet=TRUE,
                                 lib_path=NULL, ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
@@ -83,7 +83,7 @@ run_package_examples <- function(pkg, pkg_path, output_dir,
         message("  Running ", src_file)
     }
 
-    run <- run_r_script(src_file, .lib_paths=lib_path, quiet=!is_debug_enabled(), clean=clean)
+    run <- run_r_script(src_file, .lib_paths=lib_path, quiet=!is_debug_enabled())
 
     list(
         status=run$status,
@@ -93,7 +93,7 @@ run_package_examples <- function(pkg, pkg_path, output_dir,
 }
 
 run_package_tests <- function(pkg, pkg_path, output_dir,
-                             fork=TRUE, quiet=TRUE, clean=TRUE,
+                             fork=TRUE, quiet=TRUE,
                              lib_path=NULL, ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
@@ -113,7 +113,7 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
             message("  Running ", test)
         }
 
-        run_r_script(test, .lib_paths=lib_path, quiet=!is_debug_enabled(), clean=clean)
+        run_r_script(test, .lib_paths=lib_path, quiet=!is_debug_enabled())
     })
 
     status <- if (any(sapply(run, `[[`, "status") != 0)) 1 else 0
@@ -128,7 +128,7 @@ run_package_tests <- function(pkg, pkg_path, output_dir,
 }
 
 run_package_vignettes <- function(pkg, pkg_path, output_dir,
-                                 fork=TRUE, quiet=TRUE, clean=TRUE,
+                                 fork=TRUE, quiet=TRUE,
                                  lib_path=NULL, ...) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
@@ -147,7 +147,7 @@ run_package_vignettes <- function(pkg, pkg_path, output_dir,
         QUIET=quiet
     ))
 
-    run <- run_r_code(code, quiet=!is_debug_enabled(), clean=clean)
+    run <- run_r_code(code, quiet=!is_debug_enabled(), .lib_path=lib_path)
 
     list(
         status=run$status,

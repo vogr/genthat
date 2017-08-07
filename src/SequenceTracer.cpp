@@ -1,9 +1,7 @@
-#include "R.h"
-#include "Rinternals.h"
+#include <R.h>
+#include <Rcpp.h>
 
-#define REXPORT extern "C"
-
-class TraceVector {
+class SequenceTracer {
 public:
     /** Returns the size of the trace vector.
      */
@@ -32,16 +30,8 @@ public:
      */
     SEXP operator [] (unsigned index) const {
         if (index >= size_)
-          Rf_error("Index to TraceVector[] out of bounds");
+          Rf_error("Index to SequenceTracer[] out of bounds");
         return VECTOR_ELT(vector_, index);
-    }
-
-    /** Updates trace with given index. We can't use [] operator because SET_VECTOR_ELT has to be used for assignments or bad things may happen.
-     */
-    void update_trace(unsigned index, SEXP value) {
-        if (index >= size_)
-            Rf_error("Index to TraceVector.update_trace out of bounds");
-        SET_VECTOR_ELT(vector_, index, value);
     }
 
     /** Clears the traces so that they can be garbage collected, but keeps the current capacity reserved.
@@ -55,7 +45,7 @@ public:
 
     /** Creates a trace vector with given initial size.
      */
-    TraceVector(unsigned initialSize = 1024):
+    SequenceTracer(unsigned initialSize = 1024):
         capacity_(initialSize),
         size_(0),
         vector_(Rf_allocVector(VECSXP, initialSize)) {
@@ -64,9 +54,10 @@ public:
 
     /** Releases the GC protection on the trace vector when deleting the object.
      */
-    ~TraceVector() {
-        if (vector_ != nullptr)
+    ~SequenceTracer() {
+        if (vector_ != nullptr) {
             R_ReleaseObject(vector_);
+        }
     }
 
     /** Creates a copy of the trace vector of the exact size.
@@ -103,65 +94,39 @@ private:
     unsigned size_;
 };
 
-/** Access to the trace vector to circumvent C++'s module initialization issues.
- */
-TraceVector & tv() {
-    static TraceVector tv;
-    return tv;
-}
+// [[Rcpp::export]]
+SEXP sequence_tracer_create() {
+    auto tracer = Rcpp::XPtr<SequenceTracer>(new SequenceTracer(), true);
+    tracer.attr("class") = "sequence_tracer";
 
-/** Helper function for creating R integers from C++ values.
- */
-inline SEXP CREATE_INTEGER(int value) {
-    SEXP result = Rf_allocVector(INTSXP, 1);
-    INTEGER(result)[0] = value;
-    return result;
-}
-
-/** Returns the size of the trace as an R integer.
- */
-REXPORT SEXP trace_size() {
-    return CREATE_INTEGER(tv().size());
-}
-
-/** Returns the current trace vector capacity as an R integer.
- */
-REXPORT SEXP trace_capacity() {
-    return CREATE_INTEGER(tv().capacity());
+    return tracer;
 }
 
 /** Resets the trace vector, clearing all its contents, but keeping the capacity reserved.
  */
-REXPORT SEXP reset_traces() {
-  tv().clear();
-  return R_NilValue;
+// [[Rcpp::export]]
+SEXP sequence_tracer_reset_traces(SEXP tracer_xp) {
+    Rcpp::XPtr<SequenceTracer> tracer(tracer_xp);
+    tracer->clear();
+
+    return R_NilValue;
 }
 
 /** Pushes the given trace to the trace vector and returns the index at which the trace is stored. Uses C-style indexing
  */
-REXPORT SEXP push_trace(SEXP trace) {
-    return CREATE_INTEGER(tv().push_back(trace));
-}
+// [[Rcpp::export]]
+SEXP sequence_tracer_store_trace(SEXP tracer_xp, SEXP trace) {
+    Rcpp::XPtr<SequenceTracer> tracer(tracer_xp);
+    tracer->push_back(trace);
 
-/** Returns the index-th trace. Uses C style indexing (from 0).
- */
-REXPORT SEXP get_trace(SEXP index) {
-    if (TYPEOF(index) != INTSXP || LENGTH(index) != 1)
-        Rf_error("get_trace expects integer scalar as index");
-    return tv()[INTEGER(index)[0]];
-}
-
-/** Updates the index-th trace. Uses C style indexing (from 0).
- */
-REXPORT SEXP update_trace(SEXP index, SEXP trace) {
-    if (TYPEOF(index) != INTSXP || LENGTH(index) != 1)
-        Rf_error("get_trace expects integer scalar as index");
-    tv().update_trace(INTEGER(index)[0], trace);
-    return R_NilValue;
+    return trace;
 }
 
 /** Returns a copy of the trace vector with the exact size.
  */
-REXPORT SEXP copy_traces() {
-    return tv().copy();
+// [[Rcpp::export]]
+SEXP sequence_tracer_copy_traces(SEXP tracer_xp) {
+    Rcpp::XPtr<SequenceTracer> tracer(tracer_xp);
+
+    return tracer->copy();
 }

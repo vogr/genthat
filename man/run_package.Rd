@@ -4,8 +4,9 @@
 \alias{run_package}
 \title{run package code}
 \usage{
-run_package(pkg, types = c("examples", "tests", "vignettes"), fork = TRUE,
-  quiet = TRUE, clean = TRUE, lib_path = .libPaths(), ...)
+run_package(pkg, types = c("examples", "tests", "vignettes"),
+  output_dir = tempfile(pattern = "run_package-output-dir"), fork = TRUE,
+  quiet = TRUE, lib_path = .libPaths(), ...)
 }
 \arguments{
 \item{...}{commentDontrun, commentDonttest}

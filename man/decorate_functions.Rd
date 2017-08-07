@@ -4,10 +4,17 @@
 \alias{decorate_functions}
 \title{Decorates given functions}
 \usage{
-decorate_functions(...)
+decorate_functions(..., in_env = parent.frame(),
+  .recorder = substitute(genthat:::record_trace))
 }
 \arguments{
-\item{...}{the functions that shall be decorated}
+\item{...}{the functions that shall be decorated
+
+decorate_functions(list(ls, ...))
+decorate_functions(list("ls", ...))
+decorate_functions(c("ls", ...))
+decorate_functions(ls, ...)
+decorate_functions("ls", ...)}
 }
 \description{
 Given functions will be decorated in their defining environment.
