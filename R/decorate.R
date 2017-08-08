@@ -1,11 +1,21 @@
 #' @title Decorates functions in an environment
 #'
-#' @param envir an environment that shall be decorated
+#' @param envir an environment that shall be decorated or a character scalar
+#'     that will be resolved using `as.environment("package:....")`. In the
+#'     latter case, the package will also be loaded in the case it has not been
+#'     loaded yet.
 #'
-#' @description Decorates all symbols form the given environment for which `is.function` is `TRUE`.
+#' @description Decorates all symbols form the given environment for which
+#'     `is.function` is `TRUE`.
 #' @export
 #'
 decorate_environment <- function(envir) {
+    if (is.character(envir)) {
+        stopifnot(length(envir) == 1)
+        library(envir, character.only=TRUE)
+        envir <- as.environment(paste0("package:", envir))
+    }
+
     stopifnot(is.environment(envir))
 
     # TODO: is the all.names actually correct?
@@ -36,13 +46,15 @@ decorate_functions <- function(..., in_env=parent.frame(),
                               .recorder=substitute(genthat:::record_trace)) {
     xs <- resolve_decorating_fun_args(..., in_env=in_env)
 
-    lapply(xs, function(x) {
+    decorations <- lapply(xs, function(x) {
         tryCatch({
             decorate_function(x$fun, x$name, .recorder)
         }, error=function(e) {
             warning("Unable to decorate `", x$name, "`: ", e$message)
         })
     })
+
+    invisible(decorations)
 }
 
 decorate_function <- function(fun, name, .recorder) {
@@ -158,7 +170,7 @@ do_decorate_function <- function(name, pkg, fun, .recorder) {
             `__genthat_original_fun`=create_duplicate(fun)
         ))
 
-    new_fun
+    invisible(new_fun)
 }
 
 #' @title Resets decorated function back to its original
@@ -169,13 +181,15 @@ do_decorate_function <- function(name, pkg, fun, .recorder) {
 reset_functions <- function(..., in_env=parent.frame()) {
     xs <- resolve_decorating_fun_args(..., in_env=in_env)
 
-    lapply(xs, function(x) {
+    resets <- lapply(xs, function(x) {
         tryCatch({
             reset_function(x$fun, x$name)
         }, error=function(e) {
             warning("Unable to decorate `", x$name, "`: ", e$message)
         })
     })
+
+    invisible(resets)
 }
 
 reset_function <- function(fun, name) {
