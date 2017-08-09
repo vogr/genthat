@@ -18,201 +18,64 @@ NULL
 #' the code contained in the package examples, vignettes and tests.
 #' @export
 #'
-gen_from_package <- function(package, types=c("examples", "tests", "vignettes"),
+gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             output_dir=".",
+                            working_dir=tempfile(pattern="gen_from_package-"),
                             batch_size=0,
-                            quiet=TRUE,
-                            .tmp_lib=tempfile("R_genthat_")) {
-
-    pkg_name <- resolve_package_name(package)
-
-    code <- substitute({
-        options(genthat.debug=DEBUG)
-        ret <- genthat::run_package(PKG_NAME, types=TYPES, output=OUTPUT, quiet=FALSE)
-        },
-        list(
-            PKG_NAME=pkg_name,
-            TYPES=types,
-            OUTPUT=.tmp_lib,
-            DEBUG=is_debug_enabled()
-        )
-    )
-
-    trace_package(
-        package,
-        code,
-        output_dir,
-        batch_size=batch_size,
-        quiet=quiet,
-        .tmp_lib=.tmp_lib
-    )
-}
-
-# TODO: vectorize over package
-#' @export
-#'
-trace_package <- function(package, code_to_run,
-                         output_dir=".",
-                         batch_size=0,
-                         quiet=TRUE,
-                         .tmp_lib=tempfile("R_genthat_")) {
+                            lib_paths=NULL) {
+    stopifnot(is.character(pkg) && length(pkg) == 1)
+    stopifnot(length(output_dir) == 1)
+    stopifnot(dir.exists(output_dir) || dir.create(output_dir))
+    stopifnot(length(working_dir) == 1)
+    stopifnot(dir.exists(working_dir) || dir.create(working_dir))
 
     output_dir <- normalizePath(output_dir, mustWork=TRUE)
+    working_dir <- normalizePath(working_dir, mustWork=TRUE)
+    pkg_dir <- find.package(pkg, lib_paths)
+    stats_file <- file.path(output_dir, "genthat-exports.csv")
 
-    stopifnot(dir.exists(output_dir) || dir.create(output_dir))
-    stopifnot(dir.exists(.tmp_lib) || dir.create(.tmp_lib))
-    if (!quiet) {
-        message("Working in ", .tmp_lib)
-    }
-
-    # is it an installed package or external package file (extracted or zip)?
-    pkg_name <- resolve_package_name(package)
-    pkg_path <- if (file.exists(package)) package else find.package(pkg_name)
-
-    # where the pkg_path will be installed
-    tmp_pkg_path <- file.path(.tmp_lib, pkg_name)
-
-    # install the target pkg_path
-    if (!quiet) {
-        message("Installing ", pkg_path, " into: ", tmp_pkg_path)
-    }
-    tryCatch({
-        # locally install the package from its location
-        utils::install.packages(
-            pkgs=pkg_path,
-            repos=NULL,
-            lib=.tmp_lib,
-            type="source",
-            dependencies=c("Depends", "Imports", "LinkingTo", "Suggests"),
-            INSTALL_opts=c(
-                "--example",
-                "--install-tests",
-                "--with-keep.source",
-                "--no-multiarch"),
-            quiet=quiet)
-    }, error=function(e) {
-        stop("Installation of ", pkg_path, " failed with: ", e$message)
-    })
-
-    # install genthat
-    # the dependencies should be already included since this is only called
-    # from an existing genthat installation
-    genthat_path <- find.package("genthat")
-    if (!quiet) {
-        message("Installing genthat from: ", genthat_path, " into: ", .tmp_lib)
-    }
-    tryCatch({
-        utils::install.packages(
-            pkgs=genthat_path,
-            repos=NULL,
-            lib=.tmp_lib,
-            type="source",
-            INSTALL_opts=c(
-                "--no-docs",
-                "--no-multiarch",
-                "--no-demo"),
-            quiet=quiet)
-    }, error=function(e) {
-        stop("Installation of ", pkg_path, " failed with: ", e$message)
-    })
-
-    libs <- env_path(.tmp_lib, .libPaths())
-    genthat_output <- file.path(output_dir, "genthat.RDS")
-
-    # TODO: always use a new file - save to directory
-    add_package_hook(
-        pkg_name,
-        .tmp_lib,
-        on_load=substitute({
-            message("Invoking genthat pkg_path loading hook")
-            options(genthat.debug=GENTHAT_DEBUG)
-
-            time <- system.time(decorations <- genthat::decorate_environment(ns))
-
-            saveRDS(
-                list(
-                    decorating_time=time["elapsed"],
-                    traced_functions=names(decorations)
-                ),
-                GENTHAT_OUTPUT)
-
-            message("Decorated ", length(decorations), " functions in ", time["elapsed"])
-        }, list(
-            GENTHAT_OUTPUT=genthat_output,
-            GENTHAT_DEBUG=getOption("genthat.debug", default=TRUE))
-        ),
-
-        # TODO: capture error
-        on_gc_finalizer=substitute({
-            message("Invoking genthat unloading hook")
-
-            time <-
-                system.time({
-                    traces <- genthat::copy_traces()
-                    n_traces <- length(traces)
-
-                    trace_files <-
-                        genthat:::export_traces(
-                            traces,
-                            prefix=PKG,
-                            output_dir=OUTPUT_DIR,
-                            batch_size=BATCH_SIZE
-                        )
-                })
-
-            message("Saved in ", time["elapsed"])
-
-            if (!file.exists(GENTHAT_OUTPUT)) {
-                message("The genthat inserted package hook for ", PKG, " did not work.")
-                message("Missing ", GENTHAT_OUTPUT)
-            } else {
-                output <- readRDS(GENTHAT_OUTPUT)
-
-                output$n_traces <- n_traces
-                output$saving_time <- time["elapsed"]
-                output$trace_files <- trace_files
-
-                saveRDS(output, GENTHAT_OUTPUT)
-            }
-        }, list(
-            PKG=pkg_name,
-            OUTPUT_DIR=output_dir,
-            BATCH_SIZE=batch_size,
-            GENTHAT_OUTPUT=genthat_output
-        ))
+    site_file_code <- genthat_tracing_preamble(
+        pkg,
+        output_dir,
+        output_prefix=pkg,
+        stats_file=stats_file,
+        batch_size=batch_size
     )
 
-    code <- substitute(code_to_run)
-    code <-
-        if (typeof(code) == "language") {
-            code
-        } else {
-            code_to_run
-        }
+    site_file <- tempfile()
+    cat(site_file_code, file=site_file)
 
-    # here the save image is OK, because the only code that will be saved
-    # comes from the supplied user code
-    run <- run_r_code(code, save_image=TRUE, quiet=quiet, .lib_paths=.tmp_lib)
-
-    if (file.exists(genthat_output)) {
-        output <- readRDS(genthat_output)
-        file.remove(genthat_output)
-    } else {
-        output <- list(traces=list(), replacements=list())
+    runner <- function(script) {
+        run_r_script(script, site_file=site_file, lib_paths=lib_paths)
     }
 
-    output$run <- run
-    output
+    run <- run_package(pkg, pkg_dir, types, working_dir, runner)
+
+    traces <- if (file.exists(stats_file)) {
+        read_stats_file(stats_file)
+    } else {
+        data.frame()
+    }
+
+    list(run=run, traces=traces)
 }
 
-export_traces <- function(traces, prefix, output_dir, batch_size) {
+#' @export
+#'
+export_traces <- function(traces, output_dir,
+                         prefix="",
+                         stats_file=NULL,
+                         batch_size=0) {
+
     stopifnot(is.list(traces))
-    stopifnot(dir.exists(output_dir) && length(output_dir) == 1)
+    stopifnot(length(output_dir) == 1)
+    stopifnot(dir.exists(output_dir) || dir.create(output_dir))
+    stopifnot(is.null(stats_file) || (is.character(stats_file) && length(stats_file) == 1))
     stopifnot(batch_size >= 0)
 
     n_traces <- length(traces)
     if (n_traces == 0) {
-        return(character())
+        return(invisible(character()))
     } else {
         message("Saving ", n_traces, " traces into ", output_dir)
     }
@@ -222,19 +85,70 @@ export_traces <- function(traces, prefix, output_dir, batch_size) {
     }
 
     n_batches <- ceiling(n_traces / batch_size)
+    n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(prefix, "*", ".RDS"))))
 
-    batches <- sapply(1:n_batches, function(i) {
+    batches <- lapply(1:n_batches, function(i) {
         lower <- (i - 1) * batch_size + 1
         upper <- min(n_traces, lower + batch_size)
 
-        fname <- file.path(output_dir, paste0(prefix, "-", i, ".RDS"))
+        fname <- file.path(output_dir, paste0(prefix, (i + n_existing), ".RDS"))
         batch <- traces[lower:upper]
 
         message("Saving traces [", i,"/", n_batches, "] to: ", fname)
         saveRDS(batch, fname)
 
-        fname
-    }, USE.NAMES=FALSE)
+        data.frame(
+            timestamp=as.character(Sys.time()),
+            filename=fname,
+            n_traces=length(batch),
+            stringsAsFactors=FALSE
+        )
+    })
+
+    stats <- do.call(rbind, batches)
+
+    if (!is.null(stats_file)) {
+        write.table(
+            stats,
+            file=stats_file,
+            row.names=FALSE,
+            append=TRUE,
+            col.names=FALSE,
+            qmethod="double",
+            sep=","
+        )
+    }
+
+    stats[, "filename"]
+}
+
+genthat_tracing_preamble <- function(pkgs,
+                                    output_dir,
+                                    output_prefix="",
+                                    debug=getOption("genthat.debug", FALSE),
+                                    stats_file=NULL,
+                                    batch_size=0) {
+
+    stopifnot(is.character(pkgs) && length(pkgs) > 0)
+
+    paste(c(
+        '## genthat tracing preamble',
+        paste0('options(genthat.debug=', debug, ')'),
+        '',
+        sapply(pkgs, function(x) paste0('genthat::decorate_environment("', x, '")')),
+        '',
+        'reg.finalizer(loadNamespace("genthat"), onexit=TRUE, function(x) {',
+        paste0(
+            '  genthat::export_traces(genthat::copy_traces(genthat::get_tracer()), ',
+            '"', output_dir, '", ',
+            'prefix="', output_prefix, '"',
+            'batch_size=', batch_size, '"',
+            'stats_file="', stats_file, '"',
+            ')'
+        ),
+        '})',
+        ''
+    ), collapse="\n")
 }
 
 #' @export
@@ -269,6 +183,13 @@ is_tracing_enabled <- function() {
 
 #' @export
 #'
-is_debug_enabled <- function(name) {
+is_debug_enabled <- function() {
     isTRUE(getOption("genthat.debug"))
+}
+
+
+#' @export
+#'
+read_stats_file <- function(fname) {
+    read.csv(fname, header=F, stringsAsFactors=FALSE, col.names=c("timestamp", "file_name", "n_traces"))
 }

@@ -25,30 +25,34 @@ do_stats <- function(dir) {
     all_traces <- unlist(traces, recursive = FALSE)
     n_traces <- length(all_traces)
 
-    complete_traces <- Filter(function(x) class(x) == "genthat_trace", all_traces)
-    n_complete_traces <- length(complete_traces)
+    trace_classes <- sapply(all_traces, function(x) {
+      switch(class(x),
+        genthat_trace=1,
+        genthat_trace_error=2,
+        genthat_trace_entry=3)
+    })
 
-    if (length(complete_traces) == 0) {
-        message("No complete traces for ", package)
-        return(data_frame(package, n_traces, n_complete_traces=0, n_unique_traces=0))
-    }
+    n_complete_traces <- length(trace_classes[trace_classes == 1])
+    n_error_traces <- length(trace_classes[trace_classes == 2])
+    n_entry_traces <- length(trace_classes[trace_classes == 3])
 
-    message("Loading ", package, " digests ...")
-    dfs <- pblapply(complete_traces, function(x) data_frame(fun=str_c(x$pkg, ":::", x$fun), digest=digest(x, algo ="sha1")))
+    message("Computing ", package, " digests ...")
+    dfs <- pblapply(all_traces, function(x) data_frame(fun=str_c(x$pkg, ":::", x$fun), digest=digest(x, algo="sha1"), clazz=class(x)))
 
     df <- bind_rows(dfs)
 
-    ddf <- df %>% count(digest)
-    n_unique_traces <- ddf %>% nrow()
+    n_unique_traces <- df %>% distinct(digest) %>% nrow()
 
-    #ddf %>% count(n) %>% print(n=20)
-
-    data_frame(package, n_traces, n_complete_traces, n_unique_traces)
+    data_frame(package, n_traces, n_complete_traces, n_error_traces, n_entry_traces, n_unique_traces)
 }
 
-trace_dirs <- list.dirs("~/genthat-package-tracing/runs/cran-top-100/tracing", recursive = FALSE, full.names = TRUE)
-trace_dirs <- list.dirs("~/genthat-package-tracing/runs/cran-top-100/tracing/dplyr", recursive = FALSE, full.names = TRUE)
-trace_dirs <- list.dirs("~/genthat-package-tracing/runs/cran-top-100-2/tracing", recursive = FALSE, full.names = TRUE)
+#trace_dirs <- list.dirs("~/genthat-package-tracing/runs/cran-top-100/tracing", recursive = FALSE, full.names = TRUE)
+#trace_dirs <- list.dirs("~/genthat-package-tracing/runs/cran-top-100-2/tracing/stringr", recursive = FALSE, full.names = TRUE)
+#trace_dirs <- list.dirs("~/genthat-package-tracing/runs/cran-top-100-2/tracing", recursive = FALSE, full.names = TRUE)
+
+args <- commandArgs(trailingOnly=TRUE)
+dir <- if (length(args) == 1) args[1] else getwd()
+trace_dirs <- list.dirs(dir, recursive = FALSE, full.names = TRUE)
 #trace_dirs <- sample(trace_dirs, size = 2)
 
 registerDoParallel(cores=8)

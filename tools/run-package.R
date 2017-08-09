@@ -17,10 +17,10 @@ default_or_val <- function(val, default) {
     }
 }
 
-do_trace_package <- function(package, type, clean) {
+do_trace_package <- function(package, type) {
     time_stamp <- Sys.time()
 
-    run <- genthat::run_package(package, types=type, quiet=FALSE, clean=clean)
+    run <- genthat::run_package(package, types=type, quiet=FALSE)
 
     row <- data_frame(
         time_stamp,
@@ -47,7 +47,6 @@ option_list <-
         make_option("--db-password", type="character", help="DB password", metavar="PASSWORD"),
         make_option("--package", type="character", help="Package to trace", metavar="PATH"),
         make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
-        make_option("--no-clean", help="Leave the temporary files in place", action="store_true", default=FALSE),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE)
     )
 
@@ -64,7 +63,6 @@ opt <- {
 
 package <- opt$package
 type <- match.arg(opt$type, c("examples", "tests", "vignettes"), several.ok=FALSE)
-clean <- !opt$`no-clean`
 
 options(genthat.debug=opt$`debug`)
 
@@ -76,6 +74,7 @@ db <-
         port=opt$`db-port`,
         user=opt$`db-user`,
         password=opt$`db-password`
+
     )
 
 db_info <- dbGetInfo(db)
@@ -84,7 +83,7 @@ message("Connected to ", db_info$dbname, "@", db_info$conType)
 tryCatch({
     message("Running ", package, " ", type)
 
-    time <- system.time(row <- do_trace_package(package, type, clean))
+    time <- system.time(row <- do_trace_package(package, type))
 
     i <- 0
     while(i < 3) {

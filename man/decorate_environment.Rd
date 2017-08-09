@@ -7,8 +7,12 @@
 decorate_environment(envir)
 }
 \arguments{
-\item{envir}{an environment that shall be decorated}
+\item{envir}{an environment that shall be decorated or a character scalar
+that will be resolved using `as.environment("package:....")`. In the
+latter case, the package will also be loaded in the case it has not been
+loaded yet.}
 }
 \description{
-Decorates all symbols form the given environment for which `is.function` is `TRUE`.
+Decorates all symbols form the given environment for which
+    `is.function` is `TRUE`.
 }

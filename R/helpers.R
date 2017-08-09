@@ -88,6 +88,10 @@ zip <- function(...) {
     mapply(list, ..., SIMPLIFY=FALSE)
 }
 
+list_contains <- function(l, x) {
+    any(sapply(l, identical, x))
+}
+
 reduce <- function(X, FUN, init, ...) {
     Reduce(function(a, b) FUN(a, b, ...), init=init, X)
 }
@@ -317,3 +321,5 @@ get_function_package_name <- function(fun) {
         pkg_name
     }
 }
+
+
