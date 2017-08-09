@@ -1,0 +1,15 @@
+---
+title: "Sample Package Vignette"
+author: "Hoe Doe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Sample Package Vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r}
+library(samplepkg)
+my_add(1, 2)
+```

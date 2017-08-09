@@ -22,6 +22,7 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             output_dir=".",
                             working_dir=tempfile(pattern="gen_from_package-"),
                             batch_size=0,
+                            quiet=TRUE,
                             lib_paths=NULL) {
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(length(output_dir) == 1)
@@ -32,12 +33,12 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     output_dir <- normalizePath(output_dir, mustWork=TRUE)
     working_dir <- normalizePath(working_dir, mustWork=TRUE)
     pkg_dir <- find.package(pkg, lib_paths)
-    stats_file <- file.path(output_dir, "genthat-exports.csv")
+    stats_file <- file.path(working_dir, "genthat-exports.csv")
 
     site_file_code <- genthat_tracing_preamble(
         pkg,
         output_dir,
-        output_prefix=pkg,
+        output_prefix=paste0(pkg, "-"),
         stats_file=stats_file,
         batch_size=batch_size
     )
@@ -45,11 +46,11 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     site_file <- tempfile()
     cat(site_file_code, file=site_file)
 
-    runner <- function(script) {
-        run_r_script(script, site_file=site_file, lib_paths=lib_paths)
+    runner <- function(script, quiet) {
+        run_r_script(script, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
     }
 
-    run <- run_package(pkg, pkg_dir, types, working_dir, runner)
+    run <- run_package(pkg, pkg_dir, types, working_dir, quiet=quiet, runner)
 
     traces <- if (file.exists(stats_file)) {
         read_stats_file(stats_file)
@@ -107,19 +108,19 @@ export_traces <- function(traces, output_dir,
 
     stats <- do.call(rbind, batches)
 
-    if (!is.null(stats_file)) {
+    if (!is.null(stats_file) && nrow(stats) > 0) {
         write.table(
             stats,
             file=stats_file,
             row.names=FALSE,
-            append=TRUE,
             col.names=FALSE,
+            append=TRUE,
             qmethod="double",
             sep=","
         )
     }
 
-    stats[, "filename"]
+    stats$filename
 }
 
 genthat_tracing_preamble <- function(pkgs,
@@ -141,8 +142,8 @@ genthat_tracing_preamble <- function(pkgs,
         paste0(
             '  genthat::export_traces(genthat::copy_traces(genthat::get_tracer()), ',
             '"', output_dir, '", ',
-            'prefix="', output_prefix, '"',
-            'batch_size=', batch_size, '"',
+            'prefix="', output_prefix, '",',
+            'batch_size=', batch_size, ',',
             'stats_file="', stats_file, '"',
             ')'
         ),
@@ -191,5 +192,10 @@ is_debug_enabled <- function() {
 #' @export
 #'
 read_stats_file <- function(fname) {
-    read.csv(fname, header=F, stringsAsFactors=FALSE, col.names=c("timestamp", "file_name", "n_traces"))
+    read.csv(
+        fname,
+        header=FALSE,
+        stringsAsFactors=FALSE,
+        col.names=c("timestamp", "filename", "n_traces")
+    )
 }

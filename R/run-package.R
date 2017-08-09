@@ -42,7 +42,7 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
 
             fun(pkg, pkg_dir, working_dir=cwd, quiet=quiet, runner=runner)
         }, empty=function(e) {
-            message("No", type, "for package", pkg)
+            message("No ", type, " for package ", pkg)
 
             -2
         }, error=function(e) {
