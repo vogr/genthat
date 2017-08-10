@@ -24,6 +24,7 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             batch_size=0,
                             quiet=TRUE,
                             lib_paths=NULL) {
+
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(length(output_dir) == 1)
     stopifnot(dir.exists(output_dir) || dir.create(output_dir))
@@ -35,19 +36,16 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     pkg_dir <- find.package(pkg, lib_paths)
     stats_file <- file.path(working_dir, "genthat-exports.csv")
 
-    site_file_code <- genthat_tracing_preamble(
-        pkg,
-        output_dir,
-        output_prefix=paste0(pkg, "-"),
-        stats_file=stats_file,
-        batch_size=batch_size
-    )
+    runner <- function(fname, quiet) {
+        site_file <- genthat_tracing_site_file(
+            pkg,
+            output_dir,
+            tag=tools::file_path_sans_ext(basename(fname)),
+            stats_file=stats_file,
+            batch_size=batch_size
+        )
 
-    site_file <- tempfile()
-    cat(site_file_code, file=site_file)
-
-    runner <- function(script, quiet) {
-        run_r_script(script, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
+        run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
     }
 
     run <- run_package(pkg, pkg_dir, types, working_dir, quiet=quiet, runner)
@@ -64,7 +62,7 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 #' @export
 #'
 export_traces <- function(traces, output_dir,
-                         prefix="",
+                         tag=NA,
                          stats_file=NULL,
                          batch_size=0) {
 
@@ -72,6 +70,7 @@ export_traces <- function(traces, output_dir,
     stopifnot(length(output_dir) == 1)
     stopifnot(dir.exists(output_dir) || dir.create(output_dir))
     stopifnot(is.null(stats_file) || (is.character(stats_file) && length(stats_file) == 1))
+    stopifnot(is.na(tag) || (is.character(tag) && length(tag) == 1 && nchar(tag) > 0))
     stopifnot(batch_size >= 0)
 
     n_traces <- length(traces)
@@ -85,21 +84,27 @@ export_traces <- function(traces, output_dir,
         batch_size <- n_traces
     }
 
+    file_prefix <- if (is.na(tag)) {
+        ""
+    } else {
+        paste0(tag, "-")
+    }
+
     n_batches <- ceiling(n_traces / batch_size)
-    n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(prefix, "*", ".RDS"))))
+    n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(file_prefix, "*", ".RDS"))))
 
     batches <- lapply(1:n_batches, function(i) {
         lower <- (i - 1) * batch_size + 1
         upper <- min(n_traces, lower + batch_size)
 
-        fname <- file.path(output_dir, paste0(prefix, (i + n_existing), ".RDS"))
+        fname <- file.path(output_dir, paste0(file_prefix, (i + n_existing), ".RDS"))
         batch <- traces[lower:upper]
 
-        message("Saving traces [", i,"/", n_batches, "] to: ", fname)
+        message("Saving traces [", i, "/", n_batches, "] to: ", fname)
         saveRDS(batch, fname)
 
         data.frame(
-            timestamp=as.character(Sys.time()),
+            tag=tag,
             filename=fname,
             n_traces=length(batch),
             stringsAsFactors=FALSE
@@ -123,9 +128,18 @@ export_traces <- function(traces, output_dir,
     stats$filename
 }
 
+genthat_tracing_site_file <- function(...) {
+    site_file_code <- genthat_tracing_preamble(...)
+    site_file <- tempfile()
+
+    cat(site_file_code, file=site_file)
+
+    site_file
+}
+
 genthat_tracing_preamble <- function(pkgs,
                                     output_dir,
-                                    output_prefix="",
+                                    tag="",
                                     debug=getOption("genthat.debug", FALSE),
                                     stats_file=NULL,
                                     batch_size=0) {
@@ -142,7 +156,7 @@ genthat_tracing_preamble <- function(pkgs,
         paste0(
             '  genthat::export_traces(genthat::copy_traces(genthat::get_tracer()), ',
             '"', output_dir, '", ',
-            'prefix="', output_prefix, '",',
+            'tag="', tag, '",',
             'batch_size=', batch_size, ',',
             'stats_file="', stats_file, '"',
             ')'
@@ -196,6 +210,6 @@ read_stats_file <- function(fname) {
         fname,
         header=FALSE,
         stringsAsFactors=FALSE,
-        col.names=c("timestamp", "filename", "n_traces")
+        col.names=c("tag", "filename", "n_traces")
     )
 }

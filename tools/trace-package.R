@@ -22,30 +22,17 @@ default_or_val <- function(val, default) {
 do_trace_package <- function(package, type, traces_dir, batch_size) {
     time_stamp <- Sys.time()
 
-    trace_result <- genthat::gen_from_package(
-        package, type, traces_dir, batch_size=batch_size, quiet=FALSE
+    result <- genthat::gen_from_package(
+        package, type, traces_dir, quiet=FALSE, batch_size=batch_size
     )
 
-    # the ret variable from the code supplied above
-    run_pkg <- trace_result$run$image$ret[[type]]
+    run <- result$run
+    traces <- result$traces
 
     # columns
-    time_stamp <- time_stamp
-    type <- type
-    package <- package
-
-    n_traced_functions <- length(trace_result$traced_functions)
-    traced_functions <- paste(trace_result$traced_functions, collapse="\n")
-    decorating_time <- default_or_val(trace_result$decorating_time, 0)
-
-    n_traces <- default_or_val(trace_result$n_traces, 0)
-    trace_files <- paste(trace_result$trace_files, collapse="\n")
-    trace_size <- sum(file.size(default_or_val(trace_result$trace_files, character())))
-    trace_saving_time <- default_or_val(trace_result$saving_time, 0)
-
-    trace_status <- trace_result$run$status
-    trace_output <- trace_result$run$output
-    trace_time <- trace_result$run$elapsed
+    n_traces <- default_or_val(sum(traces$n_traces), 0)
+    trace_files <- paste(traces$filename, collapse="\n")
+    trace_size <- sum(file.size(default_or_val(traces$filename, character())))
 
     run_package_status <- default_or_val(run_pkg$status, 0)
     run_package_time <- default_or_val(run_pkg$elapsed, 0)

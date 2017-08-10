@@ -5,7 +5,7 @@ skip_if_not_integration_test <- function() {
 }
 
 test_that("gen_from_package works on stringr", {
-#    skip_if_not_integration_test()
+    skip_if_not_integration_test()
 
     withr::with_temp_libpaths({
         install.packages(

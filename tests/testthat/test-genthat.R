@@ -1,8 +1,4 @@
-## context("genthat integration tests")
-
-if (!requireNamespace("devtools", quietly=TRUE)) {
-    stop("devtools needed for this function to work. Please install it.", call. = FALSE)
-}
+context("genthat tests")
 
 test_that("tracing control work", {
     capture <- list()
@@ -44,12 +40,13 @@ test_that("export_traces work", {
     expect_equal(nrow(stats), 1)
     expect_equal(stats$filename, file.path(output_dir, "1.RDS"))
     expect_equal(stats$n_traces, 1)
+    expect_equal(stats$tag, NA)
 
     rds <- readRDS(file.path(output_dir, "1.RDS"))
     expect_length(rds, 1)
     expect_equal(rds[[1]], trace_1)
 
-    ## this should the the append
+    ## this should append
     export_traces(list(trace_2, trace_3), output_dir=output_dir, stats_file=stats_file)
 
     expect_true(file.exists(stats_file))
@@ -59,6 +56,7 @@ test_that("export_traces work", {
     expect_equal(nrow(stats), 2)
     expect_equal(stats$filename, file.path(output_dir, c("1.RDS", "2.RDS")))
     expect_equal(stats$n_traces, c(1, 2))
+    expect_equal(stats$tag, c(NA, NA))
 
     rds <- readRDS(file.path(output_dir, "2.RDS"))
     expect_length(rds, 2)
@@ -77,7 +75,9 @@ test_that("gen_from_package work", {
         expect_equal(ret$run$tests, c("testthat.R"=0))
         expect_equal(ret$run$vignettes, c("my-vignette.R"=0))
 
-        expect_equal(ret$traces$filename, file.path(output_dir, paste0("samplepkg-", 1:4, ".RDS")))
+        tags <- c("My-add.Rd", "My-call.Rd", "testthat", "my-vignette")
+        expect_equal(ret$traces$tag, tags)
+        expect_equal(ret$traces$filename, file.path(output_dir, paste0(tags, "-1.RDS")))
         # number of traces in the individual files - cf. above
         expect_equal(ret$traces$n_traces, c(2, 4, 6, 1))
     })
