@@ -64,7 +64,7 @@ test_that("export_traces work", {
     expect_true(list_contains(rds, trace_3))
 })
 
-test_that("gen_from_package work", {
+test_that("gen_from_package works on a sample package", {
     withr::with_temp_libpaths({
         devtools::install_local("samplepkg", quiet=TRUE, build_vignettes=TRUE)
 
@@ -77,6 +77,19 @@ test_that("gen_from_package work", {
         expect_equal(ret$filename, file.path(output_dir, paste0(tags, "-1.RDS")))
         expect_equal(ret$n_traces, c(2, 4, 6, 1))
         expect_equal(ret$status, rep(0, 4))
+        expect_equal(ret$running_time > 0, rep(TRUE, 4))
+    })
+})
+
+test_that("gen_from_package works on an empty package", {
+    withr::with_temp_libpaths({
+        devtools::install_local("emptypkg", quiet=TRUE, build_vignettes=TRUE)
+
+        output_dir <- tempfile()
+
+        ret <- gen_from_package("emptypkg", output_dir=output_dir, quiet=TRUE)
+
+        expect_equal(nrow(ret), 0)
     })
 })
 

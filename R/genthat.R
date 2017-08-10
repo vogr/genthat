@@ -36,32 +36,60 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     pkg_dir <- find.package(pkg, lib_paths)
     stats_file <- file.path(working_dir, "genthat-exports.csv")
 
+    stopwatch <- new.env(parent=emptyenv())
+
     runner <- function(type) {
         function(fname, quiet) {
+            tag <- paste0(type, ".", tools::file_path_sans_ext(basename(fname)))
             site_file <- genthat_tracing_site_file(
                 pkg,
                 output_dir,
-                tag=paste0(type, ".", tools::file_path_sans_ext(basename(fname))),
+                tag=tag,
                 stats_file=stats_file,
                 batch_size=batch_size
             )
 
-            run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
+            time <- system.time(
+                ret <- run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
+            )
+
+            assign(tag, time["elapsed"], envir=stopwatch)
+
+            ret
         }
     }
 
     runs <- lapply(types, function(type) run_package(pkg, pkg_dir, type, working_dir, quiet=quiet, runner(type)))
+    runs <- unlist(runs)
+
+    if (all(is.na(runs))) {
+        # nothing has been run we need to return an empty frame
+        return(data.frame(
+            tag=character(),
+            filename=character(),
+            n_traces=integer(),
+            status=integer(),
+            running_time=numeric()
+        ))
+    }
 
     if (!file.exists(stats_file)) {
         stop("Tracing failed - cannot find the stats file `", stats_file, "'")
     }
 
     traces <- read_stats_file(stats_file)
-    runs <- unlist(runs)
+
+    ## extract times
+    times_list <- as.list(stopwatch)
+    times <- data.frame(tag=names(times_list), running_time=as.numeric(times_list), stringsAsFactors=FALSE, row.names=NULL)
+
+    ## extract status
     tags <- tools::file_path_sans_ext(names(runs))
     status <- data.frame(tag=tags, status=runs, stringsAsFactors=FALSE, row.names=NULL)
 
-    merge(traces, status, by="tag")
+    df <- merge(traces, status, by="tag")
+    df <- merge(df, times, by="tag")
+    df
 }
 
 #' @export
@@ -80,6 +108,11 @@ export_traces <- function(traces, output_dir,
 
     n_traces <- length(traces)
     if (n_traces == 0) {
+        # yet we need to stat the file
+        if (!is.null(stats_file)) {
+            writeLines(character(0), stats_file)
+        }
+
         return(invisible(character()))
     } else {
         message("Saving ", n_traces, " traces into ", output_dir)

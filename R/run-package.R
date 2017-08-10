@@ -44,7 +44,7 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
         }, empty=function(e) {
             message("No ", type, " for package ", pkg)
 
-            -2
+            NA
         }, error=function(e) {
             message("Running failed: ", e$message)
 
