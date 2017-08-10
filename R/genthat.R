@@ -36,27 +36,32 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     pkg_dir <- find.package(pkg, lib_paths)
     stats_file <- file.path(working_dir, "genthat-exports.csv")
 
-    runner <- function(fname, quiet) {
-        site_file <- genthat_tracing_site_file(
-            pkg,
-            output_dir,
-            tag=tools::file_path_sans_ext(basename(fname)),
-            stats_file=stats_file,
-            batch_size=batch_size
-        )
+    runner <- function(type) {
+        function(fname, quiet) {
+            site_file <- genthat_tracing_site_file(
+                pkg,
+                output_dir,
+                tag=paste0(type, ".", tools::file_path_sans_ext(basename(fname))),
+                stats_file=stats_file,
+                batch_size=batch_size
+            )
 
-        run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
+            run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
+        }
     }
 
-    run <- run_package(pkg, pkg_dir, types, working_dir, quiet=quiet, runner)
+    runs <- lapply(types, function(type) run_package(pkg, pkg_dir, type, working_dir, quiet=quiet, runner(type)))
 
-    traces <- if (file.exists(stats_file)) {
-        read_stats_file(stats_file)
-    } else {
-        data.frame()
+    if (!file.exists(stats_file)) {
+        stop("Tracing failed - cannot find the stats file `", stats_file, "'")
     }
 
-    list(run=run, traces=traces)
+    traces <- read_stats_file(stats_file)
+    runs <- unlist(runs)
+    tags <- tools::file_path_sans_ext(names(runs))
+    status <- data.frame(tag=tags, status=runs, stringsAsFactors=FALSE, row.names=NULL)
+
+    merge(traces, status, by="tag")
 }
 
 #' @export
@@ -202,7 +207,6 @@ is_debug_enabled <- function() {
     isTRUE(getOption("genthat.debug"))
 }
 
-
 #' @export
 #'
 read_stats_file <- function(fname) {
@@ -212,4 +216,8 @@ read_stats_file <- function(fname) {
         stringsAsFactors=FALSE,
         col.names=c("tag", "filename", "n_traces")
     )
+}
+
+run_integration_tests <- function() {
+    withr::with_options(list(genthat.run_itests=T), devtools::test(filter="integration"))
 }

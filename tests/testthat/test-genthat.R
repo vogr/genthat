@@ -68,18 +68,15 @@ test_that("gen_from_package work", {
     withr::with_temp_libpaths({
         devtools::install_local("samplepkg", quiet=TRUE, build_vignettes=TRUE)
 
+        tags <- c("examples.My-add.Rd", "examples.My-call.Rd", "tests.testthat", "vignettes.my-vignette")
         output_dir <- tempfile()
+
         ret <- gen_from_package("samplepkg", output_dir=output_dir, quiet=TRUE)
 
-        expect_equal(ret$run$examples, c("My-add.Rd.R"=0, "My-call.Rd.R"=0))
-        expect_equal(ret$run$tests, c("testthat.R"=0))
-        expect_equal(ret$run$vignettes, c("my-vignette.R"=0))
-
-        tags <- c("My-add.Rd", "My-call.Rd", "testthat", "my-vignette")
-        expect_equal(ret$traces$tag, tags)
-        expect_equal(ret$traces$filename, file.path(output_dir, paste0(tags, "-1.RDS")))
-        # number of traces in the individual files - cf. above
-        expect_equal(ret$traces$n_traces, c(2, 4, 6, 1))
+        expect_equal(ret$tag, tags)
+        expect_equal(ret$filename, file.path(output_dir, paste0(tags, "-1.RDS")))
+        expect_equal(ret$n_traces, c(2, 4, 6, 1))
+        expect_equal(ret$status, rep(0, 4))
     })
 })
 
