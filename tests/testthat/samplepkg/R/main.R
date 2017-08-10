@@ -1,4 +1,9 @@
+#' @name My public
+#' @title A public function
+#'
 #' @export
+#' @examples
+#' 1+1 # just some code which does not use any code from this package
 my_public <- function(x) {
     paste("public:", x)
 }
@@ -9,7 +14,7 @@ my_private <- function(x) {
 
 #' @name My add
 #' @title Adds two numbers
-#'n
+#'
 #' @export
 #' @examples
 #' my_add(1,2)

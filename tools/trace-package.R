@@ -5,70 +5,24 @@ options(error=function() { traceback(3); quit(status=1, save="no") })
 suppressPackageStartupMessages(library(DBI))
 suppressPackageStartupMessages(library(RMySQL))
 suppressPackageStartupMessages(library(optparse))
-suppressPackageStartupMessages(library(knitr))
 suppressPackageStartupMessages(suppressWarnings(library(dplyr)))
+suppressPackageStartupMessages(library(genthat))
 
-tryCatch(library(genthat), error=function(e) devtools::load_all())
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
-default_or_val <- function(val, default) {
-    if (is.null(val)) {
-        default
-    } else {
-        val
-    }
-}
-
-do_trace_package <- function(package, type, traces_dir, batch_size) {
-    time_stamp <- Sys.time()
-
+trace_package <- function(package, type, traces_dir, batch_size) {
     result <- genthat::gen_from_package(
         package, type, traces_dir, quiet=FALSE, batch_size=batch_size
     )
 
-    run <- result$run
-    traces <- result$traces
-
-    # columns
-    n_traces <- default_or_val(sum(traces$n_traces), 0)
-    trace_files <- paste(traces$filename, collapse="\n")
-    trace_size <- sum(file.size(default_or_val(traces$filename, character())))
-
-    run_package_status <- default_or_val(run_pkg$status, 0)
-    run_package_time <- default_or_val(run_pkg$elapsed, 0)
-
-    row <- data_frame(
-        time_stamp,
-        type,
-        package,
-        n_traced_functions,
-        traced_functions,
-        decorating_time,
-        n_traces,
-        trace_files,
-        trace_size,
-        trace_saving_time,
-        trace_status,
-        trace_output,
-        trace_time,
-        run_package_status,
-        run_package_time
-    )
-
-    field_types <- as.list(sapply(names(row), function(x) dbDataType(RMySQL::MySQL(), row[[x]])))
-    field_types$trace_output <- "longtext"
-    field_types$trace_status <- "integer"
-    field_types$run_package_status <- "integer"
-
-    attr(row, "types") <- field_types
-    row
+    as_data_frame(result)
 }
 
-store_stats <- function(db, stats) {
+store_stats <- function(db, stats, types) {
     i <- 0
     while(i < 3) {
         tryCatch({
-            dbWriteTable(db, name="traces", value=row, append=TRUE, row.names=FALSE, field.types=attr(row, "types"))
+            dbWriteTable(db, name="traces", value=stats, append=TRUE, row.names=FALSE, field.types=types)
             break()
         }, error=function(e) {
             message("Storing to DB did not work: ", e$message, " - retrying")
@@ -131,30 +85,23 @@ if (is.null(opt$`db-name`)) {
 tryCatch({
     message("Tracing ", package, " ", type, " (batch_size: ", batch_size, ") in ", traces_dir)
 
-    time <- system.time(row <- do_trace_package(package, type, traces_dir, batch_size))
+    ts <- Sys.time()
+    time <- system.time(rows <- trace_package(package, type, traces_dir, batch_size))
+    time <- time["elapsed"]
 
     if (!is.null(db)) {
-        row <- cbind(row, genthat=genthat_version)
-        store_stats(db, row)
+        rows <- rows %>%
+            mutate(ts=ts, genthat=genthat_version) %>%
+            select(ts, genthat, everything()) %>%
+            print(width=Inf)
+
+        types <- as.list(sapply(names(rows), function(x) dbDataType(RMySQL::MySQL(), rows[[x]])))
+        types$status <- "integer"
+
+        store_stats(db, rows, types)
     }
 
-    message("\nTracing of ", package, " ", type, " finished in ", time["elapsed"])
-    row %>%
-        select(
-            package,
-            type,
-            n_traced_functions,
-            decorating_time,
-            n_traces,
-            trace_size,
-            trace_saving_time,
-            trace_status,
-            trace_time,
-            run_package_status,
-            run_package_time
-        ) %>%
-        tidyr::gather() %>%
-        apply(1, function(x) cat(x["key"], ":", x["value"], "\n"))
+    message("\nTracing of ", package, " ", type, " finished in ", time, " with ", sum(rows$n_traces), " traces")
 
     invisible(NULL)
 }, error=function(e) {

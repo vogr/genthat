@@ -252,10 +252,6 @@ capture <- function(expr, split=FALSE) {
     )
 }
 
-read_text_file <- function(f) {
-    paste(readLines(f), collapse="\n")
-}
-
 resolve_package_name <- function(package) {
     # TODO: no a very good heuristics (read manually description using read.dcf)
     if (file.exists(package) && endsWith(package, ".tar.gz")) {

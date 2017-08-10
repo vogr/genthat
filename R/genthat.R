@@ -38,58 +38,66 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
     stopwatch <- new.env(parent=emptyenv())
 
-    runner <- function(type) {
-        function(fname, quiet) {
-            tag <- paste0(type, ".", tools::file_path_sans_ext(basename(fname)))
-            site_file <- genthat_tracing_site_file(
-                pkg,
-                output_dir,
-                tag=tag,
-                stats_file=stats_file,
-                batch_size=batch_size
+    runner <- function(fname, quiet) {
+        tag <- tools::file_path_sans_ext(basename(fname))
+        site_file <- genthat_tracing_site_file(
+            pkg,
+            output_dir,
+            tag=tag,
+            stats_file=stats_file,
+            batch_size=batch_size
+        )
+
+        time <- system.time(
+            ret <- run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
+        )
+
+        assign(tag, time["elapsed"], envir=stopwatch)
+
+        ret
+    }
+
+    runs <- lapply(types, function(type) {
+        run <- run_package(pkg, pkg_dir, type, working_dir, quiet=quiet, runner)
+        run <- run[[type]]
+
+        df <- if (all(is.na(run))) {
+            # nothing has been run we need to return an empty frame
+            data.frame(
+                tag=NA,
+                filename=NA,
+                n_traces=NA,
+                status=NA,
+                running_time=NA
             )
+        } else {
+            if (!file.exists(stats_file)) {
+                stop("Tracing failed - cannot find the stats file `", stats_file, "'")
+            }
 
-            time <- system.time(
-                ret <- run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
-            )
+            ## extract trace stats
+            traces <- read_stats_file(stats_file)
+            file.remove(stats_file)
 
-            assign(tag, time["elapsed"], envir=stopwatch)
+            ## extract times
+            times_list <- as.list(stopwatch)
+            rm(list=ls(stopwatch), envir=stopwatch)
 
-            ret
+            times <- data.frame(tag=names(times_list), running_time=as.numeric(times_list), stringsAsFactors=FALSE, row.names=NULL)
+
+            ## extract status
+            tags <- tools::file_path_sans_ext(names(run))
+            status <- data.frame(tag=tags, status=run, stringsAsFactors=FALSE, row.names=NULL)
+
+            df <- merge(traces, status, by="tag", all.y=T)
+            df <- merge(df, times, by="tag", all.y=T)
+            df
         }
-    }
 
-    runs <- lapply(types, function(type) run_package(pkg, pkg_dir, type, working_dir, quiet=quiet, runner(type)))
-    runs <- unlist(runs)
+        cbind(data.frame(package=pkg, type=type, stringsAsFactors=FALSE, row.names=NULL), df)
+    })
 
-    if (all(is.na(runs))) {
-        # nothing has been run we need to return an empty frame
-        return(data.frame(
-            tag=character(),
-            filename=character(),
-            n_traces=integer(),
-            status=integer(),
-            running_time=numeric()
-        ))
-    }
-
-    if (!file.exists(stats_file)) {
-        stop("Tracing failed - cannot find the stats file `", stats_file, "'")
-    }
-
-    traces <- read_stats_file(stats_file)
-
-    ## extract times
-    times_list <- as.list(stopwatch)
-    times <- data.frame(tag=names(times_list), running_time=as.numeric(times_list), stringsAsFactors=FALSE, row.names=NULL)
-
-    ## extract status
-    tags <- tools::file_path_sans_ext(names(runs))
-    status <- data.frame(tag=tags, status=runs, stringsAsFactors=FALSE, row.names=NULL)
-
-    df <- merge(traces, status, by="tag")
-    df <- merge(df, times, by="tag")
-    df
+    do.call(rbind, runs)
 }
 
 #' @export
@@ -106,12 +114,23 @@ export_traces <- function(traces, output_dir,
     stopifnot(is.na(tag) || (is.character(tag) && length(tag) == 1 && nchar(tag) > 0))
     stopifnot(batch_size >= 0)
 
+    write_stats <- function(stats) {
+        if (!is.null(stats_file)) {
+            write.table(
+                stats,
+                file=stats_file,
+                row.names=FALSE,
+                col.names=FALSE,
+                append=TRUE,
+                qmethod="double",
+                sep=","
+            )
+        }
+    }
+
     n_traces <- length(traces)
     if (n_traces == 0) {
-        # yet we need to stat the file
-        if (!is.null(stats_file)) {
-            writeLines(character(0), stats_file)
-        }
+        write_stats(data.frame(tag=tag, filename=NA, n_traces=0, stringsAsFactors=FALSE))
 
         return(invisible(character()))
     } else {
@@ -131,9 +150,9 @@ export_traces <- function(traces, output_dir,
     n_batches <- ceiling(n_traces / batch_size)
     n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(file_prefix, "*", ".RDS"))))
 
-    batches <- lapply(1:n_batches, function(i) {
+    fnames <- sapply(1:n_batches, function(i) {
         lower <- (i - 1) * batch_size + 1
-        upper <- min(n_traces, lower + batch_size)
+        upper <- min(n_traces, lower + batch_size - 1)
 
         fname <- file.path(output_dir, paste0(file_prefix, (i + n_existing), ".RDS"))
         batch <- traces[lower:upper]
@@ -141,29 +160,21 @@ export_traces <- function(traces, output_dir,
         message("Saving traces [", i, "/", n_batches, "] to: ", fname)
         saveRDS(batch, fname)
 
-        data.frame(
-            tag=tag,
-            filename=fname,
-            n_traces=length(batch),
-            stringsAsFactors=FALSE
-        )
-    })
+        fname
+    }, USE.NAMES=FALSE)
 
-    stats <- do.call(rbind, batches)
+    stats <- data.frame(
+        tag=tag,
+        filename=paste(fnames, collapse="\n"),
+        n_traces=n_traces,
 
-    if (!is.null(stats_file) && nrow(stats) > 0) {
-        write.table(
-            stats,
-            file=stats_file,
-            row.names=FALSE,
-            col.names=FALSE,
-            append=TRUE,
-            qmethod="double",
-            sep=","
-        )
-    }
+        stringsAsFactors=FALSE,
+        row.names=NULL
+    )
 
-    stats$filename
+    write_stats(stats)
+
+    fnames
 }
 
 genthat_tracing_site_file <- function(...) {
