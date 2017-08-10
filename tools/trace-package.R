@@ -94,7 +94,11 @@ tryCatch({
             print(width=Inf)
 
         types <- as.list(sapply(names(rows), function(x) dbDataType(RMySQL::MySQL(), rows[[x]])))
+        types$tag <- "text"
+        types$filename <- "text"
+        types$n_traces <- "integer"
         types$status <- "integer"
+        types$running_time <- "double"
 
         store_stats(db, rows, types)
     }
