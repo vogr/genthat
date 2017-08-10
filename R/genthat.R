@@ -205,8 +205,8 @@ genthat_tracing_preamble <- function(pkgs,
         paste0(
             '  genthat::export_traces(genthat::copy_traces(genthat::get_tracer()), ',
             '"', output_dir, '", ',
-            'tag="', tag, '",',
-            'batch_size=', batch_size, ',',
+            'tag="', tag, '", ',
+            'batch_size=', batch_size, ', ',
             'stats_file="', stats_file, '"',
             ')'
         ),

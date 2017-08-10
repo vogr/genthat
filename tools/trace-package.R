@@ -10,14 +10,6 @@ suppressPackageStartupMessages(library(genthat))
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
-trace_package <- function(package, type, traces_dir, batch_size) {
-    result <- genthat::gen_from_package(
-        package, type, traces_dir, quiet=FALSE, batch_size=batch_size
-    )
-
-    as_data_frame(result)
-}
-
 store_stats <- function(db, stats, types) {
     i <- 0
     while(i < 3) {
@@ -42,7 +34,8 @@ option_list <-
         make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
         make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
-        make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE)
+        make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
+        make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
     )
 
 parser <- OptionParser(option_list=option_list)
@@ -60,6 +53,7 @@ package <- opt$package
 type <- match.arg(opt$type, c("examples", "tests", "vignettes"), several.ok=FALSE)
 traces_dir <- opt$output
 batch_size <- opt$`batch-size`
+quiet <- opt$quiet
 
 stopifnot(batch_size > 0)
 stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
@@ -83,11 +77,15 @@ if (is.null(opt$`db-name`)) {
 }
 
 tryCatch({
-    message("Tracing ", package, " ", type, " (batch_size: ", batch_size, ") in ", traces_dir)
+    message("Tracing ", package, " ", type, " (quiet: ", quiet, ", batch_size: ", batch_size, ") in ", traces_dir)
 
     ts <- Sys.time()
-    time <- system.time(rows <- trace_package(package, type, traces_dir, batch_size))
+    time <- system.time(
+        rows <- genthat::gen_from_package(package, type, traces_dir, quiet=quiet, batch_size=batch_size)
+    )
+
     time <- time["elapsed"]
+    rows <- as_data_frame(rows)
 
     if (!is.null(db)) {
         rows <- rows %>%
