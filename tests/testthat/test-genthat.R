@@ -4,7 +4,7 @@ test_that("tracing control work", {
     capture <- list()
 
     f <- function(x,y) x + y
-    decorate_functions(f, .recorder=function(...) capture <<- list(...))
+    decorate_functions(f, record_fun=function(...) capture <<- list(...))
 
     disable_tracing()
     f(1L, 2L)
@@ -94,7 +94,6 @@ test_that("export traces merges file names", {
     expect_true(list_contains(traces, trace_1))
     expect_true(list_contains(traces, trace_2))
 })
-
 
 test_that("gen_from_package works on a sample package", {
     withr::with_temp_libpaths({

@@ -4,6 +4,7 @@
     enable_tracing()
 
     set_tracer(create_set_tracer())
+    set_decorator(create_decorator())
 
     invisible()
 }

@@ -83,7 +83,12 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
             times_list <- as.list(stopwatch)
             rm(list=ls(stopwatch), envir=stopwatch)
 
-            times <- data.frame(tag=names(times_list), running_time=as.numeric(times_list), stringsAsFactors=FALSE, row.names=NULL)
+            times <- data.frame(
+                tag=names(times_list),
+                running_time=as.numeric(times_list),
+                stringsAsFactors=FALSE,
+                row.names=NULL
+            )
 
             ## extract status
             tags <- tools::file_path_sans_ext(names(run))

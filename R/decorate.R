@@ -1,3 +1,12 @@
+#' @export
+#'
+create_decorator <- function(method=decorate_with_trycatch) {
+    structure(list(
+        method=method,
+        decorations=new.env(parent=emptyenv(), hash=TRUE)
+    ), class="decorator")
+}
+
 #' @title Decorates functions in an environment
 #'
 #' @param envir an environment that shall be decorated or a character scalar
@@ -9,7 +18,9 @@
 #'     `is.function` is `TRUE`.
 #' @export
 #'
-decorate_environment <- function(envir) {
+decorate_environment <- function(envir, decorator=get_decorator()) {
+    stopifnot(is.decorator(decorator))
+
     if (is.character(envir)) {
         stopifnot(length(envir) == 1)
         library(envir, character.only=TRUE)
@@ -43,12 +54,15 @@ decorate_environment <- function(envir) {
 #' @export
 #'
 decorate_functions <- function(..., in_env=parent.frame(),
-                              .recorder=substitute(genthat:::record_trace)) {
+                              decorator=get_decorator(),
+                              record_fun=substitute(genthat:::record_trace)) {
+    stopifnot(is.decorator(decorator))
+
     xs <- resolve_decorating_fun_args(..., in_env=in_env)
 
     decorations <- lapply(xs, function(x) {
         tryCatch({
-            decorate_function(x$fun, x$name, .recorder)
+            decorate_function(decorator, fun=x$fun, name=x$name, record_fun=record_fun)
         }, error=function(e) {
             warning("Unable to decorate `", x$name, "`: ", e$message)
         })
@@ -57,9 +71,8 @@ decorate_functions <- function(..., in_env=parent.frame(),
     invisible(decorations)
 }
 
-decorate_function <- function(fun, name, .recorder) {
-    stopifnot(is.function(fun))
-    stopifnot(is.character(name) && length(name) == 1)
+decorate_function <- function(decorator, fun, name, record_fun) {
+    stopifnot(is.decorator(decorator))
 
     # TODO: test
     if (!is.function(fun)) {
@@ -71,7 +84,7 @@ decorate_function <- function(fun, name, .recorder) {
     }
 
     # TODO: test
-    if (is_empty_str(name)) {
+    if (!is.character(name) || length(name) != 1 || nchar(name) == 0) {
         stop(fun, ": does not have name")
     }
 
@@ -79,98 +92,23 @@ decorate_function <- function(fun, name, .recorder) {
         fun
     }
 
-    pkg <- get_function_package_name(fun)
-
     if (is_debug_enabled()) {
         message("Decorating function: ", name)
     }
 
-    new_fun <- do_decorate_function(name=name, pkg=pkg, fun=fun, .recorder=.recorder)
+    pkg <- get_function_package_name(fun)
+    new_fun <- decorator$method(fun, name, pkg, record_fun)
+
+    if (is.null(attr(new_fun, "__genthat_original_fun"))) {
+        attr(new_fun, "__genthat_original_fun") <- create_duplicate(fun)
+    }
 
     reassign_function(fun, new_fun)
 
+    fqn <- paste0(pkg, ":::", name)
+    assign(fqn, fun, envir=decorator$decorations)
+
     invisible(fun)
-}
-
-
-do_decorate_function <- function(name, pkg, fun, .recorder) {
-    stopifnot(is.character(name))
-    stopifnot(is.function(fun))
-
-    if (is_decorated(fun)) {
-        return(fun)
-    }
-
-    # The `retv <- BODY` is OK because in the case of multiple expressions, it will be surrounded with `{}`.
-    # The as.list(match.call(...)) will force the arguments.
-    # TODO: is that OK?
-    # - guess so if it fails, it would fail when we create the test
-    # - need to find the exact cases...
-    new_fun <- create_function(
-        params=formals(fun),
-        body=substitute({
-            if (genthat::is_tracing_enabled()) {
-                on.exit(genthat::enable_tracing())
-
-                genthat::disable_tracing()
-
-                frame <- new.env(parent=parent.frame())
-                frame$original <- attr(sys.function(), "__genthat_original_fun")
-
-                call <- sys.call()
-                call[[1]] <- as.name("original")
-
-                tryCatch({
-                    genthat::enable_tracing()
-                    retv <- eval(call, envir=frame)
-                    genthat::disable_tracing()
-
-                    RECORDER(
-                        name=NAME,
-                        pkg=PKG,
-                        args=as.list(match.call())[-1],
-                        retv=retv,
-                        env=parent.frame()
-                    )
-
-                    retv
-                },  error=function(e) {
-                    genthat::disable_tracing()
-
-                    depth <- getOption("genthat.tryCatchDepth")
-                    env <- parent.frame(depth + 2)
-                    match_call <- match.call(
-                        definition=sys.function(-depth - 1),
-                        call=sys.call(-depth - 1),
-                        envir=env
-                    )
-
-                    RECORDER(
-                        name=NAME,
-                        pkg=PKG,
-                        args=as.list(match_call)[-1],
-                        error=e,
-                        env=env
-                    )
-
-                    stop(e)
-                })
-            } else {
-                call <- sys.call()
-                call[[1]] <- attr(sys.function(), "__genthat_original_fun")
-                eval(call)
-            }
-        }, list(
-            NAME=name,
-            PKG=pkg,
-            RECORDER=.recorder
-        )),
-        env=environment(fun),
-        attributes=list(
-            `__genthat_original_fun`=create_duplicate(fun)
-        ))
-
-    invisible(new_fun)
 }
 
 #' @title Resets decorated function back to its original
@@ -178,21 +116,24 @@ do_decorate_function <- function(name, pkg, fun, .recorder) {
 #' @description Reverts decorated functions back to their state they were before calling `decorate_functions`.
 #' @export
 #'
-reset_functions <- function(..., in_env=parent.frame()) {
+reset_functions <- function(..., in_env=parent.frame(), decorator=get_decorator()) {
+    stopifnot(is.decorator(decorator))
+
     xs <- resolve_decorating_fun_args(..., in_env=in_env)
 
     resets <- lapply(xs, function(x) {
         tryCatch({
-            reset_function(x$fun, x$name)
+            reset_function(decorator, fun=x$fun, name=x$name)
         }, error=function(e) {
-            warning("Unable to decorate `", x$name, "`: ", e$message)
+            stop("Unable to reset `", x$name, "`: ", e$message)
         })
     })
 
     invisible(resets)
 }
 
-reset_function <- function(fun, name) {
+reset_function <- function(decorator, fun, name) {
+    stopifnot(is.decorator(decorator))
     stopifnot(is.function(fun))
     stopifnot(is.character(name) && length(name) == 1)
 
@@ -207,13 +148,14 @@ reset_function <- function(fun, name) {
 
     orig_fun <- attr(fun, "__genthat_original_fun")
     reassign_function(fun, orig_fun)
+
+    pkg <- get_function_package_name(fun)
+    fqn <- paste0(pkg, ":::", name)
+    rm(list=fqn, envir=decorator$decorations)
+
     invisible(fun)
 }
 
-#' @title Checks whether a function has been already decorated
-#' @description Checks whether the given function has been decorated by `decorate_functions` call.
-#'
-#' @param fun function value
 #' @export
 #'
 is_decorated <- function(fun) {
@@ -221,6 +163,22 @@ is_decorated <- function(fun) {
 
     # TODO: make it a constant
     !is.null(attr(fun, "__genthat_original_fun"))
+}
+
+#' @export
+#'
+set_decorator <- function(decorator) {
+    stopifnot(is.decorator(decorator))
+
+    old <- get_decorator()
+    options(genthat.decorator=decorator)
+    old
+}
+
+#' @export
+#'
+get_decorator <- function() {
+    getOption("genthat.decorator")
 }
 
 resolve_decorating_fun_args <- function(..., in_env=parent.frame()) {
@@ -244,4 +202,8 @@ resolve_decorating_fun_args <- function(..., in_env=parent.frame()) {
     ret <- zip(name=names, fun=funs)
     names(ret) <- names
     ret
+}
+
+is.decorator <- function(x) {
+    inherits(x, "decorator")
 }

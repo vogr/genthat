@@ -25,7 +25,8 @@ test_that("gen_from_package works on stringr", {
         # a bit of guess :-)
         expect_true(n_traces > 500)
 
-        traces <- lapply(ret$filename, readRDS)
+        rdss <- na.omit(ret$filename)
+        traces <- lapply(rdss, readRDS)
         traces <- unlist(traces, recursive=FALSE)
         expect_equal(length(traces), n_traces)
     })
