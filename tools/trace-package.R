@@ -34,6 +34,7 @@ option_list <-
         make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
         make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
+        make_option("--timestamp", type="character", help="Timestamp", metavar="TIMESTAMP"),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
         make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
     )
@@ -54,8 +55,10 @@ type <- match.arg(opt$type, c("examples", "tests", "vignettes"), several.ok=FALS
 traces_dir <- opt$output
 batch_size <- opt$`batch-size`
 quiet <- opt$quiet
+timestamp <- opt$timestamp
 
 stopifnot(batch_size > 0)
+stopifnot(nchar(timestamp) > 0)
 stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
 
 options(genthat.debug=opt$`debug`)
@@ -79,7 +82,6 @@ if (is.null(opt$`db-name`)) {
 tryCatch({
     message("Tracing ", package, " ", type, " (quiet: ", quiet, ", batch_size: ", batch_size, ") in ", traces_dir)
 
-    ts <- Sys.time()
     time <- system.time(
         rows <- genthat::gen_from_package(package, type, traces_dir, quiet=quiet, batch_size=batch_size)
     )
@@ -89,7 +91,7 @@ tryCatch({
 
     if (!is.null(db)) {
         rows <- rows %>%
-            mutate(ts=ts, genthat=genthat_version) %>%
+            mutate(ts=timestamp, genthat=genthat_version) %>%
             select(ts, genthat, everything()) %>%
             print(width=Inf)
 

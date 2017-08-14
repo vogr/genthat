@@ -1,4 +1,4 @@
-context("genthat tests")
+context("genthat")
 
 test_that("tracing control work", {
     capture <- list()
@@ -63,17 +63,17 @@ test_that("export_traces work", {
     expect_true(list_contains(rds, trace_2))
     expect_true(list_contains(rds, trace_3))
 
-    ## this should append
+    ## this should not append
     export_traces(list(), output_dir=output_dir, stats_file=stats_file)
 
     expect_true(file.exists(stats_file))
     expect_true(file.exists(output_dir))
 
     stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 3)
-    expect_equal(stats$filename, c(file.path(output_dir, c("1.RDS", "2.RDS")), NA))
-    expect_equal(stats$n_traces, c(1, 2, 0))
-    expect_equal(stats$tag, c(NA, NA, NA))
+    expect_equal(nrow(stats), 2)
+    expect_equal(stats$filename, file.path(output_dir, c("1.RDS", "2.RDS")))
+    expect_equal(stats$n_traces, c(1, 2))
+    expect_equal(stats$tag, c(NA, NA))
 })
 
 test_that("export traces merges file names", {
@@ -94,44 +94,3 @@ test_that("export traces merges file names", {
     expect_true(list_contains(traces, trace_1))
     expect_true(list_contains(traces, trace_2))
 })
-
-test_that("gen_from_package works on a sample package", {
-    withr::with_temp_libpaths({
-        devtools::install_local("samplepkg", quiet=TRUE, build_vignettes=TRUE)
-
-        tags <- c("My-add.Rd", "My-call.Rd", "My-public.Rd", "testthat", "my-vignette")
-        output_dir <- tempfile()
-        files <- file.path(output_dir, paste0(tags, "-1.RDS"))
-        files[3] <- NA # this one does not have any traces
-
-        ret <- gen_from_package("samplepkg", output_dir=output_dir, quiet=TRUE)
-
-        expect_equal(ret$tag, tags)
-        expect_equal(ret$filename, files)
-        expect_equal(ret$n_traces, c(2, 4, 0, 6, 1))
-        expect_equal(ret$status, rep(0, 5))
-        expect_equal(ret$running_time > 0, rep(TRUE, 5))
-        expect_equal(ret$package, rep("samplepkg", 5))
-        expect_equal(ret$type, c("examples", "examples", "examples", "tests", "vignettes"))
-    })
-})
-
-test_that("gen_from_package works on an empty package", {
-    withr::with_temp_libpaths({
-        devtools::install_local("emptypkg", quiet=TRUE, build_vignettes=TRUE)
-
-        output_dir <- tempfile()
-
-        ret <- gen_from_package("emptypkg", output_dir=output_dir, quiet=TRUE)
-
-        expect_equal(nrow(ret), 3)
-        expect_equal(ret$tag, rep(NA, 3))
-        expect_equal(ret$filename, rep(NA, 3))
-        expect_equal(ret$n_traces, rep(NA, 3))
-        expect_equal(ret$status, rep(NA, 3))
-        expect_equal(ret$running_time, rep(NA, 3))
-        expect_equal(ret$package, rep("emptypkg", 3))
-        expect_equal(ret$type, c("examples", "tests", "vignettes"))
-    })
-})
-

@@ -1,6 +1,6 @@
 ---
 title: "Sample Package Vignette"
-author: "Hoe Doe"
+author: "Joe Doe"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >

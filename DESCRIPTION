@@ -1,7 +1,7 @@
 Package: genthat
 Type: Package
 Title: A Framework for Unit Tests Generation
-Version: 0.1.2
+Version: 0.1.3
 Author: Who wrote it
 Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: Package aimed at generating testthat compatible tests.

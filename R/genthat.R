@@ -63,21 +63,15 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
         df <- if (all(is.na(run))) {
             # nothing has been run we need to return an empty frame
-            data.frame(
-                tag=NA,
-                filename=NA,
-                n_traces=NA,
-                status=NA,
-                running_time=NA
-            )
+            data.frame(tag=NA, filename=NA, n_traces=NA, status=NA, running_time=NA, row.names=NULL, stringsAsFactors=FALSE)
         } else {
-            if (!file.exists(stats_file)) {
-                stop("Tracing failed - cannot find the stats file `", stats_file, "'")
+            traces <- if (file.exists(stats_file)) {
+                read_stats_file(stats_file)
+            } else {
+                # this is a rare case, in which something has been run, but no
+                # traces were generated
+                data.frame(tag=NA, filename=NA, n_traces=0, row.names=NULL, stringsAsFactors=FALSE)
             }
-
-            ## extract trace stats
-            traces <- read_stats_file(stats_file)
-            file.remove(stats_file)
 
             ## extract times
             times_list <- as.list(stopwatch)
@@ -96,6 +90,7 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
             df <- merge(traces, status, by="tag", all.y=T)
             df <- merge(df, times, by="tag", all.y=T)
+            df$n_traces[is.na(df$n_traces)] <- 0
             df
         }
 
@@ -111,7 +106,7 @@ export_traces <- function(traces, output_dir,
                          tag=NA,
                          stats_file=NULL,
                          batch_size=0) {
-
+    saveRDS(list(sys.calls(), traces, as.list(match.call())), file.path("/tmp", basename(tempfile(pattern="export_traces", fileext=".RDS"))))
     stopifnot(is.list(traces))
     stopifnot(length(output_dir) == 1)
     stopifnot(dir.exists(output_dir) || dir.create(output_dir))
@@ -119,24 +114,8 @@ export_traces <- function(traces, output_dir,
     stopifnot(is.na(tag) || (is.character(tag) && length(tag) == 1 && nchar(tag) > 0))
     stopifnot(batch_size >= 0)
 
-    write_stats <- function(stats) {
-        if (!is.null(stats_file)) {
-            write.table(
-                stats,
-                file=stats_file,
-                row.names=FALSE,
-                col.names=FALSE,
-                append=TRUE,
-                qmethod="double",
-                sep=","
-            )
-        }
-    }
-
     n_traces <- length(traces)
     if (n_traces == 0) {
-        write_stats(data.frame(tag=tag, filename=NA, n_traces=0, stringsAsFactors=FALSE))
-
         return(invisible(character()))
     } else {
         message("Saving ", n_traces, " traces into ", output_dir)
@@ -168,16 +147,26 @@ export_traces <- function(traces, output_dir,
         fname
     }, USE.NAMES=FALSE)
 
-    stats <- data.frame(
-        tag=tag,
-        filename=paste(fnames, collapse="\n"),
-        n_traces=n_traces,
+    if (!is.null(stats_file)) {
+        stats <- data.frame(
+            tag=tag,
+            filename=paste(fnames, collapse="\n"),
+            n_traces=n_traces,
 
-        stringsAsFactors=FALSE,
-        row.names=NULL
-    )
+            stringsAsFactors=FALSE,
+            row.names=NULL
+        )
 
-    write_stats(stats)
+        write.table(
+            stats,
+            file=stats_file,
+            row.names=FALSE,
+            col.names=FALSE,
+            append=TRUE,
+            qmethod="double",
+            sep=","
+        )
+    }
 
     fnames
 }

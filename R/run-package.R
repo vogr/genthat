@@ -122,7 +122,7 @@ run_package_vignettes <- function(pkg, pkg_dir, working_dir, quiet=quiet, runner
 
     # check if there are some sources
     vinfo <- tools::pkgVignettes(pkg, source=T)
-    files <- as.character(vinfo$sources)
+    files <- as.character(unlist(vinfo$sources))
     if (length(files) == 0) {
         signal_empty()
     }
