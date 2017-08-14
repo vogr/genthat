@@ -12,15 +12,14 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
         params=formals(fun),
         body=substitute({
             if (genthat::is_tracing_enabled()) {
-                on.exit(genthat::enable_tracing())
-
                 genthat::disable_tracing()
 
-                frame <- new.env(parent=parent.frame())
-                frame$original <- attr(sys.function(), "__genthat_original_fun")
+                on.exit(genthat::enable_tracing())
 
+                frame <- new.env(parent=parent.frame())
+                assign(NAME, attr(sys.function(), "__genthat_original_fun"), envir=frame)
                 call <- sys.call()
-                call[[1]] <- as.name("original")
+                call[[1]] <- as.name(NAME)
 
                 tryCatch({
                     genthat::enable_tracing()
@@ -35,7 +34,7 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
                         env=parent.frame()
                     )
 
-                    retv
+                    return(retv)
                 },  error=function(e) {
                     genthat::disable_tracing()
 
@@ -57,11 +56,15 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
 
                     stop(e)
                 })
-            } else {
-                call <- sys.call()
-                call[[1]] <- attr(sys.function(), "__genthat_original_fun")
-                eval(call)
             }
+
+            frame <- new.env(parent=parent.frame())
+            assign(NAME, attr(sys.function(), "__genthat_original_fun"), envir=frame)
+
+            call <- sys.call()
+            call[[1]] <- as.name(NAME)
+
+            eval(call, envir=frame)
         }, list(
             NAME=name,
             PKG=pkg,

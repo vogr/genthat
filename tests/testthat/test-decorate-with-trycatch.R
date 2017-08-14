@@ -98,3 +98,26 @@ test_that("decorate_with_trycatch decorates a package function", {
     expect_equal(capture$args, list(x="a.b"))
     expect_equal(capture$retv, "a")
 })
+
+test_that("decorate_with_trycatch works in lapply", {
+    capture <- list()
+
+    f <- function(x) x+1
+
+    d <- decorate_with_trycatch(
+            f,
+            "f",
+            NULL,
+            record_fun=function(...) capture <<- append(capture, list(list(...)))
+    )
+
+    lapply(1:10, d)
+
+    expect_length(capture, 10)
+    for (i in 1:10) {
+        expect_equal(capture[[i]]$retv, i+1)
+        # TODO: check args and env - cf. issue #40
+        # expect_equal(capture[[i]]$env$i, i)
+        expect_equal(capture[[i]]$env$X, 1:10)
+    }
+})
