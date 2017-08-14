@@ -4,7 +4,7 @@
 \alias{reset_functions}
 \title{Resets decorated function back to its original}
 \usage{
-reset_functions(..., in_env = parent.frame())
+reset_functions(..., in_env = parent.frame(), decorator = get_decorator())
 }
 \description{
 Reverts decorated functions back to their state they were before calling `decorate_functions`.

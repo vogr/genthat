@@ -5,7 +5,8 @@
 \title{Decorates given functions}
 \usage{
 decorate_functions(..., in_env = parent.frame(),
-  .recorder = substitute(genthat:::record_trace))
+  decorator = get_decorator(),
+  record_fun = substitute(genthat:::record_trace))
 }
 \arguments{
 \item{...}{the functions that shall be decorated
