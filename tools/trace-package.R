@@ -89,11 +89,12 @@ tryCatch({
     time <- time["elapsed"]
     rows <- as_data_frame(rows)
 
+    rows %>% print(width=Inf, n=Inf)
+
     if (!is.null(db)) {
         rows <- rows %>%
             mutate(ts=timestamp, genthat=genthat_version) %>%
-            select(ts, genthat, everything()) %>%
-            print(width=Inf)
+            select(ts, genthat, everything())
 
         types <- as.list(sapply(names(rows), function(x) dbDataType(RMySQL::MySQL(), rows[[x]])))
         types$tag <- "text"
