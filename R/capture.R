@@ -7,9 +7,10 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     # get callee globals (free variables) that we need to capture
     # we do that by abusing the extract closure
     # TODO: will this help us with promises?
-    # args <- create_duplicate(args)
+
     callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
     globals <- as.list(environment(extract_closure(callee)))
+    globals <- lapply(globals, create_duplicate)
     trace <- create_trace(name, pkg, args, globals, retv, error)
 
     store_trace(tracer, trace)

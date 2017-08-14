@@ -303,3 +303,23 @@ test_that("record_trace resolves caller and callee environments", {
     expect_equal(body(t$globals$b), body(b))
     expect_equal(as.list(environment(t$globals$b)), list(e=40))
 })
+
+test_that("capture works with lapply", {
+    tracer <- create_sequence_tracer()
+
+    f <- function(x) {
+        y <- x+1
+        record_trace("f", pkg=NULL, args=as.list(match.call())[-1], retv=y, env=parent.frame(), tracer=tracer)
+        y
+    }
+
+    lapply(1:10, f)
+
+    for (i in 1:10) {
+        t <- get_trace(tracer, i)
+        expect_equal(t$globals$i, i)
+        expect_equal(t$globals$X, 1:10)
+        expect_equal(t$retv, i+1)
+    }
+    
+})
