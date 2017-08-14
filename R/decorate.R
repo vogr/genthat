@@ -18,7 +18,8 @@ create_decorator <- function(method=decorate_with_trycatch) {
 #'     `is.function` is `TRUE`.
 #' @export
 #'
-decorate_environment <- function(envir, decorator=get_decorator()) {
+decorate_environment <- function(envir, decorator=get_decorator(),
+                                record_fun=substitute(genthat:::record_trace)) {
     stopifnot(is.decorator(decorator))
 
     if (is.character(envir)) {
@@ -37,7 +38,7 @@ decorate_environment <- function(envir, decorator=get_decorator()) {
     funs <- filter(vals, is.function)
     funs <- filter_not(funs, is.primitive)
 
-    invisible(decorate_functions(funs))
+    invisible(decorate_functions(funs, decorator=decorator, record_fun=record_fun))
 }
 
 #' @title Decorates given functions
