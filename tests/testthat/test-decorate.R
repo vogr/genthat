@@ -170,6 +170,14 @@ test_that("decorate_function checks for primitive functions", {
     expect_error(decorate_function(decorator, `$`, "$"), regexp="\\$: is a primitive function")
 })
 
+test_that("decorator can be supplied method", {
+    f <- function(x) x
+
+    expect_equal(create_decorator("trycatch")$method, genthat:::decorate_with_trycatch)
+    expect_equal(create_decorator("onexit")$method, genthat:::decorate_with_onexit)
+    expect_equal(create_decorator(f)$method, f)
+})
+
 ## # TODO: test that we cannot decorate builtins
 
 ## # TODO: test imported namespaces

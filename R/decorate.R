@@ -1,8 +1,17 @@
 #' @export
 #'
-create_decorator <- function(method=decorate_with_trycatch) {
+create_decorator <- function(method="onexit") {
+    fun <- if (is.character(method)) {
+        method <- match.arg(arg=method, choices=c("trycatch", "onexit"), several.ok=FALSE)
+        switch(method, trycatch=decorate_with_trycatch, onexit=decorate_with_onexit)
+    } else if (is.function(method)) {
+        method
+    } else {
+        stop("Unknown type of method: ", typeof(method))
+    }
+
     structure(list(
-        method=method,
+        method=fun,
         decorations=new.env(parent=emptyenv(), hash=TRUE)
     ), class="decorator")
 }
@@ -90,7 +99,7 @@ decorate_function <- function(decorator, fun, name, record_fun) {
     }
 
     if (is_decorated(fun)) {
-        fun
+        reset_function(decorator, fun, name)
     }
 
     if (is_debug_enabled()) {
@@ -152,7 +161,9 @@ reset_function <- function(decorator, fun, name) {
 
     pkg <- get_function_package_name(fun)
     fqn <- paste0(pkg, ":::", name)
-    rm(list=fqn, envir=decorator$decorations)
+    if (exists(fqn, envir=decorator$decorations)) {
+        rm(list=fqn, envir=decorator$decorations)
+    }
 
     invisible(fun)
 }

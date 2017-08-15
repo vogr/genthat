@@ -205,6 +205,8 @@ genthat_tracing_preamble <- function(pkgs,
             ')'
         ),
         '})',
+        '',
+        'invisible(genthat:::patch_on_exit())',
         ''
     ), collapse="\n")
 }
