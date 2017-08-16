@@ -35,8 +35,10 @@ option_list <-
         make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
         make_option("--timestamp", type="character", help="Timestamp", metavar="TIMESTAMP"),
+        make_option("--decorator", type="character", help="Decorator (trycatch/onexit)", metavar="DECORATOR", default="trycatch"),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
         make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
+
     )
 
 parser <- OptionParser(option_list=option_list)
@@ -62,6 +64,8 @@ stopifnot(nchar(timestamp) > 0)
 stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
 
 options(genthat.debug=opt$`debug`)
+
+genthat::set_decorator(create_decorator(method=opt$decorator))
 
 if (is.null(opt$`db-name`)) {
     db <- NULL
@@ -106,10 +110,10 @@ tryCatch({
         store_stats(db, rows, types)
     }
 
-    message("\nTracing of ", package, " ", type, " finished in ", time, " with ", sum(rows$n_traces), " traces")
+    message("\nTracing of ", package, " ", type, " using ", opt$decorator, " finished in ", time, " with ", sum(rows$n_traces), " traces")
 
     invisible(NULL)
 }, error=function(e) {
-    message("Tracing of ", package, " ", type, " failed with: ", e$message, "\n")
+    message("Tracing of ", package, " ", type, 2" using ", opt$decorator, " failed with: ", e$message, "\n")
     stop(e$message)
 })
