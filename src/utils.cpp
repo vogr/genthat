@@ -2,6 +2,11 @@
 
 #include "utils.h"
 
+extern "C" {
+    // from inp into ans (from attrib.c)
+    void copyMostAttrib(SEXP inp, SEXP ans);
+}
+
 // [[Rcpp::export]]
 SEXP reassign_function(SEXP target_fun, SEXP new_fun) {
   if (TYPEOF(target_fun) != CLOSXP) error("target_fun must be a function");
@@ -9,7 +14,7 @@ SEXP reassign_function(SEXP target_fun, SEXP new_fun) {
 
   //  TODO: check if the formals are the same
   SET_BODY(target_fun, BODY(new_fun));
-  DUPLICATE_ATTRIB(target_fun, new_fun);
+  copyMostAttrib(new_fun, target_fun);
 
   return R_NilValue;
 }
