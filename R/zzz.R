@@ -6,12 +6,12 @@
 
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
-    options(genthat.default_decorate_method="onexit")
+    options(genthat.default_decorate_method="trycatch")
 
     enable_tracing()
 
     set_tracer(create_set_tracer())
-    set_decorator(create_decorator(method=getOption("genthat.default_decorate_method", "onexit")))
+    set_decorator(create_decorator(method=getOption("genthat.default_decorate_method", "trycatch")))
 
     invisible()
 }
