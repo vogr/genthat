@@ -148,11 +148,24 @@ export_traces <- function(traces, output_dir,
     }, USE.NAMES=FALSE)
 
     if (!is.null(stats_file)) {
+        trace_classes <- sapply(traces, function(x) {
+            switch(class(x),
+                genthat_trace=1,
+                genthat_trace_error=2,
+                genthat_trace_entry=3)
+        })
+
+        n_complete <- length(trace_classes[trace_classes == 1])
+        n_error <- length(trace_classes[trace_classes == 2])
+        n_entry <- length(trace_classes[trace_classes == 3])
+
         stats <- data.frame(
             tag=tag,
             filename=paste(fnames, collapse="\n"),
             n_traces=n_traces,
-
+            n_complete=n_complete,
+            n_error=n_error,
+            n_entry=n_entry,
             stringsAsFactors=FALSE,
             row.names=NULL
         )
@@ -254,7 +267,7 @@ read_stats_file <- function(fname) {
         fname,
         header=FALSE,
         stringsAsFactors=FALSE,
-        col.names=c("tag", "filename", "n_traces")
+        col.names=c("tag", "filename", "n_traces", "n_complete", "n_error", "n_entry")
     )
 }
 

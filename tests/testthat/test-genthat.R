@@ -40,6 +40,9 @@ test_that("export_traces work", {
     expect_equal(nrow(stats), 1)
     expect_equal(stats$filename, file.path(output_dir, "1.RDS"))
     expect_equal(stats$n_traces, 1)
+    expect_equal(stats$n_complete, 0)
+    expect_equal(stats$n_error, 0)
+    expect_equal(stats$n_entry, 1)
     expect_equal(stats$tag, NA)
 
     rds <- readRDS(file.path(output_dir, "1.RDS"))
