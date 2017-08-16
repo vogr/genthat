@@ -1,5 +1,5 @@
 ---
-title: "External Package Vignette without Tracing
+title: "External Package Vignette without Tracing"
 author: "Joe Doe"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
