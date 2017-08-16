@@ -33,8 +33,8 @@ escape_name <- function(name) {
     .Call('_genthat_escape_name', PACKAGE = 'genthat', name)
 }
 
-reassign_function <- function(target_fun, new_fun) {
-    .Call('_genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
+reassign_function <- function(target_fun, new_fun, keep_only_new_attributes = FALSE) {
+    .Call('_genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun, keep_only_new_attributes)
 }
 
 create_duplicate <- function(target) {

@@ -8,13 +8,17 @@ extern "C" {
 }
 
 // [[Rcpp::export]]
-SEXP reassign_function(SEXP target_fun, SEXP new_fun) {
+SEXP reassign_function(SEXP target_fun, SEXP new_fun, bool keep_only_new_attributes=false) {
   if (TYPEOF(target_fun) != CLOSXP) error("target_fun must be a function");
   if (TYPEOF(new_fun) != CLOSXP) error("new_fun must be a function");
 
   //  TODO: check if the formals are the same
   SET_BODY(target_fun, BODY(new_fun));
-  copyMostAttrib(new_fun, target_fun);
+  if (keep_only_new_attributes) {
+      DUPLICATE_ATTRIB(target_fun, new_fun);
+  } else {
+      copyMostAttrib(new_fun, target_fun);
+  }
 
   return R_NilValue;
 }

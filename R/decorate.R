@@ -157,7 +157,8 @@ reset_function <- function(decorator, fun, name) {
     }
 
     orig_fun <- attr(fun, "__genthat_original_fun")
-    reassign_function(fun, orig_fun)
+    reassign_function(fun, orig_fun, keep_only_new_attributes=TRUE)
+    attr(fun, "__genthat_original_fun") <- NULL
 
     pkg <- get_function_package_name(fun)
     fqn <- paste0(pkg, ":::", name)

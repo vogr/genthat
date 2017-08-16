@@ -160,7 +160,6 @@ test_that("reset_function", {
     expect_true(is.function(reset$f))
     expect_true(is.function(f))
     expect_equal(reset$f, f)
-    expect_equal(reset$f, function(x) x)
     expect_equal(attr(f, "__genthat_original_fun"), NULL)
 })
 
