@@ -6,7 +6,7 @@
 
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
-    options(genthat.default_decorate_method="trycatch")
+    options(genthat.default_decorate_method=getOption("genthat.default_decorate_method", default="trycatch"))
 
     enable_tracing()
 

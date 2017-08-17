@@ -197,6 +197,7 @@ genthat_tracing_preamble <- function(pkgs,
                                     output_dir,
                                     tag="",
                                     debug=getOption("genthat.debug", FALSE),
+                                    default_decorate_method=getOption("genthat.default_decorate_method", "trycatch"),
                                     stats_file=NULL,
                                     batch_size=0) {
 
@@ -205,8 +206,11 @@ genthat_tracing_preamble <- function(pkgs,
     paste(c(
         '## genthat tracing preamble',
         paste0('options(genthat.debug=', debug, ')'),
+        paste0('options(genthat.default_decorate_method="', default_decorate_method, '")'),
         '',
         sapply(pkgs, function(x) paste0('genthat::decorate_environment("', x, '")')),
+        '',
+        paste0('if (genthat::is_debug_enabled()) message("Decorator: ", "', default_decorate_method, '", genthat::get_decorator())'),
         '',
         'reg.finalizer(loadNamespace("genthat"), onexit=TRUE, function(x) {',
         paste0(
@@ -219,7 +223,6 @@ genthat_tracing_preamble <- function(pkgs,
         ),
         '})',
         '',
-        'invisible(genthat:::patch_on_exit())',
         ''
     ), collapse="\n")
 }

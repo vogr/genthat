@@ -63,9 +63,8 @@ stopifnot(batch_size > 0)
 stopifnot(nchar(timestamp) > 0)
 stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
 
-options(genthat.debug=opt$`debug`)
-
-genthat::set_decorator(create_decorator(method=opt$decorator))
+options(genthat.debug=opt$debug)
+options(genthat.default_decorate_method=opt$decorator)
 
 if (is.null(opt$`db-name`)) {
     db <- NULL
@@ -114,6 +113,6 @@ tryCatch({
 
     invisible(NULL)
 }, error=function(e) {
-    message("Tracing of ", package, " ", type, 2" using ", opt$decorator, " failed with: ", e$message, "\n")
+    message("Tracing of ", package, " ", type, " using ", opt$decorator, " failed with: ", e$message, "\n")
     stop(e$message)
 })
