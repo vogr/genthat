@@ -4,7 +4,7 @@ skip_if_not_integration_test <- function() {
     skip_if_not(getOption("genthat.run_itests") == TRUE)
 }
 
-test_that("gen_from_package works on stringr", {
+test_that("trace_package works on stringr", {
     skip_if_not_integration_test()
 
     withr::with_temp_libpaths({
@@ -18,7 +18,7 @@ test_that("gen_from_package works on stringr", {
 
         output_dir <- tempfile()
         on.exit(unlink(output_dir, recursive=TRUE))
-        ret <- gen_from_package("stringr", output_dir=output_dir, quiet=TRUE)
+        ret <- trace_package("stringr", output_dir=output_dir, quiet=TRUE)
 
         n_traces <- sum(ret$n_traces)
 

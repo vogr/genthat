@@ -1,6 +1,6 @@
 context("genthat on sample package")
 
-test_that("gen_from_package works on a sample package", {
+test_that("trace_package works on a sample package", {
     withr::with_temp_libpaths({
         devtools::install_local("samplepkg", quiet=TRUE, build_vignettes=TRUE)
 
@@ -10,7 +10,7 @@ test_that("gen_from_package works on a sample package", {
         files[3] <- NA # this one does not have any traces
         files[5] <- NA # this one does not have any traces
 
-        ret <- gen_from_package("samplepkg", output_dir=output_dir, quiet=TRUE)
+        ret <- trace_package("samplepkg", output_dir=output_dir, quiet=TRUE)
 
         expect_equal(ret$tag, tags)
         expect_equal(ret$filename, files)

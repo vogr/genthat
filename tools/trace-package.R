@@ -10,11 +10,11 @@ suppressPackageStartupMessages(library(genthat))
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
-store_stats <- function(db, stats, types) {
+store_stats <- function(db, table, stats, types) {
     i <- 0
     while(i < 3) {
         tryCatch({
-            dbWriteTable(db, name="traces", value=stats, append=TRUE, row.names=FALSE, field.types=types)
+            dbWriteTable(db, name=table, value=stats, append=TRUE, row.names=FALSE, field.types=types)
             break()
         }, error=function(e) {
             message("Storing to DB did not work: ", e$message, " - retrying")
@@ -36,9 +36,9 @@ option_list <-
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
         make_option("--timestamp", type="character", help="Timestamp", metavar="TIMESTAMP"),
         make_option("--decorator", type="character", help="Decorator (trycatch/onexit/onentry)", metavar="DECORATOR", default="trycatch"),
+        make_option("--run-only", help="Do not trace, just run the code", action="store_true", default=FALSE),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
         make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
-
     )
 
 parser <- OptionParser(option_list=option_list)
@@ -59,12 +59,9 @@ batch_size <- opt$`batch-size`
 quiet <- opt$quiet
 timestamp <- opt$timestamp
 
-stopifnot(batch_size > 0)
 stopifnot(nchar(timestamp) > 0)
-stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
 
 options(genthat.debug=opt$debug)
-options(genthat.default_decorate_method=opt$decorator)
 
 if (is.null(opt$`db-name`)) {
     db <- NULL
@@ -82,37 +79,105 @@ if (is.null(opt$`db-name`)) {
     message("Connected to ", db_info$dbname, "@", db_info$conType)
 }
 
-tryCatch({
-    message("Tracing ", package, " ", type, " (quiet: ", quiet, ", batch_size: ", batch_size, ") in ", traces_dir)
+run <- function() {
 
-    time <- system.time(
-        rows <- genthat::gen_from_package(package, type, traces_dir, quiet=quiet, batch_size=batch_size)
-    )
+    stopwatch <- new.env(parent=emptyenv())
 
-    time <- time["elapsed"]
-    rows <- as_data_frame(rows)
+    runner <- function(fname, quiet) {
+        tag <- tools::file_path_sans_ext(basename(fname))
+        time <- system.time(
+            ret <- genthat:::run_r_script(fname, quiet=quiet)
+        )
 
-    rows %>% print(width=Inf, n=Inf)
+        assign(tag, time["elapsed"], envir=stopwatch)
 
-    if (!is.null(db)) {
-        rows <- rows %>%
-            mutate(ts=timestamp, genthat=genthat_version) %>%
-            select(ts, genthat, everything())
-
-        types <- as.list(sapply(names(rows), function(x) dbDataType(RMySQL::MySQL(), rows[[x]])))
-        types$tag <- "text"
-        types$filename <- "text"
-        types$n_traces <- "integer"
-        types$status <- "integer"
-        types$running_time <- "double"
-
-        store_stats(db, rows, types)
+        ret
     }
 
-    message("\nTracing of ", package, " ", type, " using ", opt$decorator, " finished in ", time, " with ", sum(rows$n_traces), " traces")
+    tryCatch({
+        message("Running ", package, " ", type, " (quiet: ", quiet, ")")
 
-    invisible(NULL)
-}, error=function(e) {
-    message("Tracing of ", package, " ", type, " using ", opt$decorator, " failed with: ", e$message, "\n")
-    stop(e$message)
-})
+        time <- system.time(
+            status <- genthat::run_package(package, types=type, quiet=quiet, runner=runner)
+        )
+
+        time <- time["elapsed"]
+        tags <- tools::file_path_sans_ext(basename(names(status[[1]])))
+        rows <- data_frame(tag=tags, status=as.numeric(status))
+        times <- data_frame(tag=tags, running_time=as.numeric(as.list(stopwatch)))
+
+        rows <- full_join(rows, times, by="tag")
+        rows %>% print(width=Inf, n=Inf)
+
+        if (!is.null(db)) {
+            rows <- rows %>%
+                mutate(ts=timestamp, genthat=genthat_version) %>%
+                select(ts, genthat, everything())
+
+            types <- as.list(sapply(names(rows), function(x) dbDataType(RMySQL::MySQL(), rows[[x]])))
+            types$tag <- "text"
+            types$status <- "integer"
+            types$running_time <- "double"
+
+            store_stats(db, "runs", rows, types)
+        }
+
+        message("\nRunning of ", package, " ", type, " finished in ", time)
+
+        invisible(NULL)
+    }, error=function(e) {
+        message("Running of ", package, " ", type, " failed with: ", e$message, "\n")
+        stop(e$message)
+    })
+}
+
+trace <- function() {
+    stopifnot(batch_size > 0)
+    stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
+    options(genthat.default_decorate_method=opt$decorator)
+
+    tryCatch({
+        message("Tracing ", package, " ", type, " (quiet: ", quiet, ", batch_size: ", batch_size, ") in ", traces_dir)
+
+        time <- system.time(
+            rows <- genthat::trace_package(package, type, traces_dir, quiet=quiet, batch_size=batch_size)
+        )
+
+        time <- time["elapsed"]
+        rows <- as_data_frame(rows)
+
+        rows %>% print(width=Inf, n=Inf)
+
+        if (!is.null(db)) {
+            rows <- rows %>%
+                mutate(ts=timestamp, genthat=genthat_version) %>%
+                select(ts, genthat, everything())
+
+            types <- as.list(sapply(names(rows), function(x) dbDataType(RMySQL::MySQL(), rows[[x]])))
+            types$tag <- "text"
+            types$filename <- "text"
+            types$n_traces <- "integer"
+            types$n_complete <- "integer"
+            types$n_error <- "integer"
+            types$n_entry <- "integer"
+            types$status <- "integer"
+            types$running_time <- "double"
+
+            store_stats(db, "traces", rows, types)
+        }
+
+        message("\nTracing of ", package, " ", type, " using ", opt$decorator, " finished in ", time, " with ", sum(rows$n_traces), " traces")
+
+        invisible(NULL)
+    }, error=function(e) {
+        message("Tracing of ", package, " ", type, " using ", opt$decorator, " failed with: ", e$message, "\n")
+        stop(e$message)
+    })
+}
+
+
+if (opt$`run-only`) {
+    run()
+} else {
+    trace()
+}

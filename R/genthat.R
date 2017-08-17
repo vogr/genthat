@@ -10,7 +10,31 @@ NULL
 # TODO: gen_from_function
 # TODO: gen_from_code
 # TODO: gen_from_source
-# TODO: gen_from_package
+# TODO: trace_package
+
+#' @export
+#'
+trace_from_source_package <- function(path, quiet=TRUE, ...) {
+    package <- devtools::as.package(path)
+
+    withr::with_temp_libpaths({
+        utils::install.packages(
+            path,
+            repos=NULL,
+            lib=.libPaths()[1],
+            type="source",
+            INSTALL_opts = c(
+                "--example",
+                "--install-tests",
+                "--with-keep.source",
+                "--no-multiarch"
+            ),
+            quiet=quiet
+        )
+
+        trace_package(package$package, lib_paths=.libPaths()[1], quiet=quiet, ...)
+    })
+}
 
 #' @title Generate test cases for a package
 #'
@@ -18,7 +42,7 @@ NULL
 #' the code contained in the package examples, vignettes and tests.
 #' @export
 #'
-gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
+trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             output_dir=".",
                             working_dir=tempfile(pattern="gen_from_package-"),
                             batch_size=0,
@@ -277,3 +301,4 @@ read_stats_file <- function(fname) {
 run_integration_tests <- function() {
     withr::with_options(list(genthat.run_itests=T), devtools::test(filter="integration"))
 }
+
