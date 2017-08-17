@@ -35,7 +35,7 @@ option_list <-
         make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
         make_option("--timestamp", type="character", help="Timestamp", metavar="TIMESTAMP"),
-        make_option("--decorator", type="character", help="Decorator (trycatch/onexit/onentry)", metavar="DECORATOR", default="trycatch"),
+        make_option("--decorator", type="character", help="Decorator (onentry/onexit/onboth/trycatch)", metavar="DECORATOR", default="onexit"),
         make_option("--run-only", help="Do not trace, just run the code", action="store_true", default=FALSE),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
         make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)

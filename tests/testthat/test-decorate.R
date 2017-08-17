@@ -1,4 +1,4 @@
-context("decoration")
+context("decorate")
 
 if (!requireNamespace("devtools", quietly=TRUE)) {
     stop("devtools needed for this function to work. Please install it.", call. = FALSE)
