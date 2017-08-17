@@ -2,8 +2,12 @@
 #'
 create_decorator <- function(method="trycatch") {
     fun <- if (is.character(method)) {
-        method <- match.arg(arg=method, choices=c("trycatch", "onexit"), several.ok=FALSE)
-        switch(method, trycatch=decorate_with_trycatch, onexit=decorate_with_onexit)
+        method <- match.arg(arg=method, choices=c("trycatch", "onexit", "onentry"), several.ok=FALSE)
+        switch(method,
+            trycatch=decorate_with_trycatch,
+            onexit=decorate_with_onexit,
+            onentry=decorate_with_onentry
+        )
     } else if (is.function(method)) {
         method
     } else {
