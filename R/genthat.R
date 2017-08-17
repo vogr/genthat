@@ -63,14 +63,14 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
         df <- if (all(is.na(run))) {
             # nothing has been run we need to return an empty frame
-            data.frame(tag=NA, filename=NA, n_traces=NA, status=NA, running_time=NA, row.names=NULL, stringsAsFactors=FALSE)
+            data.frame(tag=NA, filename=NA, n_traces=NA, n_complete=NA, n_error=NA, n_entry=NA, status=NA, running_time=NA, row.names=NULL, stringsAsFactors=FALSE)
         } else {
             traces <- if (file.exists(stats_file)) {
                 read_stats_file(stats_file)
             } else {
                 # this is a rare case, in which something has been run, but no
                 # traces were generated
-                data.frame(tag=NA, filename=NA, n_traces=0, row.names=NULL, stringsAsFactors=FALSE)
+                data.frame(tag=NA, filename=NA, n_traces=0, n_complete=NA, n_error=NA, n_entry=NA, row.names=NULL, stringsAsFactors=FALSE)
             }
 
             ## extract times
