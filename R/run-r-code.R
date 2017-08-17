@@ -41,6 +41,14 @@ run_r_script <- function(script_file,
         env <- c(env, paste0("R_PROFILE=", site_file))
     }
 
+    # When R CMD check runs tests, it sets R_TESTS. When the tests
+    # themeselves run R CMD xxxx, as is the case with the tests in
+    # devtools, having R_TESTS set causes errors because it confuses
+    # the R subprocesses. Unsetting it here avoids those problems.
+    if (Sys.getenv("R_TESTS") != "") {
+        env <- c(env, "R_TESTS=''")
+    }
+
     owd <- setwd(dirname(script_file))
     on.exit(setwd(owd))
 
