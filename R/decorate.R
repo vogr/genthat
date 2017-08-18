@@ -52,6 +52,7 @@ decorate_environment <- function(envir, decorator=get_decorator(),
 
     funs <- filter(vals, is.function)
     funs <- filter_not(funs, is.primitive)
+    funs <- filter_not(funs, is_s3_generic)
 
     invisible(decorate_functions(funs, decorator=decorator, record_fun=record_fun))
 }
@@ -97,6 +98,10 @@ decorate_function <- function(decorator, fun, name, record_fun) {
 
     if (is.primitive(fun)) {
         stop(name, ": is a primitive function")
+    }
+
+    if (is_s3_generic(fun)) {
+        stop(name, ": is a S3 generic function")
     }
 
     # TODO: test
@@ -225,4 +230,11 @@ resolve_decorating_fun_args <- function(..., in_env=parent.frame()) {
 
 is.decorator <- function(x) {
     inherits(x, "decorator")
+}
+
+is_s3_generic <- function(fun) {
+    stopifnot(is.function(fun))
+
+    globals <- codetools::findGlobals(fun, merge = FALSE)$functions
+    any(globals == "UseMethod")
 }
