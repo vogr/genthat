@@ -8,12 +8,24 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     # we do that by abusing the extract closure
     # TODO: will this help us with promises?
 
-    callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
-    globals <- as.list(environment(extract_closure(callee)))
-    globals <- lapply(globals, create_duplicate)
-    trace <- create_trace(name, pkg, args, globals, retv, error)
+    withCallingHandlers({
+        callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
+        globals <- as.list(environment(extract_closure(callee)))
+        globals <- lapply(globals, create_duplicate)
+        trace <- create_trace(name, pkg, args, globals, retv, error)
 
-    store_trace(tracer, trace)
+        store_trace(tracer, trace)
+    }, error=function(e) {
+        log <- getOption("genthat.record_trace_error_log")
+
+        if (!is.null(log)) {
+            st <- paste(c(e$message, sapply(sys.calls(), format), "", ""), collapse="\n")
+            cat(st, file=, append=TRUE)
+        } else {
+            message("Failed to record: ", name, ":::", pkg, ": ", e$message)
+            pritn(sys.calls())
+        }
+    })
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {
@@ -51,8 +63,9 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
     vars <- zip(name=names, env=envs)
     vars <- filter(vars, function(x) {
         if (is.null(x$env)) {
-            # TODO: this does not seem to be correct
-            warning("Symbol ", x$name, " could not be found in ", environmentName(env))
+            # this can easily happen in the calls like dplyr::filter(data, x >
+            # 0) since the `x` referes to an `x` in `data` not in environment
+            # this we cannot know and thus we have to ignore it
             FALSE
         } else {
             TRUE
