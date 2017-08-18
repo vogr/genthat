@@ -19,15 +19,28 @@ test_that("decorated function calls records retv on success", {
     expect_equal(d(TRUE, 1L, 2L), 3L)
 
     expect_length(capture, 2L)
-    expect_equal(capture[[1]], list(name="f", pkg=NULL, args=list(a=TRUE, b=1L, c=2L)))
-    expect_equal(capture[[2]], list(name="f", pkg=NULL, args=list(a=TRUE, b=1L, c=2L), retv=3L))
+
+    entry <- capture[[1]]
+    expect_equal(entry$name, "f")
+    expect_equal(entry$pkg, NULL)
+    expect_equal(entry$args, list(a=TRUE, b=1L, c=2L))
+
+    exit <- capture[[2]]
+    expect_equal(exit$name, "f")
+    expect_equal(exit$pkg, NULL)
+    expect_equal(exit$args, list(a=TRUE, b=1L, c=2L))
+    expect_equal(exit$retv, 3L)
 
     # TEST error
     capture <- list()
     expect_error(d(FALSE, 1L, 2L))
 
     expect_length(capture, 1L)
-    expect_equal(capture[[1]], list(name="f", pkg=NULL, args=list(a=FALSE, b=1L, c=2L)))
+
+    entry <- capture[[1]]
+    expect_equal(entry$name, "f")
+    expect_equal(entry$pkg, NULL)
+    expect_equal(entry$args, list(a=FALSE, b=1L, c=2L))
 })
 
 test_that("decorated functions can be multiline function", {
@@ -47,7 +60,12 @@ test_that("decorated functions can be multiline function", {
     )
 
     expect_equal(d(1L, 2L), 5L)
-    expect_equal(capture, list(name="f", pkg=NULL, args=list(x=1L, y=2L), retv=5L))
+
+    expect_equal(capture$name, "f")
+    expect_equal(capture$pkg, NULL)
+    expect_equal(capture$args, list(x=1L, y=2L))
+    expect_equal(capture$retv, 5L)
+
 })
 
 test_that("decorated function supports ...", {

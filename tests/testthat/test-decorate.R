@@ -59,16 +59,20 @@ test_that("decorate_environment decorates all functions in the environment", {
 
     env$h <- sin
 
-    expect_equal(length(env), 3)
+    env$i <- function(x) UseMethod("i")
+    environment(env$i) <- env
+
+    expect_equal(length(env), 4)
 
     decorate_environment(env, decorator=decorator)
 
-    expect_equal(length(env), 3)
+    expect_equal(length(env), 4)
 
     expect_true(is_decorated(env$f))
     expect_true(is_decorated(env$g))
 
     expect_false(is_decorated(env$h)) # it is a primitive function
+    expect_false(is_decorated(env$i)) # it is S3 generic
 
     # TODO: check decorations
 })
@@ -176,6 +180,24 @@ test_that("decorator can be supplied method", {
     expect_equal(create_decorator("onexit")$method, genthat:::decorate_with_onexit)
     expect_equal(create_decorator(f)$method, f)
 })
+
+test_that("decorator does not work with S3 generics", {
+    local({
+        f <- function(x) UseMethod("n")
+        g <- function(x) {
+            1+1
+            UseMethod("n")
+        }
+
+        decorator <- create_decorator()
+
+        expect_error(decorate_function(decorator, f, "f", identity), regexp="f: is a S3 generic function")
+        expect_error(decorate_function(decorator, g, "g", identity), regexp="g: is a S3 generic function")
+    })
+})
+
+
+
 
 ## # TODO: test that we cannot decorate builtins
 

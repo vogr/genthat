@@ -132,8 +132,7 @@ test_that("get_symbol_values gets values", {
     # it is a named list for which expect_equal won't work
     expect_equivalent(get_symbol_values("+", globalenv()), list())
     expect_equal(get_symbol_values("+", globalenv(), include_base_symbols=TRUE), list(`+`=quote(base:::`+`)))
-
-    expect_warning(get_symbol_values("does-not-exists", new.env(parent=emptyenv())))
+    expect_length(get_symbol_values("does-not-exists"), 0)
 })
 
 test_that("get_symbol_names gets unique variables names form an expression", {
