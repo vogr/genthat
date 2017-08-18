@@ -1,13 +1,14 @@
 #' @export
 #'
-create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch")) {
+create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch", "count")) {
     fun <- if (is.character(method)) {
-        method <- match.arg(arg=method, choices=c("onentry", "onexit", "onboth", "trycatch"), several.ok=FALSE)
+        method <- match.arg(arg=method, choices=c("onentry", "onexit", "onboth", "trycatch", "count"), several.ok=FALSE)
         switch(method,
             onentry=decorate_with_onentry,
             onexit=decorate_with_onexit,
             onexit=decorate_with_onboth,
-            trycatch=decorate_with_trycatch
+            trycatch=decorate_with_trycatch,
+            count=decorate_with_count
         )
     } else if (is.function(method)) {
         method

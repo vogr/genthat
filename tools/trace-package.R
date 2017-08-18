@@ -36,6 +36,7 @@ option_list <-
         make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
         make_option("--timestamp", type="character", help="Timestamp", metavar="TIMESTAMP"),
         make_option("--decorator", type="character", help="Decorator (onentry/onexit/onboth/trycatch)", metavar="DECORATOR", default="onexit"),
+        make_option("--tracer", type="character", help="Tracer (sequence/set)", metavar="TRACER", default="set"),
         make_option("--run-only", help="Do not trace, just run the code", action="store_true", default=FALSE),
         make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
         make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
@@ -135,6 +136,7 @@ trace <- function() {
     stopifnot(batch_size > 0)
     stopifnot(dir.exists(traces_dir) || dir.create(traces_dir))
     options(genthat.default_decorate_method=opt$decorator)
+    options(genthat.default_tracer=opt$tracer)
 
     tryCatch({
         message("Tracing ", package, " ", type, " (quiet: ", quiet, ", batch_size: ", batch_size, ") in ", traces_dir)
@@ -166,11 +168,11 @@ trace <- function() {
             store_stats(db, "traces", rows, types)
         }
 
-        message("\nTracing of ", package, " ", type, " using ", opt$decorator, " finished in ", time, " with ", sum(rows$n_traces), " traces")
+        message("\nTracing of ", package, " ", type, " using ", opt$decorator, "/", opt$tracer, " finished in ", time, " with ", sum(rows$n_traces), " traces")
 
         invisible(NULL)
     }, error=function(e) {
-        message("Tracing of ", package, " ", type, " using ", opt$decorator, " failed with: ", e$message, "\n")
+        message("Tracing of ", package, " ", type, " using ", opt$decorator, "/", opt$tracer, " failed with: ", e$message, "\n")
         stop(e$message)
     })
 }

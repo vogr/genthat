@@ -1,3 +1,19 @@
+#' @export
+#'
+create_tracer <- function(type=c("sequence", "set")) {
+    if (missing(type)) {
+        type <- "set"
+    }
+
+    type <- match.arg(arg=type, choices=c("sequence", "set"), several.ok=FALSE)
+    fun <- switch(type,
+        sequence=create_sequence_tracer,
+        set=create_set_tracer
+    )
+
+    fun()
+}
+
 #' @name Store tracer
 #' @title Stores given trace to the tracer
 #'
