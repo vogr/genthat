@@ -130,6 +130,7 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
                     )
 
                     RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match_call)[-1], error=e, env=env)
+                    genthat::enable_tracing()
 
                     stop(e)
                 })

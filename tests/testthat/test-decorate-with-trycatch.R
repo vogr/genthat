@@ -17,7 +17,7 @@ test_that("decorated function calls recorded with retv on success", {
     expect_equal(attributes(d), list(`__genthat_original_fun`=f))
 
     # TEST retv
-    d(TRUE, 1L, 2L)
+    expect_equal(d(TRUE, 1L, 2L), 3L)
 
     expect_equal(length(capture), 5L)
     expect_equal(capture$name, "f")
@@ -42,8 +42,8 @@ test_that("decorated functions can be multiline function", {
     capture <- list()
 
     f <- function(x, y) {
-        x1 <- x + 1
-        y1 <- y + 1
+        x1 <- x + 1L
+        y1 <- y + 1L
         x1 + y1
     }
 
@@ -54,9 +54,10 @@ test_that("decorated functions can be multiline function", {
             record_fun=function(...) capture <<- list(...)
     )
 
-    d(1, 2)
+    expect_equal(d(1L, 2L), 5L)
 
-    expect_equal(capture$retv, 5)
+    expect_equal(capture$args, list(x=1L, y=2L))
+    expect_equal(capture$retv, 5L)
 })
 
 test_that("decorated function supports ...", {
