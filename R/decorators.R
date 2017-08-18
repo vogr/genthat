@@ -79,6 +79,22 @@ decorate_with_onexit <- function(fun, name, pkg, record_fun) {
     )
 }
 
+decorate_with_count <- function(fun, name, pkg, record_fun) {
+    check_decorate_args(fun, name, pkg, record_fun)
+
+    create_function(
+        params=formals(fun),
+        body=substitute({
+            RECORD_FUN(name=NAME, pkg=PKG, args=list(), env=parent.frame())
+            BODY
+        }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
+        env=environment(fun),
+        attributes=list(
+            `__genthat_original_fun`=create_duplicate(fun)
+        )
+    )
+}
+
 decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
     check_decorate_args(fun, name, pkg, record_fun)
 
