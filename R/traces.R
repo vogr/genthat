@@ -1,7 +1,7 @@
-create_trace <- function(fun, pkg=NULL, args=list(), globals=list(), retv, error) {
+create_trace <- function(fun, pkg=NULL, args=list(), globals=list(), retv, error, failure) {
     stopifnot(is.character(fun) && length(fun) == 1)
     stopifnot(is.null(pkg) || (is.character(pkg) && length(pkg) == 1))
-    stopifnot(missing(retv) || missing(error))
+    stopifnot(missing(retv) || missing(error) || missing(failure))
 
     trace <- list(fun=fun, pkg=pkg, args=as.list(args), globals=as.list(globals))
 
@@ -11,6 +11,9 @@ create_trace <- function(fun, pkg=NULL, args=list(), globals=list(), retv, error
     } else if (!missing(error)) {
         trace$error <- error
         class(trace) <- "genthat_trace_error"
+    } else if (!missing(failure)) {
+        trace$failure <- failure
+        class(trace) <- "genthat_trace_failure"
     } else {
         class(trace) <- "genthat_trace_entry"
     }

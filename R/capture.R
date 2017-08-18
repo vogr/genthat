@@ -8,13 +8,12 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     # we do that by abusing the extract closure
     # TODO: will this help us with promises?
 
-    withCallingHandlers({
+    trace <- tryCatch({
         callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
         globals <- as.list(environment(extract_closure(callee)))
         globals <- lapply(globals, create_duplicate)
-        trace <- create_trace(name, pkg, args, globals, retv, error)
 
-        store_trace(tracer, trace)
+        create_trace(name, pkg, args, globals, retv, error)
     }, error=function(e) {
         log <- getOption("genthat.record_trace_error_log")
 
@@ -22,10 +21,15 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
             st <- paste(c(e$message, sapply(sys.calls(), format), "", ""), collapse="\n")
             cat(st, file=, append=TRUE)
         } else {
-            message("Failed to record: ", name, ":::", pkg, ": ", e$message)
-            pritn(sys.calls())
+            # dump.frames(to.file=TRUE, dumpto=file.path("/tmp", basename(tempfile(pattern="DUMP"))), include.GlobalEnv=T)
+            print(paste0("Failed to record: ", pkg, ":::", name, ": ", e$message))
+            print(sys.calls())
         }
+
+        create_trace(name, pkg, args, failure=e)
     })
+
+    store_trace(tracer, trace)
 }
 
 find_symbol_env <- function(name, env=parent.frame()) {

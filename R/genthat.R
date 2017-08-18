@@ -87,14 +87,20 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
 
         df <- if (all(is.na(run))) {
             # nothing has been run we need to return an empty frame
-            data.frame(tag=NA, filename=NA, n_traces=NA, n_complete=NA, n_error=NA, n_entry=NA, status=NA, running_time=NA, row.names=NULL, stringsAsFactors=FALSE)
+            data.frame(tag=NA, filename=NA,
+                n_traces=NA, n_complete=NA, n_entry=NA, n_error=NA, n_failures=NA,
+                status=NA, running_time=NA,
+                row.names=NULL, stringsAsFactors=FALSE
+            )
         } else {
             traces <- if (file.exists(stats_file)) {
                 read_stats_file(stats_file)
             } else {
                 # this is a rare case, in which something has been run, but no
                 # traces were generated
-                data.frame(tag=NA, filename=NA, n_traces=0, n_complete=NA, n_error=NA, n_entry=NA, row.names=NULL, stringsAsFactors=FALSE)
+                data.frame(tag=NA, filename=NA, n_traces=0, n_complete=NA, n_entry=NA, n_error=NA, n_failures=NA,
+                    row.names=NULL, stringsAsFactors=FALSE
+                )
             }
 
             ## extract times
@@ -175,21 +181,24 @@ export_traces <- function(traces, output_dir,
         trace_classes <- sapply(traces, function(x) {
             switch(class(x),
                 genthat_trace=1,
-                genthat_trace_error=2,
-                genthat_trace_entry=3)
+                genthat_trace_entry=2,
+                genthat_trace_error=3,
+                genthat_trace_failure=4)
         })
 
         n_complete <- length(trace_classes[trace_classes == 1])
-        n_error <- length(trace_classes[trace_classes == 2])
-        n_entry <- length(trace_classes[trace_classes == 3])
+        n_entry <- length(trace_classes[trace_classes == 2])
+        n_error <- length(trace_classes[trace_classes == 3])
+        n_failures <- length(trace_classes[trace_classes == 4])
 
         stats <- data.frame(
             tag=tag,
             filename=paste(fnames, collapse="\n"),
             n_traces=n_traces,
             n_complete=n_complete,
-            n_error=n_error,
             n_entry=n_entry,
+            n_error=n_error,
+            n_failures=n_failures,
             stringsAsFactors=FALSE,
             row.names=NULL
         )
@@ -296,7 +305,7 @@ read_stats_file <- function(fname) {
         fname,
         header=FALSE,
         stringsAsFactors=FALSE,
-        col.names=c("tag", "filename", "n_traces", "n_complete", "n_error", "n_entry")
+        col.names=c("tag", "filename", "n_traces", "n_complete", "n_entry", "n_error", "n_failures")
     )
 }
 

@@ -160,8 +160,9 @@ trace <- function() {
             types$filename <- "text"
             types$n_traces <- "integer"
             types$n_complete <- "integer"
-            types$n_error <- "integer"
             types$n_entry <- "integer"
+            types$n_error <- "integer"
+            types$n_failures <- "integer"
             types$status <- "integer"
             types$running_time <- "double"
 
