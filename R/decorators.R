@@ -15,18 +15,18 @@ decorate_with_onboth <- function(fun, name, pkg, record_fun) {
                 genthat::disable_tracing()
                 RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], env=parent.frame())
                 genthat::enable_tracing()
+            }
 
-                `__retv` <- BODY
+           `__retv` <- BODY
 
+            if (genthat::is_tracing_enabled()) {
                 genthat::disable_tracing()
                 RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], retv=`__retv`, env=parent.frame())
                 genthat::enable_tracing()
-
-                `__retv`
-            } else {
-                BODY
             }
-        }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
+
+            `__retv`
+         }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
         env=environment(fun),
         attributes=list(
             `__genthat_original_fun`=create_duplicate(fun)

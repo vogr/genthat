@@ -6,7 +6,7 @@ create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch",
         switch(method,
             onentry=decorate_with_onentry,
             onexit=decorate_with_onexit,
-            onexit=decorate_with_onboth,
+            onboth=decorate_with_onboth,
             trycatch=decorate_with_trycatch,
             count=decorate_with_count
         )
