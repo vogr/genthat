@@ -9,6 +9,7 @@ License: GPL (>= 2)
 Imports:
     codetools,
     digest,
+    dplyr,
     methods,
     Rcpp (>= 0.11.3),
     tools,
@@ -16,7 +17,6 @@ Imports:
 LinkingTo: Rcpp
 Suggests:
     devtools,
-    dplyr,
     knitr,
     rmarkdown,
     roxygen2 (>= 5.0.0),

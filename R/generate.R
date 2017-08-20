@@ -213,18 +213,41 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
     }
 }
 
-save_tests <- function(output_dir, tests) {
-    stopifnot(is.character(output_dir) && length(output_dir) == 1)
-    stopifnot(is.data.frame(tests))
-
-    if (!dir.exists(output_dir)) {
-        if (!dir.create(output_dir)) {
-            stop("Couldn't create ", output_dir)
-        }
+save_tests <- function(tests, output_dir) {
+    if (length(tests) == 0) {
+        return(list())
     }
 
-    lapply(tests, function(x) {
-        fname <- file.path(output_dir, paste0("test-", x$id, ".R"))
-        write(x$test, file=fname)
-    })
+    stopifnot(is.character(output_dir) && length(output_dir) == 1)
+    stopifnot(dir.exists(output_dir) || dir.create(output_dir))
+    stopifnot(is.data.frame(tests))
+
+    if (nrow(tests) == 0) {
+        return(list())
+    }
+
+    save_test <- function(fun, pkg, code, id) {
+        d <- file.path(output_dir, pkg)
+        stopifnot(dir.exists(d) || dir.create(d))
+
+        fn <- file.path(d, paste0("test-", fun, "-", id, ".R"))
+        write(code, file=fn)
+        fn
+    }
+
+    save_test_group <- function(group) {
+        group %>%
+            dplyr::mutate(id=1:nrow(group)) %>%
+            dplyr::select(fun, pkg, code, id) %>%
+            dplyr::rowwise() %>%
+            dplyr::mutate(output=save_test(fun, pkg, code, id))
+    }
+
+    tests %>%
+        dplyr::filter(!is.na(code)) %>%
+        dplyr::group_by(pkg, fun) %>%
+        dplyr::do(save_test_group(.)) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(output) %>%
+        unlist(use.names=FALSE)
 }

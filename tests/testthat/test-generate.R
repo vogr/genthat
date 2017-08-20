@@ -48,6 +48,38 @@ test_that("generate_tests", {
     expect_false(is.na(tests$elapsed[1]))
     expect_true(all(is.na(tests$elapsed[2:4])))
 })
+
+test_that("save_tests save each group", {
+    output_dir <- tempfile()
+    on.exit(unlink(output_dir, recursive=T))
+
+    tests <- dplyr::tribble(
+        ~trace, ~fun, ~pkg, ~code, ~error, ~elapsed,
+        NA, "f1", "p1", "code_p1_f1_1", NA, 0,
+        NA, "f1", "p1", "code_p1_f1_2", NA, 0,
+        NA, "f2", "p1", "code_p1_f2_1", NA, 0,
+        NA, "g1", "p2", "code_p2_g1_1", NA, 0,
+        NA, "g2", "p2", NA, NA, 0
+    )
+
+    files <- save_tests(tests, output_dir)
+
+    expect_equal(files, file.path(output_dir, c(
+        "p1/test-f1-1.R",
+        "p1/test-f1-2.R",
+        "p1/test-f2-1.R",
+        "p2/test-g1-1.R"
+        ))
+    )
+
+    expect_equal(sapply(files, readLines, USE.NAMES=FALSE), c(
+        "code_p1_f1_1",
+        "code_p1_f1_2",
+        "code_p1_f2_1",
+        "code_p2_g1_1"
+        ))
+})
+
 ## test_that("gen_tests with no traces", {
 ##     traces <- list(create_trace_error("f", list(), "error"))
 ##     tmp_dir <- tempfile()
