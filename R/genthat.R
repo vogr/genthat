@@ -226,6 +226,54 @@ import_traces <- function(filenames) {
     unlist(traces, recursive=FALSE)
 }
 
+#' @export
+#'
+gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
+                            output_dir=".",
+                            working_dir=tempfile(pattern="gen_from_package-"),
+                            batch_size=0,
+                            quiet=TRUE,
+                            lib_paths=NULL) {
+
+    generate_and_save <- function(filename) {
+        if (!quiet) {
+            message("Importing traces from: ", filename)
+        }
+
+        traces <- import_traces(filename)
+
+        if (!quiet) {
+            message("Loaded ", length(traces), " traces, generating tests")
+        }
+
+        tests <- generate_tests(traces, quiet=quiet)
+        readr::write_csv(tests, path=paste0(filename, ".csv"))
+        test_files <- save_tests(tests, output_dir)
+
+        sum(!is.na(tests$code))
+    }
+
+    generate_and_save_group <- function(filenames) {
+        if (length(filenames) == 0) {
+            return(0)
+        }
+
+        sum(sapply(filenames, generate_and_save))
+    }
+
+    pkg_traces <- trace_package(
+        pkg,
+        types=types,
+        output_dir=output_dir,
+        working_dir=working_dir,
+        batch_size=batch_size,
+        quiet=quiet,
+        lib_paths=lib_paths
+    )
+
+    pkg_traces %>% dplyr::rowwise() %>% dplyr::mutate(n_tests=generate_and_save_group(filename))
+}
+
 genthat_tracing_site_file <- function(...) {
     site_file_code <- genthat_tracing_preamble(...)
     site_file <- tempfile()

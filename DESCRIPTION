@@ -12,6 +12,7 @@ Imports:
     dplyr,
     methods,
     Rcpp (>= 0.11.3),
+    readr,
     tools,
     utils
 LinkingTo: Rcpp
