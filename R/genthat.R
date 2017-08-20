@@ -217,6 +217,15 @@ export_traces <- function(traces, output_dir,
     fnames
 }
 
+#' @export
+#'
+import_traces <- function(filenames) {
+    stopifnot(all(file.exists(filenames)))
+
+    traces <- lapply(filenames, readRDS)
+    unlist(traces, recursive=FALSE)
+}
+
 genthat_tracing_site_file <- function(...) {
     site_file_code <- genthat_tracing_preamble(...)
     site_file <- tempfile()
