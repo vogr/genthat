@@ -10,6 +10,7 @@ Imports:
     codetools,
     digest,
     dplyr,
+    formatR,
     methods,
     Rcpp (>= 0.11.3),
     readr,

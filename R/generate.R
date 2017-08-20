@@ -66,7 +66,7 @@ generate_test_code <- function(trace, include_trace_dump=FALSE) {
 }
 
 #' @export
-generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE) {
+generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
     call <- generate_call(trace)
     globals <- paste(names(trace$globals), lapply(trace$globals, serialize_value), sep=" <- ", collapse="\n")
     retv <- serialize_value(trace$retv)
@@ -76,12 +76,18 @@ generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE) {
         header <- paste(header, dump_raw_trace(trace), sep="\n")
     }
 
-    paste0(
+    code <- paste0(
         header,
         'test_that("', trace$fun, '", {\n',
         globals,
         '\nexpect_equal(', call, ', ', retv, ')\n})'
     )
+
+    if (format_code) {
+        code <- reformat_code(code)
+    }
+
+    code
 }
 
 #' @export
@@ -219,4 +225,24 @@ save_tests <- function(tests, output_dir) {
         dplyr::do(save_test_group(.)) %>%
         dplyr::ungroup() %>%
         dplyr::select(test_file)
+}
+
+reformat_code <- function(code) {
+    tryCatch({
+        code <- formatR::tidy_source(
+            text=code,
+            output=FALSE,
+            comment=TRUE,
+            blank=TRUE,
+            arrow=TRUE,
+            brace.newline=FALSE,
+            indent=4,
+            width.cutoff=120
+        )
+
+        paste(code, collapse="\n")
+    }, error=function(e) {
+        warning("Unable to format code: ", code)
+        code
+    })
 }
