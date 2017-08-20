@@ -237,10 +237,16 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             batch_size=0,
                             quiet=TRUE,
                             lib_paths=NULL,
-                            info_file=file.path(output_dir, "genthat-tests.tsv")) {
+                            info_file=file.path(output_dir, "genthat-tests.csv")) {
 
-    if (!is.null(info_file) && file.exists(info_file)) {
-        file.remove(info_file)
+    if (!is.null(info_file)) {
+        if (file.exists(info_file)) {
+            file.remove(info_file)
+        }
+
+        if (!quiet) {
+            message("Saving genthat test info file: ", info_file)
+        }
     }
 
     # TODO: split so it is easier to test
@@ -265,7 +271,7 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         if (!is.null(info_file)) {
             info <- dplyr::bind_cols(tests, test_files)
             info <- info %>% dplyr::select(fun, pkg, test_file, error, elapsed)
-            readr::write_tsv(info, path=info_file, append=file.exists(info_file))
+            readr::write_csv(info, path=info_file, append=file.exists(info_file))
         }
 
         n_tests <- sum(!is.na(tests$code))
