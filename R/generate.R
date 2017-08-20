@@ -170,10 +170,6 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
     }
 
     tests <- lapply(traces, function(x) {
-        if (!quiet) {
-            message(".", appendLF=FALSE)
-        }
-
         test <- generate_test(x, ...)
         dplyr::as_data_frame(test)
     })
@@ -181,6 +177,9 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
     dplyr::bind_rows(tests)
 }
 
+#' @export
+#' @importFrom magrittr %>%
+#'
 save_tests <- function(tests, output_dir) {
     if (length(tests) == 0) {
         return(list())
@@ -195,6 +194,10 @@ save_tests <- function(tests, output_dir) {
     }
 
     save_test <- function(fun, pkg, code, id) {
+        if (is.na(code)) {
+            return(NA)
+        }
+
         d <- file.path(output_dir, pkg)
         stopifnot(dir.exists(d) || dir.create(d))
 
@@ -208,14 +211,12 @@ save_tests <- function(tests, output_dir) {
             dplyr::mutate(id=1:nrow(group)) %>%
             dplyr::select(fun, pkg, code, id) %>%
             dplyr::rowwise() %>%
-            dplyr::mutate(output=save_test(fun, pkg, code, id))
+            dplyr::mutate(test_file=save_test(fun, pkg, code, id))
     }
 
     tests %>%
-        dplyr::filter(!is.na(code)) %>%
         dplyr::group_by(pkg, fun) %>%
         dplyr::do(save_test_group(.)) %>%
         dplyr::ungroup() %>%
-        dplyr::select(output) %>%
-        unlist(use.names=FALSE)
+        dplyr::select(test_file)
 }

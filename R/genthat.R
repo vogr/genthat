@@ -229,14 +229,21 @@ import_traces <- function(filenames) {
 }
 
 #' @export
+#' @importFrom magrittr %>%
 #'
 gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             output_dir=".",
                             working_dir=tempfile(pattern="gen_from_package-"),
                             batch_size=0,
                             quiet=TRUE,
-                            lib_paths=NULL) {
+                            lib_paths=NULL,
+                            info_file=file.path(output_dir, "genthat-tests.tsv")) {
 
+    if (!is.null(info_file) && file.exists(info_file)) {
+        file.remove(info_file)
+    }
+
+    # TODO: split so it is easier to test
     generate_and_save <- function(filename) {
         if (is.null(filename) || is.na(filename)) {
             return(NA)
@@ -253,12 +260,17 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         }
 
         tests <- generate_tests(traces, quiet=quiet)
-        readr::write_csv(tests, path=paste0(filename, ".csv"))
         test_files <- save_tests(tests, output_dir)
+
+        if (!is.null(info_file)) {
+            info <- dplyr::bind_cols(tests, test_files)
+            info <- info %>% dplyr::select(fun, pkg, test_file, error, elapsed)
+            readr::write_tsv(info, path=info_file, append=file.exists(info_file))
+        }
 
         n_tests <- sum(!is.na(tests$code))
         if (!quiet) {
-            message("Loaded ", length(traces), " traces, generating tests")
+            message("Generated ", n_tests, " tests")
         }
 
         n_tests

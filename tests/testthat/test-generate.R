@@ -62,16 +62,23 @@ test_that("save_tests save each group", {
         NA, "g2", "p2", NA, NA, 0
     )
 
-    files <- save_tests(tests, output_dir)
+    saves <- save_tests(tests, output_dir)
+    files <- saves$test_file
 
-    expect_equal(files, file.path(output_dir, c(
-        "p1/test-f1-1.R",
-        "p1/test-f1-2.R",
-        "p1/test-f2-1.R",
-        "p2/test-g1-1.R"
-        ))
+    expect_equal(files, c(
+        file.path(
+            output_dir,
+            c(
+                "p1/test-f1-1.R",
+                "p1/test-f1-2.R",
+                "p1/test-f2-1.R",
+                "p2/test-g1-1.R"
+            )
+        ),
+        NA)
     )
 
+    files <- saves %>% dplyr::filter(!is.na(test_file)) %>% .$test_file
     expect_equal(sapply(files, readLines, USE.NAMES=FALSE), c(
         "code_p1_f1_1",
         "code_p1_f1_2",
