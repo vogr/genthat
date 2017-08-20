@@ -105,37 +105,27 @@ generate_test <- function(trace, ...) {
     UseMethod("generate_test")
 }
 
-generate_test.genthat_trace_entry <- function(trace, ...) {
+generate_test_result <- function(trace, code=NA, error=NA, elapsed=NA) {
     list(
+        fun=if (is.null(trace$fun)) NA else trace$fun,
+        pkg=if (is.null(trace$pkg)) NA else trace$pkg,
         trace=format(trace),
-        fun=trace$fun,
-        pkg=trace$pkg,
-        code=NA,
-        error="No return value",
-        elapsed=NA
+        code=code,
+        error=error,
+        elapsed=elapsed
     )
+}
+
+generate_test.genthat_trace_entry <- function(trace, ...) {
+    generate_test_result(trace, error="No return value")
 }
 
 generate_test.genthat_trace_error <- function(trace, ...) {
-    list(
-        trace=format(trace),
-        fun=trace$fun,
-        pkg=trace$pkg,
-        code=NA,
-        error=paste("Error:", trace$error$message),
-        elapsed=NA
-    )
+    generate_test_result(trace, error=paste("Code error:", trace$error$message))
 }
 
 generate_test.genthat_trace_failure <- function(trace, ...) {
-    list(
-        trace=format(trace),
-        fun=trace$fun,
-        pkg=trace$pkg,
-        code=NA,
-        error=paste("Failure:", trace$failure$message),
-        elapsed=NA
-    )
+    generate_test_result(trace, error=paste("Trace error:", trace$failure$message))
 }
 
 #' @importFrom utils capture.output
@@ -143,32 +133,17 @@ generate_test.genthat_trace_failure <- function(trace, ...) {
 #' @importFrom utils setTxtProgressBar
 #' @importFrom utils str
 generate_test.genthat_trace <- function(trace, ...) {
-    result <- list(
-        trace=format(trace),
-        fun=trace$fun,
-        pkg=trace$pkg,
-        code=NA,
-        error=NA,
-        elapsed=NA
-    )
-
-    result <- tryCatch({
+    tryCatch({
         time <- stopwatch(code <- generate_test_code(trace, ...))
-        result$elapsed <- time
 
-        if (!is.null(code)) {
-            result$code <- code
-        } else {
-            result$error <- "generate_test_code returned NULL"
+        if (is.null(code)) {
+            stop("generate_test_code returned NULL")
         }
 
-        result
+        generate_test_result(trace, code=code, elapsed=time)
     }, error=function(e) {
-        result$error <- e$message
-        result
+        generate_test_result(trace, error=paste("Generate error:", e$message))
     })
-
-    result
 }
 
 #' @title Generates test cases from traces
@@ -191,7 +166,7 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
     stopifnot(is.list(traces) || is.environment(traces))
 
     if (length(traces) == 0) {
-        return(data.frame())
+        return(dplyr::data_frame())
     }
 
     tests <- lapply(traces, function(x) {
@@ -200,16 +175,10 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
         }
 
         test <- generate_test(x, ...)
-        as.data.frame(test, row.names=NULL, stringsAsFactors=FALSE)
+        dplyr::as_data_frame(test)
     })
 
-    if (requireNamespace("dplyr", quietly=TRUE)) {
-        df <- dplyr::bind_rows(tests)
-        dplyr::as_data_frame(df)
-    } else {
-        message("dplyr is not available, which is a pity since `do.call(rbind, ...)` is super slow")
-        do.call(rbind, tests)
-    }
+    dplyr::bind_rows(tests)
 }
 
 save_tests <- function(tests, output_dir) {
