@@ -69,10 +69,10 @@ test_that("save_tests save each group", {
         file.path(
             output_dir,
             c(
-                "p1/test-f1-1.R",
-                "p1/test-f1-2.R",
-                "p1/test-f2-1.R",
-                "p2/test-g1-1.R"
+                "p1/f1/test-1.R",
+                "p1/f1/test-2.R",
+                "p1/f2/test-1.R",
+                "p2/g1/test-1.R"
             )
         ),
         NA)

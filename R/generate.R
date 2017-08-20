@@ -204,26 +204,20 @@ save_tests <- function(tests, output_dir) {
             return(NA)
         }
 
-        d <- file.path(output_dir, pkg)
-        stopifnot(dir.exists(d) || dir.create(d))
+        dname <- file.path(output_dir, pkg, fun)
+        stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
-        fn <- file.path(d, paste0("test-", fun, "-", id, ".R"))
-        write(code, file=fn)
-        fn
-    }
-
-    save_test_group <- function(group) {
-        group %>%
-            dplyr::mutate(id=1:nrow(group)) %>%
-            dplyr::select(fun, pkg, code, id) %>%
-            dplyr::rowwise() %>%
-            dplyr::mutate(test_file=save_test(fun, pkg, code, id))
+        fname <- file.path(dname, paste0("test-", id, ".R"))
+        write(code, file=fname)
+        fname
     }
 
     tests %>%
         dplyr::group_by(pkg, fun) %>%
-        dplyr::do(save_test_group(.)) %>%
+        dplyr::mutate(id=row_number()) %>%
         dplyr::ungroup() %>%
+        dplyr::rowwise() %>%
+        dplyr::mutate(test_file=save_test(fun, pkg, code, id)) %>%
         dplyr::select(test_file)
 }
 
