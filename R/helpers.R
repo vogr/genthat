@@ -237,7 +237,7 @@ capture <- function(expr, split=FALSE) {
     sink(type="output", file=fout, split=split)
 
     tryCatch({
-        time <- system.time(expr)
+        time <- stopwatch(expr)
     }, finally={
         sink(type="message")
         sink(type="output")
@@ -246,7 +246,7 @@ capture <- function(expr, split=FALSE) {
     })
 
     list(
-        elapsed=time["elapsed"],
+        elapsed=time,
         stdout=paste(readLines(out), collapse="\n"),
         stderr=paste(readLines(err), collapse="\n")
     )
@@ -300,4 +300,8 @@ get_function_package_name <- function(fun) {
     }
 }
 
-
+stopwatch <- function(expr) {
+    time <- Sys.time()
+    force(expr)
+    Sys.time() - time
+}

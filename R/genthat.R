@@ -72,11 +72,11 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
             batch_size=batch_size
         )
 
-        time <- system.time(
+        time <- stopwatch(
             ret <- run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
         )
 
-        assign(tag, time["elapsed"], envir=stopwatch)
+        assign(tag, time, envir=stopwatch)
 
         ret
     }

@@ -153,9 +153,8 @@ generate_test.genthat_trace <- function(trace, ...) {
     )
 
     result <- tryCatch({
-        time <- system.time(code <- generate_test_code(trace, ...))
-
-        result$elapsed <- time["elapsed"]
+        time <- stopwatch(code <- generate_test_code(trace, ...))
+        result$elapsed <- time
 
         if (!is.null(code)) {
             result$code <- code
