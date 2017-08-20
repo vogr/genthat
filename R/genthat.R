@@ -162,6 +162,8 @@ export_traces <- function(traces, output_dir,
     }
 
     n_batches <- ceiling(n_traces / batch_size)
+
+    # TODO: use next_file_in_row
     n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(file_prefix, "*", ".RDS"))))
 
     fnames <- sapply(1:n_batches, function(i) {
@@ -236,6 +238,10 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
                             lib_paths=NULL) {
 
     generate_and_save <- function(filename) {
+        if (is.null(filename) || is.na(filename)) {
+            return(NA)
+        }
+
         if (!quiet) {
             message("Importing traces from: ", filename)
         }
@@ -250,12 +256,17 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         readr::write_csv(tests, path=paste0(filename, ".csv"))
         test_files <- save_tests(tests, output_dir)
 
-        sum(!is.na(tests$code))
+        n_tests <- sum(!is.na(tests$code))
+        if (!quiet) {
+            message("Loaded ", length(traces), " traces, generating tests")
+        }
+
+        n_tests
     }
 
     generate_and_save_group <- function(filenames) {
         if (length(filenames) == 0) {
-            return(0)
+            return(NA)
         }
 
         sum(sapply(filenames, generate_and_save))
@@ -271,7 +282,9 @@ gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         lib_paths=lib_paths
     )
 
-    pkg_traces %>% dplyr::rowwise() %>% dplyr::mutate(n_tests=generate_and_save_group(filename))
+    pkg_traces %>%
+        dplyr::rowwise() %>%
+        dplyr::mutate(n_tests=generate_and_save_group(filename))
 }
 
 genthat_tracing_site_file <- function(...) {
