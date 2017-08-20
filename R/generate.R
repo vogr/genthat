@@ -117,7 +117,7 @@ generate_test_result <- function(trace, code=NA, error=NA, elapsed=NA) {
 }
 
 generate_test.genthat_trace_entry <- function(trace, ...) {
-    generate_test_result(trace, error="No return value")
+    generate_test_result(trace, error="Generate error: No return value")
 }
 
 generate_test.genthat_trace_error <- function(trace, ...) {
