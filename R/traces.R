@@ -27,11 +27,16 @@ format.genthat_trace <- function(x, ...) {
 }
 
 #' @export
+format.genthat_trace_entry <- function(x, ...) {
+    paste(utils::capture.output(utils::str(x)), collapse="\n")
+}
+
+#' @export
 format.genthat_trace_error <- function(x, ...) {
     paste(utils::capture.output(utils::str(x)), collapse="\n")
 }
 
 #' @export
-format.genthat_trace_entry <- function(x, ...) {
+format.genthat_trace_failure <- function(x, ...) {
     paste(utils::capture.output(utils::str(x)), collapse="\n")
 }

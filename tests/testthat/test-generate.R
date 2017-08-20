@@ -31,6 +31,23 @@ test_that("generate_call supports infix functions for others", {
     expect_equal(generate_call(trace), "mypkg:::`%in%`(x=1, table=c(1, 2))")
 })
 
+test_that("generate_tests", {
+    traces <- list(
+        create_trace(fun="f1", pkg="p", args=list(x=1, y=2), retv=3),
+        create_trace(fun="f2", pkg="p", args=list(x=1, y=2)),
+        create_trace(fun="f3", pkg="p", args=list(x=1, y=2), error=simpleError("An error")),
+        create_trace(fun="f4", pkg="p", args=list(x=1, y=2), failure=simpleError("A failure"))
+    )
+
+    tests <- generate_tests(traces)
+
+    expect_equal(nrow(tests), 4)
+    expect_equal(tests$fun, c("f1", "f2", "f3", "f4"))
+    expect_equal(tests$pkg, rep("p", 4))
+    expect_equal(tests$error, c(NA, "No return value", "Error: An error", "Failure: A failure"))
+    expect_false(is.na(tests$elapsed[1]))
+    expect_true(all(is.na(tests$elapsed[2:4])))
+})
 ## test_that("gen_tests with no traces", {
 ##     traces <- list(create_trace_error("f", list(), "error"))
 ##     tmp_dir <- tempfile()

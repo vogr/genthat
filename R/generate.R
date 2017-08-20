@@ -109,8 +109,31 @@ generate_test.genthat_trace_entry <- function(trace, ...) {
     list(
         trace=format(trace),
         fun=trace$fun,
+        pkg=trace$pkg,
         code=NA,
-        error="No return value recorded",
+        error="No return value",
+        elapsed=NA
+    )
+}
+
+generate_test.genthat_trace_error <- function(trace, ...) {
+    list(
+        trace=format(trace),
+        fun=trace$fun,
+        pkg=trace$pkg,
+        code=NA,
+        error=paste("Error:", trace$error$message),
+        elapsed=NA
+    )
+}
+
+generate_test.genthat_trace_failure <- function(trace, ...) {
+    list(
+        trace=format(trace),
+        fun=trace$fun,
+        pkg=trace$pkg,
+        code=NA,
+        error=paste("Failure:", trace$failure$message),
         elapsed=NA
     )
 }
@@ -123,20 +146,21 @@ generate_test.genthat_trace <- function(trace, ...) {
     result <- list(
         trace=format(trace),
         fun=trace$fun,
+        pkg=trace$pkg,
         code=NA,
         error=NA,
         elapsed=NA
     )
 
-    # this style is needed so we can set the error field from error handler
-    # which would otherwise create a new scope copying the result list
-    # on modification
     result <- tryCatch({
         time <- system.time(code <- generate_test_code(trace, ...))
+
         result$elapsed <- time["elapsed"]
 
         if (!is.null(code)) {
             result$code <- code
+        } else {
+            result$error <- "generate_test_code returned NULL"
         }
 
         result
@@ -172,13 +196,17 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
     }
 
     tests <- lapply(traces, function(x) {
-        message(appendLF=FALSE)
-        generate_test(x, ...)
+        if (!quiet) {
+            message(".", appendLF=FALSE)
+        }
+
+        test <- generate_test(x, ...)
+        as.data.frame(test, row.names=NULL, stringsAsFactors=FALSE)
     })
 
     if (requireNamespace("dplyr", quietly=TRUE)) {
         df <- dplyr::bind_rows(tests)
-        as_data_frame(df)
+        dplyr::as_data_frame(df)
     } else {
         message("dplyr is not available, which is a pity since `do.call(rbind, ...)` is super slow")
         do.call(rbind, tests)
