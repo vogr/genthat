@@ -136,7 +136,7 @@ export_traces <- function(traces, output_dir,
                          tag=NA,
                          stats_file=NULL,
                          batch_size=0) {
-    saveRDS(list(sys.calls(), traces, as.list(match.call())), file.path("/tmp", basename(tempfile(pattern="export_traces", fileext=".RDS"))))
+
     stopifnot(is.list(traces))
     stopifnot(length(output_dir) == 1)
     stopifnot(dir.exists(output_dir) || dir.create(output_dir))
