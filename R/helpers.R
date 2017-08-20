@@ -305,3 +305,15 @@ stopwatch <- function(expr) {
     force(expr)
     Sys.time() - time
 }
+
+next_file_in_row <- function(path) {
+    dname <- dirname(path)
+    fname <- basename(path)
+
+    ext <- tools::file_ext(fname)
+    name <- tools::file_path_sans_ext(fname)
+
+    n <- length(Sys.glob(path=file.path(dname, paste0(name, "*", ".", ext))))
+
+    file.path(dname, paste0(name, "-", n, ".", ext))
+}

@@ -58,7 +58,7 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     output_dir <- normalizePath(output_dir, mustWork=TRUE)
     working_dir <- normalizePath(working_dir, mustWork=TRUE)
     pkg_dir <- find.package(pkg, lib_paths)
-    stats_file <- file.path(working_dir, "genthat-exports.csv")
+    stats_file <- next_file_in_row(file.path(working_dir, "genthat-exports.csv"))
 
     stopwatch <- new.env(parent=emptyenv())
 
