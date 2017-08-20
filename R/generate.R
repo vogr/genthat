@@ -226,13 +226,15 @@ reformat_code <- function(code) {
         code <- formatR::tidy_source(
             text=code,
             output=FALSE,
-            comment=TRUE,
+            comment=FALSE,
             blank=TRUE,
             arrow=TRUE,
             brace.newline=FALSE,
             indent=4,
             width.cutoff=120
         )
+
+        code <- code$text.tidy
 
         paste(code, collapse="\n")
     }, error=function(e) {

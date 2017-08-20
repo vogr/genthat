@@ -21,6 +21,10 @@ test_that("gen_from_package works on sample pkg", {
 
         info <- readr::read_tsv(info_file)
         expect_equal(nrow(info), 12)
+
+        run <- lapply(info[, "test_file"]$test_file, source, verbose=FALSE)
+        run <- sapply(run, `[[`, "value")
+        expect_equal(run, rep(TRUE, 12))
     })
 })
 
