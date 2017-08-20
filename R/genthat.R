@@ -230,8 +230,8 @@ genthat_tracing_preamble <- function(pkgs,
                                     output_dir,
                                     tag="",
                                     debug=getOption("genthat.debug", FALSE),
-                                    default_decorate_method=getOption("genthat.default_decorate_method", "trycatch"),
-                                    default_tracer=getOption("genthat.default_tracer", "set"),
+                                    default_decorate_method=getOption("genthat.default_decorate_method"),
+                                    default_tracer=getOption("genthat.default_tracer"),
                                     stats_file=NULL,
                                     batch_size=0) {
 
