@@ -13,20 +13,20 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
         globals <- as.list(environment(extract_closure(callee)))
         globals <- lapply(globals, create_duplicate)
 
-        create_trace(name, pkg, args, globals, retv, error)
+        create_trace(name, pkg, args=args, globals=globals, retv=retv, error=error)
     }, error=function(e) {
         log <- getOption("genthat.record_trace_error_log")
 
         if (!is.null(log)) {
             st <- paste(c(e$message, sapply(sys.calls(), format), "", ""), collapse="\n")
-            cat(st, file=, append=TRUE)
+            cat(st, file=log, append=TRUE)
         } else {
             # dump.frames(to.file=TRUE, dumpto=file.path("/tmp", basename(tempfile(pattern="DUMP"))), include.GlobalEnv=T)
-            print(paste0("Failed to record: ", pkg, ":::", name, ": ", e$message))
+            print(paste0("GENTHAT: Failed to record: ", pkg, ":::", name, ": ", e$message))
             print(sys.calls())
         }
 
-        create_trace(name, pkg, args, failure=e)
+        create_trace(name, pkg, args=args, failure=e)
     })
 
     store_trace(tracer, trace)
