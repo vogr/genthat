@@ -66,10 +66,6 @@ get_symbol_names <- function(exprs) {
     unique(unlist(lapply(exprs, all.names)))
 }
 
-is_base_env <- function(env) {
-    isBaseNamespace(env) || identical(env, baseenv())
-}
-
 get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FALSE) {
     if (length(names) == 0) {
         return(list())
@@ -95,17 +91,26 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
         vars <- filter_not(vars, function(x) is_base_env(x$env))
     }
 
-    # get reference to package environments
-    lapply(vars, function(x) {
-        pkg <- get_package_name(x$env)
-        if (!is.null(pkg)) {
-            # create reference
-            substitute(PKG:::NAME, list(PKG=as.name(pkg), NAME=as.name(x$name)))
+    # TODO: use purrr
+    lapply(vars, function(x) get_variable_value_or_reference(x$name, x$env))
+}
+
+get_variable_value_or_reference <- function(name, env) {
+    pkg <- get_package_name(env)
+
+    if (is_base_env(env)) {
+        substitute(NAME, list(NAME=as.name(name)))
+    } else if (is_package_environment(env)) {
+        substitute(PKG::NAME, list(PKG=as.name(pkg), NAME=as.name(name)))
+    } else if (is_package_namespace(env)) {
+        if (name %in% getNamespaceExports(env)) {
+            substitute(PKG::NAME, list(PKG=as.name(pkg), NAME=as.name(name)))
         } else {
-            # get the value
-            get(x$name, envir=x$env, inherits=FALSE)
+            substitute(PKG:::NAME, list(PKG=as.name(pkg), NAME=as.name(name)))
         }
-    })
+    } else {
+        get(name, envir=env, inherits=FALSE)
+    }
 }
 
 #' @importFrom codetools findGlobals

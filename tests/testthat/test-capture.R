@@ -126,6 +126,7 @@ test_that("find_symbol_env finds correct function origins", {
 })
 
 test_that("find_symbol_env resolves %>% (#74)", {
+    library(dplyr)
     expect_true("package:dplyr" %in% search())
     expect_equal(find_symbol_env("%>%", globalenv()), asNamespace("magrittr"))
 })
@@ -148,11 +149,11 @@ test_that("get_symbol_values gets values", {
 
     expect_equal(get_symbol_values(c("a", "b"), env), list(a=1, b=2))
     expect_equal(get_symbol_values(c(), env), list())
-    expect_equal(get_symbol_values("unzip", globalenv()), list(unzip=quote(utils:::unzip)))
+    expect_equal(get_symbol_values("unzip", globalenv()), list(unzip=quote(utils::unzip)))
 
     # it is a named list for which expect_equal won't work
     expect_equivalent(get_symbol_values("+", globalenv()), list())
-    expect_equal(get_symbol_values("+", globalenv(), include_base_symbols=TRUE), list(`+`=quote(base:::`+`)))
+    expect_equal(get_symbol_values("+", globalenv(), include_base_symbols=TRUE), list(`+`=as.name("+")))
     expect_length(get_symbol_values("does-not-exists"), 0)
 })
 
@@ -241,10 +242,23 @@ test_that("extract_closure works with references", {
     expect_equal(length(environment(sc)), 2)
 
     # this one is a reference
-    expect_equal(environment(sc)$mtcars, quote(datasets:::mtcars))
+    expect_equal(environment(sc)$mtcars, quote(datasets::mtcars))
 
     # this one is not a reference
     expect_equal(environment(sc)$a, mtcars)
+})
+
+test_that("get_variable_value_or_reference uses correctly :: and :::", {
+    # from package environment
+    expect_equal(get_variable_value_or_reference("zip", as.environment("package:utils")), quote(utils::zip))
+    # from namespace, but exported
+    expect_equal(get_variable_value_or_reference("zip", asNamespace("utils")), quote(utils::zip))
+    # from namespace, but exported
+    expect_equal(get_variable_value_or_reference("specialOps", asNamespace("utils")), quote(utils:::specialOps))
+
+    # value
+    g <- function() {}
+    expect_equal(get_variable_value_or_reference("g", environment(g)), g)
 })
 
 # test for https://github.com/PRL-PRG/genthat/issues/16
@@ -258,7 +272,7 @@ test_that("extract_closure works with default values", {
     expect_equal(length(environment(sc)), 1)
     expect_equal(formals(environment(sc)$a), formals(a))
     expect_equal(body(environment(sc)$a), body(a))
-    expect_equal(environment(environment(sc)$a)$mtcars, quote(datasets:::mtcars))
+    expect_equal(environment(environment(sc)$a)$mtcars, quote(datasets::mtcars))
 })
 
 test_that("extract_closure works with recursion", {

@@ -66,8 +66,30 @@ test_that("is_imports_namespace works", {
     expect_false(is_imports_namespace(new.env()))
     expect_false(is_imports_namespace(baseenv()))
     expect_false(is_imports_namespace(globalenv()))
+
     expect_false(is_imports_namespace(asNamespace("genthat")))
     expect_true(is_imports_namespace(parent.env(asNamespace("genthat"))))
+    expect_false(is_imports_namespace(as.environment("package:genthat")))
+})
+
+test_that("is_package_environment works", {
+    expect_false(is_package_environment(new.env()))
+    expect_false(is_package_environment(baseenv()))
+    expect_false(is_package_environment(globalenv()))
+
+    expect_false(is_package_environment(asNamespace("genthat")))
+    expect_false(is_package_environment(parent.env(asNamespace("genthat"))))
+    expect_true(is_package_environment(as.environment("package:genthat")))
+})
+
+test_that("is_package_namespace works", {
+    expect_false(is_package_namespace(new.env()))
+    expect_false(is_package_namespace(baseenv()))
+    expect_false(is_package_namespace(globalenv()))
+
+    expect_true(is_package_namespace(asNamespace("genthat")))
+    expect_false(is_package_namespace(parent.env(asNamespace("genthat"))))
+    expect_false(is_package_namespace(as.environment("package:genthat")))
 })
 
 # TODO: update for link_environments()

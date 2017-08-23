@@ -331,7 +331,10 @@ next_file_in_row <- function(path) {
     file.path(dname, paste0(name, "-", n, ".", ext))
 }
 
-is_imports_namespace <- function(env) {
+is_interesting_namespace <- function(env, prefix) {
+    stopifnot(is.environment(env))
+    stopifnot(is.character(prefix) && length(prefix) == 1)
+
     env_name <- environmentName(env)
     if (is.null(env_name)) {
         return(FALSE)
@@ -339,5 +342,21 @@ is_imports_namespace <- function(env) {
 
     # naive as it looks, this is the same check the bytecode compiler does
     # in https://github.com/wch/r-source/blob/trunk/src/library/compiler/R/cmp.R#L107
-    startsWith(env_name, "imports:")
+    startsWith(env_name, prefix)
+}
+
+is_imports_namespace <- function(env) {
+    is_interesting_namespace(env, "imports:")
+}
+
+is_package_environment <- function(env) {
+    is_interesting_namespace(env, "package:")
+}
+
+is_package_namespace <- function(env) {
+    isNamespace(env)
+}
+
+is_base_env <- function(env) {
+    isBaseNamespace(env) || identical(env, baseenv())
 }
