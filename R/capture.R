@@ -10,7 +10,7 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
 
     trace <- tryCatch({
         callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
-        globals <- as.list(environment(extract_closure(callee)))
+        globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
         globals <- lapply(globals, create_duplicate)
 
         create_trace(name, pkg, args=args, globals=globals, retv=retv, error=error)
