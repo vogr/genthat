@@ -5,13 +5,14 @@ if (!requireNamespace("devtools", quietly=TRUE)) {
 }
 
 test_that("get_function_package_name returns the package name", {
-    expect_equal(get_function_package_name(ls), "base")
-    expect_equal(get_function_package_name(`%in%`), "base")
-    expect_equal(get_function_package_name(tools::Rcmd), "tools")
+    expect_equal(get_function_package_name(ls, "ls"), "base")
+    expect_equal(get_function_package_name(`%in%`, "%in%"), "base")
+    expect_equal(get_function_package_name(tools::Rcmd, "Rcmd"), "tools")
+    expect_equal(get_function_package_name(dplyr::`%>%`, "%>%"), "magrittr")
 
     my_f <- function() {}
 
-    expect_equal(get_function_package_name(my_f), NULL)
+    expect_equal(get_function_package_name(my_f, "my_f"), NULL)
 })
 
 test_that("create_function creates functions", {

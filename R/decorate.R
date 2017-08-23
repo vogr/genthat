@@ -117,7 +117,7 @@ decorate_function <- function(decorator, fun, name, record_fun) {
         message("Decorating function: ", name)
     }
 
-    pkg <- get_function_package_name(fun)
+    pkg <- get_function_package_name(fun, name)
     new_fun <- decorator$method(fun, name, pkg, record_fun)
 
     if (is.null(attr(new_fun, "__genthat_original_fun"))) {
@@ -171,7 +171,7 @@ reset_function <- function(decorator, fun, name) {
     reassign_function(fun, orig_fun, keep_only_new_attributes=TRUE)
     attr(fun, "__genthat_original_fun") <- NULL
 
-    pkg <- get_function_package_name(fun)
+    pkg <- get_function_package_name(fun, name)
     fqn <- paste0(pkg, ":::", name)
     if (exists(fqn, envir=decorator$decorations)) {
         rm(list=fqn, envir=decorator$decorations)

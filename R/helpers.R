@@ -283,15 +283,28 @@ resolve_function <- function(name, in_env=parent.frame()) {
     fun
 }
 
-get_function_package_name <- function(fun) {
+get_function_package_name <- function(fun, name) {
+    stopifnot(is.null(name) ||(is.character(name) && length(name) == 1))
     stopifnot(is.function(fun))
 
     env <- environment(fun)
+    pkg_name <- get_package_name(env)
+
+    # A function's environment does not need to be a named environment. For
+    # example if a package in a function is defined using a call to another
+    # higher-order function, it will have a new environment whose parent will be
+    # named environment. This can obviously nest. A concrete example is `%>%`
+    # from magrittr (cf.
+    # https://github.com/tidyverse/magrittr/blob/master/R/pipe.R#L175 ).
+    if (is.null(pkg_name) && length(env) == 0 && !is.null(name)) {
+        env <- find_symbol_env(name, env)
+        pkg_name <- get_package_name(env)
+    }
+
     if (identical(env, .BaseNamespaceEnv)) {
         return("base")
     }
 
-    pkg_name <- get_package_name(env)
 
     if (is_empty_str(pkg_name) || identical(env, globalenv())) {
         NULL
