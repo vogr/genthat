@@ -330,3 +330,14 @@ next_file_in_row <- function(path) {
 
     file.path(dname, paste0(name, "-", n, ".", ext))
 }
+
+is_imports_namespace <- function(env) {
+    env_name <- environmentName(env)
+    if (is.null(env_name)) {
+        return(FALSE)
+    }
+
+    # naive as it looks, this is the same check the bytecode compiler does
+    # in https://github.com/wch/r-source/blob/trunk/src/library/compiler/R/cmp.R#L107
+    startsWith(env_name, "imports:")
+}

@@ -27,16 +27,36 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     store_trace(tracer, trace)
 }
 
-find_symbol_env <- function(name, env=parent.frame()) {
+find_symbol_env <- function(name, env=parent.frame(), .local=FALSE) {
     stopifnot(is.character(name), length(name) == 1)
-    stopifnot(is.environment(env))
+    stopifnot(is.null(env) || is.environment(env))
 
-    if (identical(env, emptyenv())) {
+    if (is.null(env) || identical(env, emptyenv())) {
         NULL
     } else if (exists(name, env, inherits=FALSE)) {
-        env
+        if (is_imports_namespace(env)) {
+            # we do not want to resolve symbol to an import namespace
+            # this will be difficult to reference in the test
+            find_symbol_env(name, parent.env(env), .local=.local)
+        } else {
+            if (!.local && exists(name, envir=env, inherits=FALSE, mode="function")) {
+                # if it is a function, get its original environment
+                fn <- get(name, envir=env, inherits=FALSE, mode="function")
+                fn_env <- find_symbol_env(name, environment(fn), .local=TRUE)
+                if (!is.null(fn_env)) {
+                    fn_env
+                } else {
+                    # it is possible that the function is not defined in its
+                    # associated environment in which case use the last one we
+                    # found the symbol in
+                    env
+                }
+            } else {
+                env
+            }
+        }
     } else {
-        find_symbol_env(name, parent.env(env))
+        find_symbol_env(name, parent.env(env), .local=.local)
     }
 }
 

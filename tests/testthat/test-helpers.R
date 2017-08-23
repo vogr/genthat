@@ -61,6 +61,15 @@ test_that("link_environments work",{
     expect_identical(parent.env(a_env), b_env)
     expect_identical(parent.env(d_env), a_env)
 })
+
+test_that("is_imports_namespace works", {
+    expect_false(is_imports_namespace(new.env()))
+    expect_false(is_imports_namespace(baseenv()))
+    expect_false(is_imports_namespace(globalenv()))
+    expect_false(is_imports_namespace(asNamespace("genthat")))
+    expect_true(is_imports_namespace(parent.env(asNamespace("genthat"))))
+})
+
 # TODO: update for link_environments()
 ## test_that("linked_environment links environments", {
 ##     e <- linked_environment(

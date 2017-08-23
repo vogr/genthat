@@ -109,6 +109,27 @@ test_that("find_symbol_env finds symbols", {
     expect_equal(find_symbol_env("d", e3), NULL)
 })
 
+test_that("find_symbol_env finds correct function origins", {
+    e1 <- new.env(parent=emptyenv())
+    e2 <- new.env(parent=e1)
+    e_g <- new.env(parent=emptyenv())
+
+    g <- function() {}
+    environment(g) <- e_g
+
+    e1$g <- g
+    # the symbol is not defined in e_g
+    expect_equal(find_symbol_env("g", e2), e1)
+
+    e_g$g <- g
+    expect_equal(find_symbol_env("g", e2), e_g)
+})
+
+test_that("find_symbol_env resolves %>% (#74)", {
+    expect_true("package:dplyr" %in% search())
+    expect_equal(find_symbol_env("%>%", globalenv()), asNamespace("magrittr"))
+})
+
 test_that("find_symbol_env finds the earlier symbol", {
     var <- 1 # this shall conflict with stats::var
 
