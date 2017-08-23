@@ -28,8 +28,12 @@ generate_call <- function(trace) {
     stopifnot(is.list(trace$args))
 
     fun <- trace$fun
+    pkg <- trace$pkg
+    if (is.null(pkg)) {
+        pkg <- ""
+    }
 
-    if (is_infix_fun(fun) && trace$pkg == "base") {
+    if (is_infix_fun(fun) && pkg == "base") {
         args <- format_calling_args(trace$args, include_names=FALSE)
 
         if (length(args) != 2) {
@@ -52,6 +56,12 @@ generate_call <- function(trace) {
     }
 }
 
+generate_globals <- function(globals) {
+    names <- sapply(names(globals), escape_name, USE.NAMES=FALSE)
+
+    paste(names, lapply(globals, serialize_value), sep=" <- ", collapse="\n")
+}
+
 #' @title Generate test case code from a trace
 #' @description Given a genthat trace it generates a corresponding test case
 #'
@@ -68,7 +78,7 @@ generate_test_code <- function(trace, include_trace_dump=FALSE) {
 #' @export
 generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
     call <- generate_call(trace)
-    globals <- paste(names(trace$globals), lapply(trace$globals, serialize_value), sep=" <- ", collapse="\n")
+    globals <- generate_globals(trace$globals)
     retv <- serialize_value(trace$retv)
 
     header <- "library(testthat)\n\n"

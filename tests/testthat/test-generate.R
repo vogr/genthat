@@ -87,6 +87,13 @@ test_that("save_tests save each group", {
         ))
 })
 
+test_that("generate escapes global non-syntactic names", {
+    expect_equal(
+        generate_globals(list(`%>%`="A", `__b`="B", c="C")),
+        paste(c('`%>%` <- "A"', '`__b` <- "B"', 'c <- "C"'), collapse="\n")
+    )
+})
+
 ## test_that("gen_tests with no traces", {
 ##     traces <- list(create_trace_error("f", list(), "error"))
 ##     tmp_dir <- tempfile()
