@@ -355,5 +355,36 @@ test_that("capture works with lapply", {
         expect_equal(t$globals$X, 1:10)
         expect_equal(t$retv, i+1)
     }
-    
+})
+
+test_that("get_symbol_value can handle ..", {
+     tracer <- create_sequence_tracer()
+
+     f <- function(...) g(...)
+     g <- function(...) h(...)
+     h <- function(...) {
+         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+     }
+
+     f(10L, 20L)
+     traces <- copy_traces(tracer)
+
+     expect_equal(traces[[1]]$args, list(10L, 20L))
+     expect_length(traces[[1]]$globals, 0L)
+})
+
+test_that("get_symbol_value can handle ..N", {
+     tracer <- create_sequence_tracer()
+
+     f <- function(...) g(...)
+     g <- function(...) h(..1)
+     h <- function(...) {
+         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+     }
+
+     f(10L, 20L)
+     traces <- copy_traces(tracer)
+
+     expect_equal(traces[[1]]$args, list(10L))
+     expect_length(traces[[1]]$globals, 0L)
 })

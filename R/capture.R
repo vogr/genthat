@@ -9,6 +9,22 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     # TODO: will this help us with promises?
 
     trace <- tryCatch({
+        ddsym <- as.character(filter(args, is_ddsym))
+        if (length(ddsym) > 0) {
+            names(ddsym) <- ddsym
+            marker <- new.env(parent=emptyenv())
+
+            vals <- lapply(ddsym, get_ddsym_value, env=sys.frame(sys.nframe() - 1), marker=marker)
+            args <- lapply(args, function(x) {
+                if (is_ddsym(x) && !identical(x, marker)) {
+                    # only replace the one which has been resolved
+                    vals[[as.character(x)]]
+                } else {
+                    x
+                }
+            })
+        }
+
         callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
         globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
         globals <- lapply(globals, create_duplicate)
@@ -25,6 +41,55 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     })
 
     store_trace(tracer, trace)
+}
+
+is_ddsym <- function(name) {
+    length(grep("^\\.\\.\\d+$", name)) == 1
+}
+
+get_ddsym_value <- function(sym, env, marker) {
+    stopifnot(is.environment(env))
+    stopifnot(is.environment(marker))
+
+    sym <- as.character(sym)
+    stopifnot(is.character(sym) && length(sym) == 1 && nchar(sym) > 2)
+
+    idx <- as.integer(substr(sym, 3, nchar(sym)))
+
+    handler <- function(e) {
+        if (is_debug_enabled()) {
+            n <- sys.nframe() - 1
+            while (n > 0) {
+                if (identical(env, sys.frame(n))) {
+                    break()
+                } else {
+                    n <- n - 1
+                }
+            }
+
+            call <- if (n > 0) {
+                format(sys.call(n))
+            } else {
+                "<unknown>"
+            }
+
+            cat("Unable to resolve", as.character(sym), "in", call, ":", e$message, "\n")
+        }
+        marker
+
+        # let's try again - this time only get expression
+        ## tryCatch({
+        ##     get_dd_val(idx, env, doeval=FALSE)
+        ## }, error=function(e) {
+        ##     message("Err: ", e$message)
+        ##     marker
+        ## }, warning=function(e) {
+        ##     message("Warn: ", e$message)
+        ##     marker
+        ## })
+    }
+
+    tryCatch(get_dd_val(idx, env, doeval=TRUE), error=handler, warning=handler)
 }
 
 find_symbol_env <- function(name, env=parent.frame(), .local=FALSE) {

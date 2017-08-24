@@ -8,6 +8,35 @@ extern "C" {
 }
 
 // [[Rcpp::export]]
+SEXP get_dd_val(int i, SEXP rho, bool doeval=true) {
+    // TODO: check args
+    SEXP dots = findVar(R_DotsSymbol, rho);
+
+    if (TYPEOF(dots) == DOTSXP && dots != R_UnboundValue) {
+        if (length(dots) >= i) {
+            dots = nthcdr(dots, i - 1);
+            SEXP val = CAR(dots);
+
+            if (TYPEOF(val) == PROMSXP) {
+                if (doeval) {
+                    return Rf_eval(val, rho);
+                } else {
+                    return substitute(val, rho);
+                }
+            } else {
+                return val;
+            }
+        } else {
+            Rf_error("Unable to find ..%d - the ... does not contain %d elements", i, i);
+        }
+    } else {
+        Rf_error("Unable to find ..%d - used in an incorrect context, no ... to look in", i);
+    }
+
+    return R_NilValue;
+}
+
+// [[Rcpp::export]]
 SEXP reassign_function(SEXP target_fun, SEXP new_fun, bool keep_only_new_attributes=false) {
   if (TYPEOF(target_fun) != CLOSXP) error("target_fun must be a function");
   if (TYPEOF(new_fun) != CLOSXP) error("new_fun must be a function");

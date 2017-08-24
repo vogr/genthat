@@ -33,6 +33,10 @@ escape_name <- function(name) {
     .Call('_genthat_escape_name', PACKAGE = 'genthat', name)
 }
 
+get_dd_val <- function(i, rho, doeval = TRUE) {
+    .Call('_genthat_get_dd_val', PACKAGE = 'genthat', i, rho, doeval)
+}
+
 reassign_function <- function(target_fun, new_fun, keep_only_new_attributes = FALSE) {
     .Call('_genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun, keep_only_new_attributes)
 }
