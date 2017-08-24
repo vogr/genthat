@@ -3,7 +3,7 @@ PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
 
 build: clean
 	Rscript -e "devtools::document()"
-	R CMD BUILD .
+	R CMD build .
 
 check: build
 	R CMD check --as-cran $(PKGNAME)_$(PKGVERS).tar.gz
