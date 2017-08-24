@@ -357,7 +357,7 @@ test_that("capture works with lapply", {
     }
 })
 
-test_that("get_symbol_value can handle ..", {
+test_that("get_symbol_value can handle ...", {
      tracer <- create_sequence_tracer()
 
      f <- function(...) g(...)
@@ -373,7 +373,7 @@ test_that("get_symbol_value can handle ..", {
      expect_length(traces[[1]]$globals, 0L)
 })
 
-test_that("get_symbol_value can handle ..N", {
+test_that("get_symbol_value can handle non-evaluated ..N", {
      tracer <- create_sequence_tracer()
 
      f <- function(...) g(...)
@@ -385,6 +385,25 @@ test_that("get_symbol_value can handle ..N", {
      f(10L, 20L)
      traces <- copy_traces(tracer)
 
-     expect_equal(traces[[1]]$args, list(10L))
+     # here it should be empty since none of the value has been actually used
+     # and therefore the ..1 promise has never been evaluated
+     expect_equal(traces[[1]]$args, list(as.name("..1")))
+     expect_length(traces[[1]]$globals, 0L)
+})
+
+test_that("get_symbol_value can handle evaluated ..N", {
+     tracer <- create_sequence_tracer()
+
+     f <- function(...) g(...)
+     g <- function(...) h(..1)
+     h <- function(...) {
+         ..1 + 1L
+         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+     }
+
+     f(10L*10L, 20L)
+     traces <- copy_traces(tracer)
+
+     expect_equal(traces[[1]]$args, list(100L))
      expect_length(traces[[1]]$globals, 0L)
 })

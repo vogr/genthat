@@ -94,15 +94,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // get_dd_val
-SEXP get_dd_val(int i, SEXP rho, bool doeval);
-RcppExport SEXP _genthat_get_dd_val(SEXP iSEXP, SEXP rhoSEXP, SEXP doevalSEXP) {
+SEXP get_dd_val(int i, SEXP rho, SEXP default_value, bool force);
+RcppExport SEXP _genthat_get_dd_val(SEXP iSEXP, SEXP rhoSEXP, SEXP default_valueSEXP, SEXP forceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type i(iSEXP);
     Rcpp::traits::input_parameter< SEXP >::type rho(rhoSEXP);
-    Rcpp::traits::input_parameter< bool >::type doeval(doevalSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_dd_val(i, rho, doeval));
+    Rcpp::traits::input_parameter< SEXP >::type default_value(default_valueSEXP);
+    Rcpp::traits::input_parameter< bool >::type force(forceSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_dd_val(i, rho, default_value, force));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -162,7 +163,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genthat_is_infix_fun_no_space", (DL_FUNC) &_genthat_is_infix_fun_no_space, 1},
     {"_genthat_is_infix_fun", (DL_FUNC) &_genthat_is_infix_fun, 1},
     {"_genthat_escape_name", (DL_FUNC) &_genthat_escape_name, 1},
-    {"_genthat_get_dd_val", (DL_FUNC) &_genthat_get_dd_val, 3},
+    {"_genthat_get_dd_val", (DL_FUNC) &_genthat_get_dd_val, 4},
     {"_genthat_reassign_function", (DL_FUNC) &_genthat_reassign_function, 3},
     {"_genthat_create_duplicate", (DL_FUNC) &_genthat_create_duplicate, 1},
     {"_genthat_environment_name", (DL_FUNC) &_genthat_environment_name, 1},

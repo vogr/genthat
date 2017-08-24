@@ -16,7 +16,7 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
 
             vals <- lapply(ddsym, get_ddsym_value, env=sys.frame(sys.nframe() - 1), marker=marker)
             args <- lapply(args, function(x) {
-                if (is_ddsym(x) && !identical(x, marker)) {
+                if (is_ddsym(x) && !identical(vals[[as.character(x)]], marker)) {
                     # only replace the one which has been resolved
                     vals[[as.character(x)]]
                 } else {
@@ -76,20 +76,9 @@ get_ddsym_value <- function(sym, env, marker) {
             cat("Unable to resolve", as.character(sym), "in", call, ":", e$message, "\n")
         }
         marker
-
-        # let's try again - this time only get expression
-        ## tryCatch({
-        ##     get_dd_val(idx, env, doeval=FALSE)
-        ## }, error=function(e) {
-        ##     message("Err: ", e$message)
-        ##     marker
-        ## }, warning=function(e) {
-        ##     message("Warn: ", e$message)
-        ##     marker
-        ## })
     }
 
-    tryCatch(get_dd_val(idx, env, doeval=TRUE), error=handler, warning=handler)
+    tryCatch(get_dd_val(idx, env, marker, force=FALSE), error=handler, warning=handler)
 }
 
 find_symbol_env <- function(name, env=parent.frame(), .local=FALSE) {

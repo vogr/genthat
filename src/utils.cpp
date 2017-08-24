@@ -8,7 +8,7 @@ extern "C" {
 }
 
 // [[Rcpp::export]]
-SEXP get_dd_val(int i, SEXP rho, bool doeval=true) {
+SEXP get_dd_val(int i, SEXP rho, SEXP default_value, bool force=false) {
     // TODO: check args
     SEXP dots = findVar(R_DotsSymbol, rho);
 
@@ -18,10 +18,14 @@ SEXP get_dd_val(int i, SEXP rho, bool doeval=true) {
             SEXP val = CAR(dots);
 
             if (TYPEOF(val) == PROMSXP) {
-                if (doeval) {
+                if (force) {
                     return Rf_eval(val, rho);
                 } else {
-                    return substitute(val, rho);
+                    if (PRVALUE(val) == R_UnboundValue) {
+                        return default_value;
+                    } else {
+                        return PRVALUE(val);
+                    }
                 }
             } else {
                 return val;
@@ -33,7 +37,7 @@ SEXP get_dd_val(int i, SEXP rho, bool doeval=true) {
         Rf_error("Unable to find ..%d - used in an incorrect context, no ... to look in", i);
     }
 
-    return R_NilValue;
+    return default_value;
 }
 
 // [[Rcpp::export]]
