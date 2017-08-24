@@ -1,9 +1,7 @@
 context("genthat on sample package")
 
 test_that("trace_package works on a sample package", {
-    withr::with_temp_libpaths({
-        devtools::install_local("samplepkg", quiet=TRUE, build_vignettes=TRUE, lib=.libPaths()[1])
-
+    with_test_pkgs({
         tags <- c("My-add.Rd", "My-call.Rd", "My-public.Rd", "testthat", "my-ext-vignette-notrace", "my-ext-vignette-trace", "my-vignette")
         output_dir <- tempfile()
         files <- file.path(output_dir, paste0(tags, "-1.RDS"))

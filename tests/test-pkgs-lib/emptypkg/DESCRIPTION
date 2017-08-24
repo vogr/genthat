@@ -1,0 +1,14 @@
+Package: emptypkg
+Type: Package
+Title: Empty package to test genthat.
+Version: 1.0.0
+Description: Example R project.
+License: GPL (>= 2)
+Imports: testthat
+Suggests: knitr, rmarkdown, roxygen2
+LazyData: TRUE
+RoxygenNote: 6.0.1
+VignetteBuilder: knitr
+NeedsCompilation: no
+Packaged: 2017-08-24 11:49:15 UTC; krikafil
+Built: R 3.4.1; ; 2017-08-24 11:49:15 UTC; unix

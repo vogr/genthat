@@ -1,8 +1,7 @@
-Package: emptypkg
+Package: samplepkg
 Type: Package
-Title: Empty package to test genthat.
-Version: 0.1.0
-Description: Example R project.
+Title: Package to test genthat.
+Version: 1.0.0
 License: GPL (>= 2)
 Imports:
     testthat

@@ -7,8 +7,7 @@ test_that("gen_from_package works on sample pkg", {
 
     on.exit(unlink(c(output_dir, working_dir, info_file), recursive=TRUE))
 
-    withr::with_temp_libpaths({
-        devtools::install_local("samplepkg", quick=TRUE, quiet=TRUE, lib=.libPaths()[1])
+    with_test_pkgs({
         ret <- gen_from_package(
             "samplepkg",
             types=c("examples", "tests"),
@@ -17,6 +16,7 @@ test_that("gen_from_package works on sample pkg", {
             quiet=TRUE,
             info_file=info_file
         )
+
         expect_equal(ret$n_tests, c(2, 4, NA, 6))
 
         info <- readr::read_csv(info_file)
@@ -35,8 +35,7 @@ test_that("gen_from_package works on empty pkg", {
 
     on.exit(unlink(c(output_dir, working_dir, info_file), recursive=TRUE))
 
-    withr::with_temp_libpaths({
-        devtools::install_local("emptypkg", quick=TRUE, quiet=TRUE, lib=.libPaths()[1])
+    with_test_pkgs({
         ret <- gen_from_package(
             "emptypkg",
             types=c("examples", "tests"),

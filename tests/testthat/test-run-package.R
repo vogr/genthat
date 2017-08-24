@@ -1,10 +1,7 @@
 context("run-package")
 
 test_that("run package works", {
-    withr::with_temp_libpaths({
-        devtools::install_local("samplepkg", quiet=TRUE, build_vignettes=TRUE, lib=.libPaths()[1])
-
-
+    with_test_pkgs({
         ret <- run_package("samplepkg", types="examples", quiet=TRUE)
 
         expect_length(ret, 1)

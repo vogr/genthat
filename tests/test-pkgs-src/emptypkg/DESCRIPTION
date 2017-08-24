@@ -1,9 +1,7 @@
-Package: samplepkg
+Package: emptypkg
 Type: Package
-Title: Package to test genthat.
-Version: 0.1.0
-Author: Filippo Ghibellini
-Maintainer: Filippo Ghibellini <ghibefil@fit.cvut.cz>
+Title: Empty package to test genthat.
+Version: 1.0.0
 Description: Example R project.
 License: GPL (>= 2)
 Imports:

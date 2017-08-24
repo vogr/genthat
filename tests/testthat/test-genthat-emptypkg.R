@@ -1,9 +1,7 @@
 context("genthat on empty package")
 
 test_that("trace_package works on an empty package", {
-    withr::with_temp_libpaths({
-        devtools::install_local("emptypkg", quiet=TRUE, build_vignettes=TRUE)
-
+    with_test_pkgs({
         output_dir <- tempfile()
 
         ret <- trace_package("emptypkg", output_dir=output_dir, quiet=TRUE)

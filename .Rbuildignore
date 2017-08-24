@@ -19,3 +19,4 @@
 ^tools$
 ^.*\.RDS$
 ^\.dockerignore$
+^\.gdb_history$
