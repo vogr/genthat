@@ -36,6 +36,11 @@ public:
     cycle_error() : serialization_error("Serialized data structure contains cycle!") {}
 };
 
+static const set<string> UNARY_FUNS = {
+    // TODO are these all?
+    "+", "-", "!", "~", "?"
+};
+
 static const set<string> BASE_INFIX_FUNS = {
     "<-", "=", "<<-", "+", "-", "*", "/", "^", "==", "!=", "<", "<=", ">=", ">", "&", "|", "!", "&&", "||", "~"
 };
@@ -206,6 +211,10 @@ private:
     set<SEXP> visited_environments;
 
 public:
+    static bool is_unary_fun(string const &fun) {
+        return UNARY_FUNS.find(fun) != UNARY_FUNS.end();
+    }
+
     static bool is_infix_fun_no_space(string const &fun) {
         return BASE_INFIX_FUNS_NO_SPACE.find(fun) != BASE_INFIX_FUNS_NO_SPACE.end();
     }
@@ -360,7 +369,12 @@ public:
             string res;
             s = CDR(s);
 
-            if (is_infix_fun(fun)) {
+            if (is_unary_fun(fun) && CADR(s) == R_NilValue) {
+                SEXP rhs = CAR(s);
+
+                res = fun + serialize(rhs, false);
+
+            } else if (is_infix_fun(fun)) {
                 SEXP lhs = CAR(s);
                 SEXP rhs = CADR(s);
 

@@ -237,6 +237,13 @@ test_that("data frame serialization", {
     expect_equal(serialize(df), df)
 })
 
+test_that("can serialize unary functions", {
+    expect_equal(serialize(-1), -1)
+    expect_equal(serialize(+1), +1)
+    expect_equal(serialize_value(quote(~x)), "~x")
+    expect_equal(serialize_value(quote(!x)), "!x")
+})
+
 ## test_that("", {
 ##     f <- function(a, b, c) a * b * c
 ##     attr(f, "genthat_extracted_closure") <- TRUE
