@@ -14,7 +14,7 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
             names(ddsym) <- ddsym
             marker <- new.env(parent=emptyenv())
 
-            vals <- lapply(ddsym, get_ddsym_value, env=sys.frame(sys.nframe() - 1), marker=marker)
+            vals <- lapply(ddsym, get_ddsym_value, env=env, marker=marker)
             args <- lapply(args, function(x) {
                 if (is_ddsym(x) && !identical(vals[[as.character(x)]], marker)) {
                     # only replace the one which has been resolved
