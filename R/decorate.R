@@ -1,14 +1,15 @@
 #' @export
 #'
-create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch", "count")) {
+create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch", "count-entry", "count-exit")) {
     fun <- if (is.character(method)) {
-        method <- match.arg(arg=method, choices=c("onentry", "onexit", "onboth", "trycatch", "count"), several.ok=FALSE)
+        method <- match.arg(arg=method, choices=c("onentry", "onexit", "onboth", "trycatch", "count-entry", "count-exit"), several.ok=FALSE)
         switch(method,
             onentry=decorate_with_onentry,
             onexit=decorate_with_onexit,
             onboth=decorate_with_onboth,
             trycatch=decorate_with_trycatch,
-            count=decorate_with_count
+            `count-entry`=decorate_with_count_entry,
+            `count-exit`=decorate_with_count_exit
         )
     } else if (is.function(method)) {
         method
@@ -39,6 +40,7 @@ decorate_environment <- function(envir, decorator=get_decorator(),
 
     if (is.character(envir)) {
         stopifnot(length(envir) == 1)
+        # TODO: this should be envir <- getNamespace(envir)
         library(envir, character.only=TRUE)
         envir <- as.environment(paste0("package:", envir))
     }
