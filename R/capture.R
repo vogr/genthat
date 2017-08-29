@@ -31,11 +31,17 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
 
         create_trace(name, pkg, args=args, globals=globals, retv=retv, error=error)
     }, error=function(e) {
-        message(paste0("GENTHAT: Error during recording: ", pkg, ":::", name, ": ", e$message))
+        log_file <- getOption("genthat.log_file")
+        if (!is.null(log_file)) {
+            cat(paste0("GENTHAT: Error during recording: ", pkg, ":::", name, ": ", e$message), file=log_file, append=TRUE)
+        }
 
         create_trace(name, pkg, args=args, failure=e)
     }, warning=function(e) {
-        message(paste0("GENTHAT: Warning during recording: ", pkg, ":::", name, ": ", e$message))
+        log_file <- getOption("genthat.log_file")
+        if (!is.null(log_file)) {
+            cat(paste0("GENTHAT: Warning during recording: ", pkg, ":::", name, ": ", e$message), file=log_file, append=TRUE)
+        }
 
         create_trace(name, pkg, args=args, failure=e)
     })
