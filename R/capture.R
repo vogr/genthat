@@ -27,7 +27,7 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
 
         callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
         globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
-        globals <- lapply(globals, create_duplicate)
+        globals <- lapply(globals, duplicate_global_var)
 
         create_trace(name, pkg, args=args, globals=globals, retv=retv, error=error)
     }, error=function(e) {
@@ -49,8 +49,20 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
     store_trace(tracer, trace)
 }
 
+duplicate_global_var <- function(x) {
+    if (is.null(x)) {
+        x
+    } else {
+        create_duplicate(x)
+    }
+}
+
 is_ddsym <- function(name) {
-    length(grep("^\\.\\.\\d+$", name)) == 1
+    if (is.name(name)) {
+        name <- as.character(name)
+    }
+
+    is.character(name) && length(grep("^\\.\\.\\d+$", name)) == 1
 }
 
 get_ddsym_value <- function(sym, env, marker) {
@@ -58,7 +70,7 @@ get_ddsym_value <- function(sym, env, marker) {
     stopifnot(is.environment(marker))
 
     sym <- as.character(sym)
-    stopifnot(is.character(sym) && length(sym) == 1 && nchar(sym) > 2)
+    stopifnot(is_ddsym(sym))
 
     idx <- as.integer(substr(sym, 3, nchar(sym)))
 
