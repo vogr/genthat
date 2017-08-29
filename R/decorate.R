@@ -40,9 +40,7 @@ decorate_environment <- function(envir, decorator=get_decorator(),
 
     if (is.character(envir)) {
         stopifnot(length(envir) == 1)
-        # TODO: this should be envir <- getNamespace(envir)
-        library(envir, character.only=TRUE)
-        envir <- as.environment(paste0("package:", envir))
+        envir <- getNamespace(envir)
     }
 
     stopifnot(is.environment(envir))
