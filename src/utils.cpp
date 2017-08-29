@@ -20,12 +20,10 @@ SEXP get_dd_val(int i, SEXP rho, SEXP default_value, bool force=false) {
             if (TYPEOF(val) == PROMSXP) {
                 if (force) {
                     return Rf_eval(val, rho);
+                } else if (PRVALUE(val) == R_UnboundValue) {
+                    return default_value;
                 } else {
-                    if (PRVALUE(val) == R_UnboundValue) {
-                        return default_value;
-                    } else {
-                        return PRVALUE(val);
-                    }
+                    return PRVALUE(val);
                 }
             } else {
                 return val;
