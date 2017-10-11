@@ -362,6 +362,9 @@ print.genthat_traces <- function(x, ...) {
     print(as.data.frame(x))
 }
 
+# TODO: we should have this state in C so it can be accessed in a unified way
+#regardless if base library is decorated or not
+#
 #' @export
 #'
 enable_tracing <- function() {
