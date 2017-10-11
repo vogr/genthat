@@ -62,7 +62,7 @@ reset_traces.default <- function(tracer) {
 set_tracer <- function(tracer) {
     old <- get_tracer()
     options(genthat.tracer=tracer)
-    old
+    invisible(old)
 }
 
 #' @export

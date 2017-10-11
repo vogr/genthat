@@ -5,7 +5,7 @@
 \title{run package code}
 \usage{
 run_package(pkg, pkg_dir = find.package(pkg), types = c("examples", "tests",
-  "vignettes"), working_dir = tempfile(pattern = "run_package"),
+  "vignettes", "all"), working_dir = tempfile(pattern = "run_package"),
   quiet = TRUE, runner = run_r_script)
 }
 \description{

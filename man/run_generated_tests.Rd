@@ -9,8 +9,7 @@
  2: Test threw an exception
  3: Test did not contain any tests (nb field in the testthat_result was 0)}
 \usage{
-run_generated_tests(tests, quiet = TRUE,
-  show_progress = isTRUE(getOption("genthat.show_progress")))
+run_generated_tests(info_file, quiet = TRUE)
 }
 \description{
 status code:

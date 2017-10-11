@@ -5,7 +5,7 @@
 \title{Decorates functions in an environment}
 \usage{
 decorate_environment(envir, decorator = get_decorator(),
-  record_fun = substitute(genthat:::record_trace))
+  record_fun = substitute(genthat:::record_trace), exclude = character())
 }
 \arguments{
 \item{envir}{an environment that shall be decorated or a character scalar
