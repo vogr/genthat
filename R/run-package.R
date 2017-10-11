@@ -6,7 +6,7 @@
 #'
 # TODO: support commentDontrun, commentDonttest
 run_package <- function(pkg, pkg_dir=find.package(pkg),
-                       types=c("examples", "tests", "vignettes"),
+                       types=c("examples", "tests", "vignettes", "all"),
                        working_dir=tempfile(pattern="run_package"),
                        quiet=TRUE,
                        runner=run_r_script) {
@@ -15,6 +15,11 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
     stopifnot(dir.exists(pkg_dir))
     stopifnot(dir.exists(working_dir) || dir.create(working_dir))
 
+    if ("all" %in% types) {
+        types <- c("examples", "tests", "vignettes")
+    }
+
+    # TODO: remove this and add a regular switch with ex, tests, vign, all
     types <- match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
 
     owd <- getwd()

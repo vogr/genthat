@@ -231,13 +231,17 @@ import_traces <- function(filenames) {
 #' @export
 #' @importFrom magrittr %>%
 #'
-gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes"),
+gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
                             output_dir=".",
                             working_dir=tempfile(pattern="gen_from_package-"),
                             batch_size=0,
                             quiet=TRUE,
                             lib_paths=NULL,
                             info_file=file.path(output_dir, "genthat-tests.csv")) {
+
+    if ("all" %in% types) {
+        types <- c("examples", "tests", "vignettes")
+    }
 
     if (!is.null(info_file)) {
         if (file.exists(info_file)) {
