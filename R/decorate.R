@@ -36,7 +36,8 @@ create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch",
 #' @export
 #'
 decorate_environment <- function(envir, decorator=get_decorator(),
-                                record_fun=substitute(genthat:::record_trace)) {
+                                record_fun=substitute(genthat:::record_trace),
+                                exclude=character()) {
     stopifnot(is.decorator(decorator))
 
     if (is.character(envir)) {
@@ -54,6 +55,7 @@ decorate_environment <- function(envir, decorator=get_decorator(),
     funs <- filter(vals, is.function)
     funs <- filter_not(funs, is.primitive)
     funs <- filter_not(funs, is_s3_generic)
+    funs <- funs[!(names(funs) %in% exclude)]
 
     invisible(decorate_functions(funs, decorator=decorator, record_fun=record_fun))
 }

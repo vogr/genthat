@@ -63,17 +63,20 @@ test_that("decorate_environment decorates all functions in the environment", {
     env$i <- function(x) UseMethod("i")
     environment(env$i) <- env
 
-    expect_equal(length(env), 4)
+    env$j <- function(x) x*2
 
-    decorate_environment(env, decorator=decorator)
+    expect_equal(length(env), 5)
 
-    expect_equal(length(env), 4)
+    decorate_environment(env, decorator=decorator, exclude="j")
+
+    expect_equal(length(env), 5)
 
     expect_true(is_decorated(env$f))
     expect_true(is_decorated(env$g))
 
     expect_false(is_decorated(env$h)) # it is a primitive function
     expect_false(is_decorated(env$i)) # it is S3 generic
+    expect_false(is_decorated(env$j)) # it excluded
 
     # TODO: check decorations
 })
