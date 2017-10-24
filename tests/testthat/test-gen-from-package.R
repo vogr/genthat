@@ -17,14 +17,14 @@ test_that("gen_from_package works on sample pkg", {
             info_file=info_file
         )
 
-        expect_equal(ret$n_tests, c(2, 4, NA, 6))
+        expect_equal(ret$n_tests, c(2, 4, NA, 8))
 
         info <- readr::read_csv(info_file)
-        expect_equal(nrow(info), 12)
+        expect_equal(nrow(info), 14)
 
         run <- lapply(info[, "test_file"]$test_file, source, verbose=FALSE)
         run <- sapply(run, `[[`, "value")
-        expect_equal(run, rep(TRUE, 12))
+        expect_equal(run, rep(TRUE, 14))
     })
 })
 

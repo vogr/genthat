@@ -12,7 +12,7 @@ test_that("trace_package works on a sample package", {
 
         expect_equal(ret$tag, tags)
         expect_equal(ret$filename, files)
-        expect_equal(ret$n_traces, c(2, 4, 0, 6, 0, 1, 1))
+        expect_equal(ret$n_traces, c(2, 4, 0, 8, 0, 1, 1))
         expect_equal(ret$status, rep(0, 7))
         expect_equal(ret$running_time > 0, rep(TRUE, 7))
         expect_equal(ret$package, rep("samplepkg", 7))
