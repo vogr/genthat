@@ -106,6 +106,7 @@ run_package_tests <- function(pkg, pkg_dir, working_dir, quiet=quiet, runner) {
 
     tests <- file.path(working_dir, basename(files))
     tests <- tests[!dir.exists(tests)]
+    tests <- tests[grepl("\\.R$", tests)]
 
     run_files(tests, quiet, runner)
 }
