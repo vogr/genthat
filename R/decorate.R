@@ -76,6 +76,11 @@ decorate_environment <- function(envir, decorator=get_decorator(),
 decorate_functions <- function(..., in_env=parent.frame(),
                               decorator=get_decorator(),
                               record_fun=substitute(genthat:::record_trace)) {
+    if (is_tracing_enabled()) {
+        disable_tracing()
+        on.exit(enable_tracing())
+    }
+
     stopifnot(is.decorator(decorator))
 
     xs <- resolve_decorating_fun_args(..., in_env=in_env)
