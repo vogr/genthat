@@ -36,18 +36,21 @@ trace_from_source_package <- function(path, quiet=TRUE, ...) {
     })
 }
 
-#' @title Generate test cases for a package
+#' @title Decorate all functions from given package and runs package code
 #'
 #' @description Decorates all functions in a package and then generates test cases based on
 #' the code contained in the package examples, vignettes and tests.
 #' @export
 #'
-trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
-                            output_dir=".",
-                            working_dir=tempfile(pattern="gen_from_package-"),
-                            batch_size=0,
-                            quiet=TRUE,
-                            lib_paths=NULL) {
+# TODO: update the signature to make it more flexible
+# TODO: update the documentation
+trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
+                          output_dir=".", working_dir=tempfile(pattern="genthat-trace-"),
+                          batch_size=0, quiet=TRUE, lib_paths=NULL) {
+
+    if ("all" %in% types) {
+        types <- c("examples", "tests", "vignettes")
+    }
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(length(output_dir) == 1)
@@ -58,7 +61,7 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
     output_dir <- normalizePath(output_dir, mustWork=TRUE)
     working_dir <- normalizePath(working_dir, mustWork=TRUE)
     pkg_dir <- find.package(pkg, lib_paths)
-    stats_file <- next_file_in_row(file.path(working_dir, "genthat-exports.csv"))
+    stats_file <- file.path(working_dir, "genthat-trace.csv")
 
     stopwatch <- new.env(parent=emptyenv())
 
@@ -85,8 +88,11 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         run <- run_package(pkg, pkg_dir, type, working_dir, quiet=quiet, runner)
         run <- run[[type]]
 
-        df <- if (all(is.na(run))) {
+        # TODO: under which circumstances does this return a list of NA?
+        # isn't it always null?
+        df <- if (is.null(run) || all(is.na(run))) {
             # nothing has been run we need to return an empty frame
+            # TODO: this is not necessary - enough to have just one NA
             data.frame(tag=NA, filename=NA,
                 n_traces=NA, n_complete=NA, n_entry=NA, n_error=NA, n_failures=NA,
                 status=NA, running_time=NA,
@@ -98,6 +104,7 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
             } else {
                 # this is a rare case, in which something has been run, but no
                 # traces were generated
+                # TODO: this is also not necessary - enough to have one NA
                 data.frame(tag=NA, filename=NA, n_traces=0, n_complete=NA, n_entry=NA, n_error=NA, n_failures=NA,
                     row.names=NULL, stringsAsFactors=FALSE
                 )
@@ -127,6 +134,7 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes"),
         cbind(data.frame(package=pkg, type=type, stringsAsFactors=FALSE, row.names=NULL), df)
     })
 
+    # TODO: use bind rows
     do.call(rbind, runs)
 }
 
@@ -205,12 +213,14 @@ export_traces <- function(traces, output_dir,
             row.names=NULL
         )
 
+        stats_file_exists <- file.exists(stats_file)
+
         write.table(
             stats,
             file=stats_file,
             row.names=FALSE,
-            col.names=FALSE,
-            append=TRUE,
+            col.names=!stats_file_exists,
+            append=stats_file_exists,
             qmethod="double",
             sep=","
         )
@@ -219,95 +229,29 @@ export_traces <- function(traces, output_dir,
     fnames
 }
 
-#' @export
-#'
-import_traces <- function(filenames) {
-    stopifnot(all(file.exists(filenames)))
+generate_and_save <- function(traces, output_dir, info_file=file.path(output_dir, "genthat-generate.csv"), quiet=TRUE) {
+    if (!quiet) {
+        log_debug("Using info file: ", info_file)
+        log_debug("Loaded ", length(traces), " traces, generating tests...")
+    }
 
-    traces <- lapply(filenames, readRDS)
-    unlist(traces, recursive=FALSE)
+    tests <- generate_tests(traces, quiet=quiet)
+    test_files <- save_tests(tests, output_dir)
+
+    info <- dplyr::bind_cols(tests, test_files)
+    info <- info %>% dplyr::select(fun, pkg, test_file, error, elapsed)
+    readr::write_csv(info, path=info_file, append=file.exists(info_file))
+
+    n_tests <- sum(!is.na(tests$code))
+
+    if (!quiet) {
+        log_debug("Generated ", n_tests, " tests")
+    }
+
+    # TODO: perhaps in can return something smarter
+    n_tests
 }
 
-#' @export
-#' @importFrom magrittr %>%
-#'
-gen_from_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
-                            output_dir=".",
-                            working_dir=tempfile(pattern="gen_from_package-"),
-                            batch_size=0,
-                            quiet=TRUE,
-                            lib_paths=NULL,
-                            info_file=file.path(output_dir, "genthat-tests.csv")) {
-
-    if ("all" %in% types) {
-        types <- c("examples", "tests", "vignettes")
-    }
-
-    if (!is.null(info_file)) {
-        if (file.exists(info_file)) {
-            file.remove(info_file)
-        }
-
-        if (!quiet) {
-            message("Saving genthat test info file: ", info_file)
-        }
-    }
-
-    # TODO: split so it is easier to test
-    generate_and_save <- function(filename) {
-        if (is.null(filename) || is.na(filename)) {
-            return(NA)
-        }
-
-        if (!quiet) {
-            message("Importing traces from: ", filename)
-        }
-
-        traces <- import_traces(filename)
-
-        if (!quiet) {
-            message("Loaded ", length(traces), " traces, generating tests")
-        }
-
-        tests <- generate_tests(traces, quiet=quiet)
-        test_files <- save_tests(tests, output_dir)
-
-        if (!is.null(info_file)) {
-            info <- dplyr::bind_cols(tests, test_files)
-            info <- info %>% dplyr::select(fun, pkg, test_file, error, elapsed)
-            readr::write_csv(info, path=info_file, append=file.exists(info_file))
-        }
-
-        n_tests <- sum(!is.na(tests$code))
-        if (!quiet) {
-            message("Generated ", n_tests, " tests")
-        }
-
-        n_tests
-    }
-
-    generate_and_save_group <- function(filenames) {
-        if (length(filenames) == 0) {
-            return(NA)
-        }
-
-        sum(sapply(filenames, generate_and_save))
-    }
-
-    pkg_traces <- trace_package(
-        pkg,
-        types=types,
-        output_dir=output_dir,
-        working_dir=working_dir,
-        batch_size=batch_size,
-        quiet=quiet,
-        lib_paths=lib_paths
-    )
-
-    pkg_traces %>%
-        dplyr::rowwise() %>%
-        dplyr::mutate(n_tests=generate_and_save_group(filename))
-}
 
 genthat_tracing_site_file <- function(...) {
     site_file_code <- genthat_tracing_preamble(...)
@@ -331,13 +275,18 @@ genthat_tracing_preamble <- function(pkgs,
 
     paste(c(
         '## genthat tracing preamble',
+        'options(error=function() { traceback(3); quit(status=1, save="no") })',
         paste0('options(genthat.debug=', debug, ')'),
         paste0('options(genthat.default_decorate_method="', default_decorate_method, '")'),
         paste0('options(genthat.default_tracer="', default_tracer, '")'),
+        paste0('options(genthat.log_file="', file.path(output_dir, paste0("genthat-", strftime(Sys.time(), "%Y-%m-%d-%H%M%S"), ".log")), '")'),
         '',
         sapply(pkgs, function(x) paste0('genthat::decorate_environment("', x, '")')),
         '',
         paste0('if (genthat::is_debug_enabled()) message("Decorator: ", "', default_decorate_method, '", genthat::get_decorator())'),
+        '',
+        # TODO: why is this needed?
+        'library(methods)',
         '',
         'reg.finalizer(loadNamespace("genthat"), onexit=TRUE, function(x) {',
         paste0(
@@ -407,4 +356,3 @@ read_stats_file <- function(fname) {
 run_integration_tests <- function() {
     withr::with_options(list(genthat.run_itests=T), devtools::test(filter="integration"))
 }
-

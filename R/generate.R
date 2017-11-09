@@ -165,7 +165,6 @@ generate_test.genthat_trace <- function(trace, ...) {
 #' @title Generates test cases from traces
 #'
 #' @param traces from which to generate test cases
-#' @param show_progress (log) show progress during test generation
 #' @param ... additional arguments supplied to `generate_test_code` function.
 #'
 #' @return a data frame or a tibble with the following

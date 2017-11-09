@@ -67,66 +67,29 @@ run_generated_test <- function(code) {
 #' @importFrom utils getTxtProgressBar
 #' @export
 #'
-run_generated_tests <- function(tests, quiet=TRUE, show_progress=isTRUE(getOption("genthat.show_progress"))) {
-    stopifnot(is.data.frame(tests))
+run_generated_tests <- function(info_file, quiet=TRUE) {
+    tests <- readr::read_csv(info_file, col_types=cols(
+        fun=col_character(),
+        pkg=col_character(),
+        test_file=col_character(),
+        error=col_character(),
+        elapsed=col_double()
+    ))
 
-    if (quiet && show_progress) {
-        pb <- utils::txtProgressBar(min=0, max=nrow(tests), initial=0, style=3)
+    files <- tests$test_file
 
-        after_one_run <- function() utils::setTxtProgressBar(pb, utils::getTxtProgressBar(pb) + 1)
-        after_all_runs <- function() close(pb)
-    } else {
-        after_one_run <- function() {}
-        after_all_runs <- function() {}
-    }
-
-    runs <- apply(tests, 1, function(x) {
-        x <- as.list(x)
-
-        result <- list(
-            trace_id=x$trace_id,
-            trace=x$trace,
-            fun=x$fun,
-            code=x$code,
-            test=NA,
-            status=NA,
-            error=NA,
-            stdout=NA,
-            stderr=NA,
-            elapsed=NA
-        )
-
-        tryCatch({
-            if (!is.na(x$code)) {
-                if (!quiet) {
-                    message("Running test from trace: ", x$trace_id, " (", nchar(x$code, type="bytes"), " bytes)")
-                }
-
-                run <- run_generated_test(x$code, quiet)
-                result$test <- run$test
-                result$status <- run$status
-                result$error <- run$error
-                result$stdout <- run$stdout
-                result$stderr <- run$stderr
-                result$elapsed <- run$elapsed
-            }
-        }, error=function(e) {
-            msg <- e$message
-            message("Unable to run tests from trace: ", x$trace_id, " - ", msg)
-            result$error <- msg
-            result$status <- -1
-        })
-
-        after_one_run()
-        as.data.frame(result, stringsAsFactors=FALSE)
+    res <- lapply(files, function(f) {
+        if (is.na(f) || !file.exists(f)) {
+            tibble::data_frame(file=f, exception=paste("File ", f, " does not exist"))
+        } else {
+            tryCatch({
+                out <- capture_output(r <- testthat::test_file(f))
+                tibble::as_data_frame(r) %>% bind_cols(data_frame(out=out))
+            }, error=function(e) {
+                tibble::data_frame(file=f, exception=e$message)
+            })
+        }
     })
 
-    after_all_runs()
-
-    if (requireNamespace("dplyr", quietly=TRUE)) {
-        dplyr::as_data_frame(dplyr::bind_rows(runs))
-    } else {
-        message("dplyr is not available, which is a pity since it will speed up things")
-        do.call(rbind, runs)
-    }
+    dplyr::bind_rows(res)
 }

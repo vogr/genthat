@@ -360,3 +360,8 @@ is_package_namespace <- function(env) {
 is_base_env <- function(env) {
     isBaseNamespace(env) || identical(env, baseenv())
 }
+
+log_debug <- function(...) {
+    msg <- paste0(...)
+    cat(msg, "\n")
+}
