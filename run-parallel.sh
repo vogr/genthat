@@ -17,7 +17,14 @@ fi
 
 function _parallel {
     output="$1"
-    [ -d "$output" ] || mkdir -p "$output"
+    shift
+
+    if [ -d "$output" ]; then
+        echo "Output $output exists!"
+        exit 1
+    else
+        mkdir -p "$output"
+    fi
 
     parallel \
         --jobs 100% \
@@ -25,7 +32,7 @@ function _parallel {
         --tagstring "{}:" \
         --files \
         --result "$output" \
-        --joblog "$output /parallel.log" \
+        --joblog "$output/parallel.log" \
         --shuf \
         --timeout 4h \
         -a "$package_list" \
@@ -33,45 +40,51 @@ function _parallel {
 }
 
 function do_run_package {
+    output="$output_base/run-package"
+
     _parallel \
         "$output" \
-        ./tools/trace-package.R run-package \
+        ./tools/trace-package.R trace \
         --package "{1}" \
-        --decorator "{2}" \
+        --config "{2}" \
         --type "{3}" \
-        --output "$output_base/run-package/output/{1}/{2}/{3}" \
+        --output "$output/output/{1}/{2}/{3}" \
         ::: none noop \
         ::: all
 }
 
 function do_trace {
+    output="$output_base/trace"
+
     _parallel \
         "$output" \
         ./tools/trace-package.R trace \
         --package "{1}" \
-        --decorator "{2}" \
-        --tracer "{3}" \
-        --type "{4}" \
-        --output "$output_base/trace/output/{1}/{2}/{3}/{4}" \
-        ::: count-entry count-exit onexit \
-        ::: sequence set \
+        --config "{2}" \
+        --type "{3}" \
+        --output "$output/output/{1}/{2}/{3}" \
+        ::: count-entry--sequence count-exit--sequence onexit--set \
         ::: all
 }
 
 function do_generate {
+    output="$output_base/generate"
+
     _parallel \
         "$output" \
         ./tools/trace-package.R generate \
-        --traces "$output_base/trace/output/{1}/onexit/set/all" \
-        --output "$output_base/generate/output/{1}/{2}/{3}/{4}"
+        --traces "$output_base/trace/output/{1}/onexit--set/all" \
+        --output "$output/output/{1}"
 }
 
 function do_run {
+    output="$output_base/run"
+
     _parallel \
         "$output" \
         ./tools/trace-package.R run \
         --tests "$output_base/generate/output/{1}/{1}" \
-        --output "$output_base/run/output/{1}"
+        --output "$output/output/{1}"
 }
 
 function main {

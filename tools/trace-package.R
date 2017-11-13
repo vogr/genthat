@@ -27,8 +27,7 @@ trace_option_list <- list(
     make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
     make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
     make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="genthat-traces"), metavar="PATH"),
-    make_option("--decorator", type="character", help="Decorator (onentry/onexit/onboth/trycatch/noop/none)", metavar="DECORATOR", default="onexit"),
-    make_option("--tracer", type="character", help="Tracer (sequence/set)", metavar="TRACER", default="set"),
+    make_option("--config", type="character", help="decorator+tracer", metavar="CONFIG", default="onexit+set"),
     make_option("--stats-file", type="character", help="Name of the CSV file with stats", metavar="FILE", default="genthat-traces.csv"),
     make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
@@ -99,19 +98,40 @@ run_task <- function(tests, output, quiet) {
     }
 }
 
-trace_task <- function(package, decorator, tracer, type, output, batch_size, stats_file, debug, quiet) {
+trace_task <- function(package, config, type, output, batch_size, stats_file, debug, quiet) {
     stopifnot(batch_size > 0)
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
     stopifnot(length(stats_file) == 1, nchar(stats_file) > 0)
     # TODO: sync type vs types
     type <- match.arg(type, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
 
+    config <- str_split_fixed(config, "--", n=2)
+    stopifnot(nrow(config) == 1)
+    decorator <- config[, 1]
+    tracer <- config[, 2]
+
     if (decorator == "none") {
         decorator <- NULL
     }
 
+    if (length(tracer) == 0 || nchar(tracer) == 0) {
+        tracer <- "set"
+    }
+
     options(genthat.debug=debug)
 
+    print(str_c(
+        "genthat::trace_package('",
+        package,
+        "', type='",type,
+        "', output='",output,
+        "', decorator='",decorator,
+        "', tracer='",tracer,
+        "', working_dir='",output,
+        "', quiet=",quiet,
+        ", batch_size=",batch_size,
+        ")"
+    ))
     res <- genthat::trace_package(
         package,
         type=type,
