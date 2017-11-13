@@ -11,14 +11,14 @@ suppressPackageStartupMessages(library(pbapply))
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
 generate_option_list <- list(
-    make_option("--path", type="character", help="Path to trace files", metavar="PATH"),
+    make_option("--traces", type="character", help="Path to RDS trace files", metavar="PATH"),
+    make_option("--output", type="character", help="Name of the output directory for tests", default=tempfile(file="genthat-tests"), metavar="PATH"),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
 
 run_option_list <- list(
-    make_option("--package", type="character", help="Package to trace", metavar="PATH"),
-    make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
-    make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
+    make_option("--tests", type="character", help="Path to generated tests", metavar="PATH"),
+    make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
 
@@ -26,9 +26,10 @@ trace_option_list <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
     make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
     make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
-    make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="trace-package"), metavar="PATH"),
-    make_option("--decorator", type="character", help="Decorator (onentry/onexit/onboth/trycatch)", metavar="DECORATOR", default="onexit"),
+    make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="genthat-traces"), metavar="PATH"),
+    make_option("--decorator", type="character", help="Decorator (onentry/onexit/onboth/trycatch/noop/none)", metavar="DECORATOR", default="onexit"),
     make_option("--tracer", type="character", help="Tracer (sequence/set)", metavar="TRACER", default="set"),
+    make_option("--stats-file", type="character", help="Name of the CSV file with stats", metavar="FILE", default="genthat-traces.csv"),
     make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -38,8 +39,11 @@ log_debug <- function(...) {
     cat(msg, "\n")
 }
 
-generate_task <- function(path, quiet) {
-    rdss <- list.files(path=path, pattern="\\.RDS$", full.names=TRUE, recursive=FALSE)
+generate_task <- function(traces, output, quiet) {
+    stopifnot(dir.exists(traces))
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+
+    rdss <- list.files(path=traces, pattern="\\.RDS$", full.names=TRUE, recursive=FALSE)
 
     if (!quiet) {
         log_debug("Found ", length(rdss), " files")
@@ -48,7 +52,8 @@ generate_task <- function(path, quiet) {
     generate <- function(rds) {
         tryCatch({
             traces <- genthat:::import_traces(rds)
-            genthat:::generate_and_save(traces, output_dir=file.path(path, "generated-tests"), quiet=quiet)
+            # TODOD: sync output ~ output_dir
+            genthat:::generate_and_save(traces, output_dir=output, quiet=quiet)
         }, error=function(e) {
             log_debug("Unable to generate tests for traces from ", rds)
             print(e)
@@ -63,40 +68,69 @@ generate_task <- function(path, quiet) {
     }
 }
 
-run_task <- function(package, type, output, quiet) {
-    # TODO: output stats
-    stopifnot(dir.exists(output) || dir.create(output))
-    type <- match.arg(type, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
 
-    runner <- function(fname, quiet) {
-        tag <- tools::file_path_sans_ext(basename(fname))
-        genthat:::run_r_script(fname, quiet=quiet)
+run_task <- function(tests, output, quiet) {
+    stopifnot(dir.exists(tests))
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+
+    tests <- list.files(path=tests, pattern="test-[0-9]+\\.R$", full.names=TRUE, recursive=TRUE)
+
+    if (!quiet) {
+        log_debug("Found ", length(tests), " files")
     }
 
-    genthat::run_package(package, types=type, quiet=quiet, runner=runner)
+    run <- function(test) {
+        tryCatch({
+            genthat::run_generated_test(test, quiet=quiet)
+        }, error=function(e) {
+            data_frame(file=test, exception=e$message)
+        })
+    }
+
+    runs <- pblapply(tests, run)
+    runs <- dplyr::bind_rows(runs)
+
+    readr::write_csv(runs, file.path(output, "genthat-run-tests.csv"))
+
+    if (!quiet) {
+        n <- sum(runs$nb)
+        f <- sum(runs$failed)
+        log_debug("Run ", n-f, "/", n, " tests")
+    }
 }
 
-trace_task <- function(package, decorator, tracer, type, output, batch_size, debug, quiet) {
+trace_task <- function(package, decorator, tracer, type, output, batch_size, stats_file, debug, quiet) {
     stopifnot(batch_size > 0)
-    stopifnot(dir.exists(output) || dir.create(output))
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    stopifnot(length(stats_file) == 1, nchar(stats_file) > 0)
+    # TODO: sync type vs types
     type <- match.arg(type, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
 
-    options(genthat.default_decorate_method=decorator)
-    options(genthat.default_tracer=tracer)
+    if (decorator == "none") {
+        decorator <- NULL
+    }
+
     options(genthat.debug=debug)
 
-    genthat::trace_package(
+    res <- genthat::trace_package(
         package,
-        type,
-        output,
+        type=type,
+        output=output,
+        decorator=decorator,
+        tracer=tracer,
         working_dir=output,
         quiet=quiet,
         batch_size=batch_size
     )
+
+    readr::write_csv(res, file.path(output, stats_file))
 }
 
 main <- function(args) {
-    task_name <- match.arg(args[1], c("run", "trace", "generate"), several.ok=FALSE)
+    # TODO handle help option
+    # TODO handle debug option
+
+    task_name <- match.arg(args[1], c("generate", "run", "trace"), several.ok=FALSE)
 
     task_fun <- get(str_c(task_name, "_task"))
     option_list <- get(str_c(task_name, "_option_list"))

@@ -19,9 +19,9 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
         types <- c("examples", "tests", "vignettes")
     }
 
-    # TODO: remove this and add a regular switch with ex, tests, vign, all
     types <- match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
 
+    # make sure we recover current working directory, in case something goes wrong
     owd <- getwd()
     on.exit(setwd(owd), add=TRUE)
 
@@ -37,7 +37,7 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
         )
 
         if (!quiet) {
-            message("Running `", pkg, "' package ", type, " (from: ", pkg_dir, ")")
+            log_debug("Running `", pkg, "' package ", type, " (from: ", pkg_dir, ")")
         }
 
         tryCatch({
@@ -47,7 +47,7 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
 
             fun(pkg, pkg_dir, working_dir=cwd, quiet=quiet, runner=runner)
         }, empty=function(e) {
-            message("No ", type, " for package ", pkg)
+            log_debug("No ", type, " for package ", pkg)
 
             NA
         }, error=function(e) {
@@ -73,7 +73,7 @@ run_package_examples <- function(pkg, pkg_dir, working_dir, quiet, runner) {
 
         if (!file.exists(f)) {
             if (!quiet) {
-                message("Rd file `", x, "' does not contain any code to be run")
+                log_debug("Rd file `", x, "' does not contain any code to be run")
             }
             NA
         } else {
@@ -144,14 +144,14 @@ run_files <- function(files, quiet, runner) {
 
     sapply(files, function(f) {
         if (!quiet) {
-            message("Running `", f, "'")
+            log_debug("Running `", f, "'")
         }
 
         tryCatch({
             status <- runner(f, quiet=quiet)
 
             if (!quiet) {
-                message("File `", f, "' exited with ", status)
+                log_debug("File `", f, "' exited with ", status)
             }
 
             status

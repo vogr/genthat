@@ -26,6 +26,7 @@ run_r_script <- function(script_file,
     if (is.null(lib_paths)) {
         lib_paths <- .libPaths()
     }
+
     # This is fairly counter intuitive, but the problem is that in some cases
     # some R code (e.g. tools::testInstalledPackage) sets R_LIBS to "" and
     # therefore the .lib_paths won't work. Therefore reset the variables to
@@ -33,6 +34,8 @@ run_r_script <- function(script_file,
     paths <- paste(shQuote(lib_paths), collapse=.Platform$path.sep)
     env <- c(env,
         paste("R_LIBS", paths, sep="=")
+
+        # TODO: not sure if we need this as well - probably on windows?
         ## paste("R_LIBS_USER", paths, sep="="),
         ## paste("R_LIBS_SITE", paths, sep="=")
     )
@@ -61,7 +64,7 @@ run_r_script <- function(script_file,
         stdout <- ""
         stderr <- ""
 
-        message(
+        log_debug(
             "Running: ",
             paste(env, collapse=" "), " ",
             Rbin, " ",

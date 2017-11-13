@@ -1,8 +1,9 @@
 #' @export
 #'
-create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch", "count-entry", "count-exit", "noop")) {
+create_decorator <- function(method="onexit") {
     fun <- if (is.character(method)) {
         method <- match.arg(arg=method, choices=c("onentry", "onexit", "onboth", "trycatch", "count-entry", "count-exit", "noop"), several.ok=FALSE)
+
         switch(method,
             onentry=decorate_with_onentry,
             onexit=decorate_with_onexit,
@@ -36,8 +37,8 @@ create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch",
 #' @export
 #'
 decorate_environment <- function(envir, decorator=get_decorator(),
-                                record_fun=substitute(genthat:::record_trace),
-                                exclude=character()) {
+                                 record_fun=substitute(genthat:::record_trace),
+                                 exclude=character()) {
     stopifnot(is.decorator(decorator))
 
     if (is.character(envir)) {
@@ -202,15 +203,22 @@ is_decorated <- function(fun) {
 set_decorator <- function(decorator) {
     stopifnot(is.decorator(decorator))
 
-    old <- get_decorator()
     options(genthat.decorator=decorator)
-    old
+
+    decorator
 }
 
 #' @export
 #'
 get_decorator <- function() {
-    getOption("genthat.decorator")
+    decorator <- getOption("genthat.decorator")
+
+    if (is.null(decorator)) {
+        decorator <- create_decorator()
+        set_decorator(decorator)
+    }
+
+    decorator
 }
 
 resolve_decorating_fun_args <- function(..., in_env=parent.frame()) {

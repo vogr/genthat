@@ -10,8 +10,6 @@ generate_tests(traces, quiet = TRUE, ...)
 \item{traces}{from which to generate test cases}
 
 \item{...}{additional arguments supplied to `generate_test_code` function.}
-
-\item{show_progress}{(log) show progress during test generation}
 }
 \value{
 a data frame or a tibble with the following

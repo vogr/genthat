@@ -69,11 +69,9 @@ runner <- function(fname, quiet) {
 
 options(error=function() {traceback(3); if(!interactive()) quit(status=1, save='no')})
 options(genthat.debug=!quiet)
-options(genthat.default_decorate_method="onexit")
-options(genthat.default_tracer="set")
 
+# from here everything will be slow
 genthat::decorate_environment("base", record_fun=substitute(record_types))
 message("Decorated: ", length(genthat::get_decorator()$decorations))
 
-# from here everything will be slow
 genthat::run_package(pkg=pkg, type=type, quiet=quiet, runner=runner)

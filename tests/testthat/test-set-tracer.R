@@ -53,3 +53,28 @@ test_that("reset trace clears traces", {
 
     expect_equal(length(copy_traces(tracer)), 0)
 })
+
+test_that("set tracer works with session files", {
+    trace1 <- create_trace("a", args=list(1,2), retv=3)
+    trace2 <- create_trace("b", args=list(1,2), retv=4)
+    trace3 <- create_trace("c", args=list(1,2), retv=4)
+
+    session_file <- tempfile()
+
+    tracer <- create_set_tracer(session_file=session_file)
+
+    store_trace(tracer, trace1)
+    store_trace(tracer, trace2)
+
+    expect_equal(length(copy_traces(tracer)), 2)
+
+    reset_traces(tracer)
+
+    tracer <- create_set_tracer(session_file=session_file)
+
+    store_trace(tracer, trace1)
+    store_trace(tracer, trace2)
+    store_trace(tracer, trace3)
+
+    expect_equal(copy_traces(tracer), list(trace3))
+})

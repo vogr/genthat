@@ -180,6 +180,5 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
 }
 
 decorate_with_noop <- function(fun, name, pkg, record_fun) {
-    message("Decorating: ", name, " from ", pkg)
     fun
 }
