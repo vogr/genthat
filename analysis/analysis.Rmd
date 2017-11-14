@@ -16,8 +16,7 @@ library(stringr)
 library(anytime)
 
 # this is where the result of the parallel is stored
-#RUN_DIR=file.path("..", "runs/top-cran")
-RUN_DIR=file.path("..", "runs/stringr")
+RUN_DIR=file.path("..", "runs/packages")
 
 COLS = tribble(
   ~column, ~description,
@@ -29,7 +28,14 @@ COLS = tribble(
   "n_failures", "number of trace failures (exception during args/retv recording)"
 )
 
-format.difftime <- function(x, ...) {
+is_package_ready <- function(path) {
+  file.exists(file.path(path, "run-package", "output", "none", "all", "genthat-traces.csv")) &&
+    file.exists(file.path(path, "trace", "output", "onexit--set", "all", "genthat-traces.csv")) &&
+    file.exists(file.path(path, "generate", "output", "genthat-generate.csv")) &&
+    file.exists(file.path(path, "run", "output", "genthat-run-tests.csv"))
+}
+
+format_difftime <- function(x, ...) {
   x <- as.integer(x)
   sprintf(
     "%02d:%02d:%02d", 
@@ -40,6 +46,8 @@ format.difftime <- function(x, ...) {
 }
 
 format_size <- function(x) {
+  if (is.na(x)) return(NA)
+  
   units <- c("B", "kB", "MB", "GB", "TB", "PB")
   
   fmt <- function(x, i=1) {
@@ -53,42 +61,29 @@ format_size <- function(x) {
   
   sapply(x, fmt, USE.NAMES=FALSE)
 }
-
-load_csvs <- function(packages, path_template, ...) {
-  expected <- str_replace(path_template, fixed("$package"), packages)
-  existing <- file.exists(expected)
-  actual <- expected[existing]
-  names(actual) <- packages[existing]
-  actual
-  
-  actual %>%
-  pblapply(read_csv_checked, ...) %>%
-  bind_rows(.id="package") 
-}
-
-read_csv_checked <- function(...) {
-  tryCatch(read_csv(...), error=function(e) {
-    message(..1, ": error: ", e$message)
-  }, warning=function(e) {
-    message(..1, ": warning: ", e$message)
-  })
-}
 ```
 
 # Running the experiment
 
-This is just a reference about how to start it.
-
-```{bash run, eval=FALSE}
-./run-parallel <run-package|trace|generate|run> <package or file with a list of package separated by a new line>
+```{r}
+packages_paths <- list.dirs(RUN_DIR, recursive=FALSE) %>% keep(is_package_ready)
+packages <- basename(packages_paths)
+result <- data_frame(package=packages, path=packages_paths)
 ```
+
+## List of participating packages
+
+```{r}
+DT::datatable(result)
+```
+
 
 # Execution logs
 
 In this section we look at the output form GNU parallel.
 
 ```{r}
-read_parallel_log <- function(fname) {
+read_parallel_log <- function(package, fname) {
   read_tsv(
     fname, 
     col_types=cols_only(
@@ -101,7 +96,7 @@ read_parallel_log <- function(fname) {
     )
   ) %>%
   transmute(
-    id=Seq,
+    package=package,
     started=anytime(Starttime),
     ended=anytime(Starttime+JobRuntime),
     duration=ended-started,
@@ -110,6 +105,16 @@ read_parallel_log <- function(fname) {
     command=Command
   )
 }
+
+load_file_from_packages <- function(filepath, fun) {
+  result %>%
+    transmute(package, fname=file.path(path, filepath)) %>% 
+    pmap_dfr(fun)
+}
+
+read_parallel_logs <- function(task_name) {
+  load_file_from_packages(file.path(task_name, "parallel.log"), read_parallel_log)
+}
 ```
 
 ## Tracing
@@ -117,10 +122,9 @@ read_parallel_log <- function(fname) {
 ### Running a package without genthat
 
 ```{r load run package parallel log}
-run_package_log <- read_parallel_log(file.path(RUN_DIR, "run-package", "parallel.log")) %>%
+run_package_log <- read_parallel_logs("run-package") %>%
   mutate(
-    decorator=str_replace(command, ".* --decorator ([^ ]+) .*", "\\1"),
-    package=str_replace(command, ".* --package ([^ ]+) .*", "\\1")
+    decorator=str_replace(command, ".* --config ([^ ]+) .*", "\\1")
   )
 ```
 
@@ -138,7 +142,7 @@ prod_run_package_log %>%
   ggplot(aes(
     x=factor(package, levels=package[order(duration)]), 
     y=duration, 
-    label=format.difftime(duration))
+    label=format_difftime(duration))
   ) +
   geom_col() +
   coord_flip() +
@@ -155,13 +159,13 @@ prod_run_package_log %>%
 ### Running a package with genthat
 
 ```{r load trace parallel log}
-trace_log <- read_parallel_log(file.path(RUN_DIR, "trace", "parallel.log")) %>%
+trace_log <- read_parallel_logs("trace") %>%
   mutate(
-    package=str_replace(command, ".* --package ([^ ]+) .*", "\\1"),
-    decorator=str_replace(command, ".* --decorator ([^ ]+) .*", "\\1"),
-    tracer=str_replace(command, ".* --tracer ([^ ]+) .*", "\\1"),
-    job=str_c(package, " [", decorator, " ", tracer, "]", sep="")
-  )
+    config=str_replace(command, ".* --config ([^ ]+) .*", "\\1"),
+    decorator=str_replace(config, "(.*)--(.*)", "\\1"),
+    tracer=str_replace(config, "(.*)--(.*)", "\\2")
+  ) %>%
+  select(-config)
 ```
 
 Similarly here, we have multiple decorators and tracers.
@@ -178,7 +182,7 @@ prod_trace_log %>%
   ggplot(aes(
     x=factor(package, levels=package[order(duration)]), 
     y=duration, 
-    label=format.difftime(duration))
+    label=format_difftime(duration))
   ) +
   geom_col() +
   coord_flip() +
@@ -193,19 +197,20 @@ prod_trace_log %>%
 ```
 
 ```{r trace size, fig.height=10}
-traced_packages <- prod_trace_log$package
-size <- pbsapply(traced_packages, function(x) {
+trace_size <- function(path) {
   rdss <- list.files(
-    path=file.path(RUN_DIR, "trace", "output", x, "onexit", "set", "all"), 
+    path=file.path(path, "trace", "output", "onexit--set", "all"), 
     pattern="\\.RDS$", 
     full.names=TRUE, 
     recursive=FALSE
   )
+  
   sum(file.size(rdss))
-})
-trace_size <- data_frame(package=traced_packages, size=size)
+}
 
-trace_size %>%
+traces_size <- result %>% mutate(size=sapply(path, trace_size))
+
+traces_size %>%
   ggplot(
     aes(
       x=factor(package, levels=package[order(size)]), 
@@ -243,7 +248,7 @@ prod_trace_log %>%
 ```
 
 ```{r fig.height=10}
-trace_size %>% 
+traces_size %>% 
   left_join(select(prod_trace_log, package, duration)) %>%
   ggplot(aes(x=as.integer(duration), y=size, label=package)) +
   geom_point() +
@@ -302,10 +307,7 @@ prod_trace_log %>%
 ## Test generation
 
 ```{r load generate parallel log}
-generate_log <- read_parallel_log(file.path(RUN_DIR, "generate", "parallel.log")) %>%
-  mutate(
-    package=str_replace(command, ".*output/([^/]+)/onexit.*", "\\1")
-  )
+generate_log <- read_parallel_logs("generate")
 ```
 
 ```{r test generating time, fig.height=15}
@@ -313,7 +315,7 @@ generate_log %>%
   ggplot(aes(
     x=factor(package, levels=package[order(duration)]), 
     y=duration, 
-    label=format.difftime(duration))
+    label=format_difftime(duration))
   ) +
   geom_col() +
   coord_flip() +
@@ -325,13 +327,11 @@ generate_log %>%
     y="Time [hh:mm:ss]"
   )
 ```
+
 ## Test runnning
 
 ```{r load run parallel log}
-run_log <- read_parallel_log(file.path(RUN_DIR, "run", "parallel.log")) %>%
-  mutate(
-    package=str_replace(command, ".*output/([^/]+).*", "\\1")
-  )
+run_log <- read_parallel_logs("run")
 ```
 
 ```{r test running time, fig.height=15}
@@ -339,7 +339,7 @@ run_log %>%
   ggplot(aes(
     x=factor(package, levels=package[order(duration)]), 
     y=duration, 
-    label=format.difftime(duration))
+    label=format_difftime(duration))
   ) +
   geom_col() +
   coord_flip() +
@@ -376,57 +376,77 @@ prod_run_package_log %>%
 
 # Data
 
+```{r}
+read_csv_checked <- function(...) {
+  tryCatch(read_csv(...), error=function(e) {
+    message(..1, ": error: ", e$message)
+  }, warning=function(e) {
+    message(..1, ": warning: ", e$message)
+  })
+}
+
+load_csvs <- function(path, ...) {
+  load_file_from_packages(path, function(package, fname) {
+    read_csv_checked(fname, ...) %>%
+      mutate(package=package) %>%
+      select(package, everything())
+  })
+}
+```
+
+
 ## Traces
 
 ```{r}
-traces <- load_csvs(
-  trace_log %>% filter(decorator=="onexit", tracer=="set") %>% .$package, 
-  file.path(RUN_DIR, "trace", "output", "$package", "onexit", "set", "all", "genthat-traces.csv"),
-  col_types=cols_only(
-    type="c",
-    tag="c",
-    filename="c",
-    n_traces="i",
-    n_complete="i",
-    n_entry="i",
-    n_failures="i",
-    status="i",
-    running_time="d"
+load_traces_stats <- function(config) {
+  load_csvs(file.path("trace", "output", config, "all", "genthat-traces.csv"), 
+    col_types=cols_only(
+      type="c",
+      tag="c",
+      filename="c",
+      n_traces="i",
+      n_complete="i",
+      n_entry="i",
+      n_failures="i",
+      status="i",
+      running_time="d"
+    )
   )
-)
+}
+
+traces <- load_traces_stats("onexit--set")
+# TODO: load count-onexit--sequence
+# TODO: load onexit-sequence
 ```
 
 ```{r fig.height=10}
 n_traces <- traces %>%
-  group_by(package) %>%
   mutate(
     n_traces=ifelse(is.na(n_traces), 0, n_traces), 
     n_complete=ifelse(is.na(n_complete), 0, n_complete), 
     n_entry=ifelse(is.na(n_entry), 0, n_entry), 
     n_failures=ifelse(is.na(n_failures), 0, n_failures)
   ) %>%
+  group_by(package) %>%
   summarise(n_complete=sum(n_complete))
 
 n_traces %>%
-  ggplot(aes(x=factor(package, levels=package[order(n_complete)]), y=n_complete)) +
+  ggplot(aes(x=factor(package, levels=package[order(n_complete)]), y=n_complete, label=n_complete)) +
   geom_col() +
+  geom_text(hjust=-.2, size=2) +
   coord_flip() +
   labs(
-    title="Number ofrecorder traces",
+    title="Number of recorder traces",
     x="Package",
     y="Number of traces"
   )
 
 ```
 
-
 ## Test Generation
 
 ```{r load test generation}
-generated_tests <- load_csvs(
-  generate_log$package, 
-  file.path(RUN_DIR, "generate", "output", "$package", "genthat-generate.csv"),
-  col_types=cols_only(
+generated_tests <- load_csvs(file.path("generate", "output", "genthat-generate.csv"), col_types=cols_only(
     fun="c",
     test_file="c",
     error="c",
@@ -440,11 +460,14 @@ generated_tests <- load_csvs(
 ```{r number of generated tests, fig.height=10}
 n_generated_tests <- 
   generated_tests %>%
-  count(package) %>%
-  rename(n_tests=n)
+  group_by(package) %>%
+  summarise(
+    generated=sum(!is.na(test_file)),
+    failed=sum(is.na(test_file))
+  )
 
 n_generated_tests %>%
-  ggplot(aes(x=factor(package, levels=package[order(n_tests)]), y=n_tests, label=n_tests)) +
+  ggplot(aes(x=factor(package, levels=package[order(generated)]), y=generated, label=str_c(generated, generated+failed, sep=" / "))) +
   geom_col() +
   geom_text(hjust=-.2, size=2) +
   coord_flip() +
@@ -460,18 +483,40 @@ n_generated_tests %>%
 ```{r fig.height=10}
 n_traces %>%
   select(package, traces=n_complete) %>%
-  left_join(select(n_generated_tests, package, tests=n_tests), by="package") %>%
-  mutate(diff=traces-tests) %>%
+  left_join(select(n_generated_tests, package, generated), by="package") %>%
+  mutate(diff=traces-generated) %>%
   ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=diff)) +
   geom_col() +
   geom_text(hjust=-.2, size=2) +
   coord_flip() +
   labs(
     title="Number of missing tests",
+    subtitle="Number of traces with no tests",
     x="Package",
     y="Number of missings tests"
   )
 
+```
+
+### Test size
+
+```{r}
+test_sizes <- load_file_from_packages(file.path("generate", "output"), function(package, fname) {
+  files <- list.files(fname, pattern="test-.*\\.R$", full.names=TRUE, recursive=TRUE)
+  data_frame(file=files, size=file.size(files))
+})
+
+test_sizes %>%
+  ggplot(aes(size)) +
+  geom_histogram(bins=30) +
+  scale_x_log10(labels=function(x) {
+    if (length(x) == 0) return(character())
+    sapply(x, format_size, USE.NAMES=FALSE)
+  }) +
+  labs(
+    title="Distribution of test size",
+    x="Size (log)"
+  )
 ```
 
 
@@ -480,10 +525,7 @@ n_traces %>%
 ### Number of tests run
 
 ```{r loading run results}
-run_tests <- load_csvs(
-  run_log$package,
-  file.path(RUN_DIR, "run", "output", "$package", "genthat-run-tests.csv"),
-  col_types=cols_only(
+run_tests <- load_csvs(file.path("run", "output", "genthat-run-tests.csv"), col_types=cols_only(
     file="c",
     test="c",
     nb="i",
@@ -493,15 +535,25 @@ run_tests <- load_csvs(
     warning="i",
     real="d"
   )
-) %>%
+)
+```
+
+```{r}
+run_tests %>% filter(nb > 1) %>% DT::datatable()
+```
+
+```{r}
+prod_run_tests <-
+  run_tests %>%
+  filter(is.na(nb) | nb == 1) %>%
   transmute(
     package,
     fun=test,
-    passed=(((nb - failed - skipped - error) > 0) & !is.na(nb)),
-    failed=ifelse(is.na(failed), FALSE, failed),
+    failed=ifelse(is.na(failed), FALSE, failed == 1),
     skipped=ifelse(is.na(skipped), FALSE, skipped),
     error=ifelse(is.na(error), FALSE, error),
     exception=ifelse(is.na(nb), TRUE, FALSE),
+    passed=(failed + skipped + error + exception == 0),
     duration=ifelse(is.na(real), 0, real),
     file
   )
@@ -509,9 +561,15 @@ run_tests <- load_csvs(
 # TODO: look at failed tests in exception field
 ```
 
+### Problems
+```{r}
+prod_run_tests %>% rowwise() %>% mutate(x=sum(passed, failed, skipped, error, exception)) %>% filter(x>1)
+```
+
+
 ```{r fig.height=10}
 n_run_tests <-
-  run_tests %>%
+  prod_run_tests %>%
   group_by(package) %>%
   summarise(
     count=n(),
@@ -548,11 +606,11 @@ n_run_tests %>%
 ```{r fig.height=10}
 n_generated_tests %>%
   left_join(select(n_run_tests, package, passed), by="package") %>%
-  mutate(diff=passed/n_tests, diff=ifelse(is.na(diff), 0, diff)) %>%
+  mutate(diff=passed/generated, diff=ifelse(is.na(diff), 0, diff)) %>%
   ggplot(aes(
     x=factor(package, levels=package[order(-diff)]), 
     y=diff, 
-    label=str_c(ifelse(is.na(passed), "0", passed), ifelse(is.na(n_tests), "0", n_tests), sep=" / "))
+    label=str_c(ifelse(is.na(passed), "0", passed), ifelse(is.na(generated), "0", generated), sep=" / "))
   ) +
   geom_col() +
   geom_text(hjust=-.2, size=3) +
@@ -567,12 +625,30 @@ n_generated_tests %>%
 
 ## Summary
 
+```{r}
+n_traces %>% 
+  select(package, n_complete) %>%
+  left_join(n_generated_tests, by="package") %>%
+  left_join(n_run_tests, by="package") %>%
+  mutate(trace_generated=generated/n_complete, generated_passed=passed/generated, trace_passed=passed/n_complete) %>%
+  gather(key="key", value="value", trace_generated, generated_passed, trace_passed) %>%
+  ggplot(aes(x=key, y=value)) +
+  geom_boxplot() +
+  scale_y_continuous(labels=scales::percent_format()) +
+  labs(
+    title="Success rate",
+    x="Metric",
+    y="Success"
+  )
+```
+
+
 ```{r fig.height=10}
 n_traces %>% 
   select(package, n_complete) %>%
   left_join(n_generated_tests, by="package") %>%
   left_join(n_run_tests, by="package") %>%
-  mutate(generated=n_tests/n_complete, ran=passed/n_complete) %>%
+  mutate(generated=generated/n_complete, ran=passed/n_complete) %>%
   gather(key="key", value="value", generated, ran) %>%
   ggplot(
     aes(
@@ -582,6 +658,7 @@ n_traces %>%
     )
   ) +
   geom_col(position="dodge") +
+  scale_y_continuous(labels=scales::percent_format()) +
   coord_flip()
 ```
 
