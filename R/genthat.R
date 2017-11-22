@@ -159,16 +159,18 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
             traces <- if (file.exists(stats_file)) {
                 read_stats_file(stats_file)
             } else {
-                # running failed so the finalizer exporting the traces did not
-                # run
+                # Running either failed or there were no calls to the traced
+                # functions (e.g. a data file) so the finalizer exporting the
+                # traces did not kicked in. based on the status we can figure
+                # out what has happened.
                 data.frame(
                     tag=tags,
                     filename=NA,
-                    n_traces=NA,
-                    n_complete=NA,
-                    n_entry=NA,
-                    n_error=NA,
-                    n_failures=NA,
+                    n_traces=0,
+                    n_complete=0,
+                    n_entry=0,
+                    n_error=0,
+                    n_failures=0,
                     row.names=NULL,
                     stringsAsFactors=FALSE
                 )
@@ -176,7 +178,15 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
 
             df <- merge(traces, status, by="tag", all.y=TRUE)
             df <- merge(df, times, by="tag", all.x=TRUE, all.y=TRUE)
+
+            # it might still be the case that one of the file did not contain
+            # any calls to traced functions. by the above merge that would
+            # result with NA so we need to adjust it
             df$n_traces[is.na(df$n_traces)] <- 0
+            df$n_complete[is.na(df$n_complete)] <- 0
+            df$n_entry[is.na(df$n_entry)] <- 0
+            df$n_error[is.na(df$n_error)] <- 0
+            df$n_failures[is.na(df$n_failures)] <- 0
             df
         }
 
@@ -285,7 +295,9 @@ import_traces <- function(filenames) {
     unlist(traces, recursive=FALSE)
 }
 
-generate_and_save <- function(traces, output_dir, info_file=file.path(output_dir, "genthat-generate.csv"), quiet=TRUE) {
+generate_and_save <- function(traces, output_dir,
+                              info_file=file.path(output_dir, "genthat-generate.csv"), quiet=TRUE) {
+
     if (!quiet) {
         log_debug("Using info file: ", info_file)
         log_debug("Loaded ", length(traces), " traces, generating tests...")
@@ -295,7 +307,9 @@ generate_and_save <- function(traces, output_dir, info_file=file.path(output_dir
     test_files <- save_tests(tests, output_dir)
 
     info <- dplyr::bind_cols(tests, test_files)
-    info <- info %>% dplyr::select(fun, pkg, test_file, error, elapsed)
+    info <- info %>%
+        dplyr::mutate(gen_error=ifelse(is.na(gen_error), save_error, gen_error)) %>%
+        dplyr::select(fun, pkg, test_file, elapsed, gen_error)
     # the append has to be there since we call this one often
     # in a loop over RDS trace files
     readr::write_csv(info, path=info_file, append=file.exists(info_file))

@@ -3,6 +3,8 @@ title: "R Notebook"
 output:
   html_document:
     df_print: paged
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -414,21 +416,27 @@ load_traces_stats <- function(config) {
   )
 }
 
+sum_traces <- function(traces) {
+  traces %>%
+    mutate(
+      n_traces=ifelse(is.na(n_traces), 0, n_traces), 
+      n_complete=ifelse(is.na(n_complete), 0, n_complete), 
+      n_entry=ifelse(is.na(n_entry), 0, n_entry), 
+      n_failures=ifelse(is.na(n_failures), 0, n_failures)
+    ) %>%
+    group_by(package) %>%
+    summarise(
+      n_traces=sum(n_traces),
+      n_complete=sum(n_complete),
+      n_entry=sum(n_entry)
+    )
+}
+
 traces <- load_traces_stats("onexit--set")
-# TODO: load count-onexit--sequence
-# TODO: load onexit-sequence
 ```
 
 ```{r fig.height=10}
-n_traces <- traces %>%
-  mutate(
-    n_traces=ifelse(is.na(n_traces), 0, n_traces), 
-    n_complete=ifelse(is.na(n_complete), 0, n_complete), 
-    n_entry=ifelse(is.na(n_entry), 0, n_entry), 
-    n_failures=ifelse(is.na(n_failures), 0, n_failures)
-  ) %>%
-  group_by(package) %>%
-  summarise(n_complete=sum(n_complete))
+n_traces <- sum_traces(traces)
 
 n_traces %>%
   ggplot(aes(x=factor(package, levels=package[order(n_complete)]), y=n_complete, label=n_complete)) +
@@ -440,8 +448,72 @@ n_traces %>%
     x="Package",
     y="Number of traces"
   )
-
 ```
+
+### Missed traces
+
+```{r load other trace stats}
+count_entry_seq_traces <- load_traces_stats("count-entry--sequence")
+count_exit_seq_traces <- load_traces_stats("count-exit--sequence")
+onexit_seq_traces <- load_traces_stats("onexit--sequence")
+
+n_count_entry_seq_traces <- count_entry_seq_traces %>% sum_traces()
+n_count_exit_seq_traces <- count_exit_seq_traces %>% sum_traces()
+n_onexit_seq_traces <- onexit_seq_traces %>% sum_traces()
+```
+
+```{r missing traces plot, fig.height=10, include=FALSE}
+n_missing_traces <-
+  inner_join(
+    select(n_count_exit_seq_traces, package, n_entry),
+    select(n_onexit_seq_traces, package, n_complete),
+    by="package"
+  ) %>%
+  mutate(missing_traces=ifelse(n_complete > 0, n_complete/n_entry, 0)) %>%
+  select(package, missing_traces)
+
+n_missing_traces %>%
+  mutate(missing_traces=1-missing_traces) %>%
+  ggplot(aes(x=factor(package, levels=package[order(missing_traces)]), y=missing_traces, label=sprintf("%.0f %%", missing_traces*100))) +
+  geom_col() +
+  geom_text(hjust=-.2, size=2) +
+  scale_y_continuous(labels=scales::percent_format()) +
+  coord_flip() +
+  labs(
+    title="Missing traces",
+    subtitle="How many traces did we missed? Counted calls that exit normally.",
+    x="Package",
+    y="Ratio of missing traces"
+  )
+```
+
+### Missing calls
+
+```{r missing calls plot, fig.height=10}
+n_non_return <-
+  inner_join(
+    select(n_count_entry_seq_traces, package, entry=n_entry),
+    select(n_count_exit_seq_traces, package, exit=n_entry),
+    by="package"
+  ) %>%
+  mutate(missing=ifelse(entry > 0, exit/entry, 0)) %>%
+  select(package, missing)
+
+n_non_return %>%
+  mutate(missing=1-missing) %>%
+  ggplot(aes(x=factor(package, levels=package[order(missing)]), y=missing, label=sprintf("%.0f %%", missing*100))) +
+  geom_col() +
+  geom_text(hjust=-.2, size=2) +
+  scale_y_continuous(labels=scales::percent_format()) +
+  coord_flip() +
+  labs(
+    title="Missing calls",
+    subtitle="How many calls do not exit normally.",
+    x="Package",
+    y="Ratio of missing calls"
+  )
+```
+
 
 ## Test Generation
 
@@ -453,6 +525,9 @@ generated_tests <- load_csvs(file.path("generate", "output", "genthat-generate.c
     elapsed="d"
   )
 )
+
+# FIXME: just a quick fix
+generated_tests <- generated_tests[!duplicated(generated_tests$test_file), ]
 ```
 
 ### Number of tests
@@ -545,7 +620,7 @@ run_tests %>% filter(nb > 1) %>% DT::datatable()
 ```{r}
 prod_run_tests <-
   run_tests %>%
-  filter(is.na(nb) | nb == 1) %>%
+  filter(is.na(nb) | nb <= 1) %>%
   transmute(
     package,
     fun=test,
@@ -560,6 +635,8 @@ prod_run_tests <-
 
 # TODO: look at failed tests in exception field
 ```
+
+The difference is: `r nrow(run_tests) - nrow(prod_run_tests)`
 
 ### Problems
 ```{r}
@@ -608,12 +685,12 @@ n_generated_tests %>%
   left_join(select(n_run_tests, package, passed), by="package") %>%
   mutate(diff=passed/generated, diff=ifelse(is.na(diff), 0, diff)) %>%
   ggplot(aes(
-    x=factor(package, levels=package[order(-diff)]), 
+    x=factor(package, levels=package[rev(order(-diff))]), 
     y=diff, 
     label=str_c(ifelse(is.na(passed), "0", passed), ifelse(is.na(generated), "0", generated), sep=" / "))
   ) +
   geom_col() +
-  geom_text(hjust=-.2, size=3) +
+  geom_text(hjust=-.2, size=2) +
   scale_y_continuous(labels=scales::percent) +
   coord_flip() +
   labs(
@@ -625,42 +702,52 @@ n_generated_tests %>%
 
 ## Summary
 
-```{r}
-n_traces %>% 
-  select(package, n_complete) %>%
-  left_join(n_generated_tests, by="package") %>%
-  left_join(n_run_tests, by="package") %>%
-  mutate(trace_generated=generated/n_complete, generated_passed=passed/generated, trace_passed=passed/n_complete) %>%
-  gather(key="key", value="value", trace_generated, generated_passed, trace_passed) %>%
+```{r success rate}
+success_rate <- select(n_traces, package, n_complete) %>%
+  left_join(select(n_generated_tests, package, generated), by="package") %>%
+  left_join(select(n_run_tests, package, passed), by="package") %>%
+  mutate(
+    generated=ifelse(is.na(generated), 0, generated),
+    passed=ifelse(is.na(passed), 0, passed)
+  ) %>%
+  mutate(
+    generated_traced=ifelse(n_complete > 0, generated/n_complete, 0),
+    passed_generated=ifelse(generated > 0, passed/generated, 0),
+    passed_traced=ifelse(n_complete > 0, passed/n_complete, 0)
+  )
+```
+
+```{r success rate overview}
+success_rate %>%
+  gather(key="key", value="value", generated_traced, passed_generated, passed_traced) %>%
   ggplot(aes(x=key, y=value)) +
   geom_boxplot() +
   scale_y_continuous(labels=scales::percent_format()) +
   labs(
-    title="Success rate",
+    title="Overall success rate",
+    subtitle="How many calls we reproduce?",
     x="Metric",
-    y="Success"
+    y="Success rate"
   )
 ```
 
-
-```{r fig.height=10}
-n_traces %>% 
-  select(package, n_complete) %>%
-  left_join(n_generated_tests, by="package") %>%
-  left_join(n_run_tests, by="package") %>%
-  mutate(generated=generated/n_complete, ran=passed/n_complete) %>%
-  gather(key="key", value="value", generated, ran) %>%
-  ggplot(
-    aes(
-      x=package,
-      y=value, 
-      fill=key
-    )
-  ) +
-  geom_col(position="dodge") +
+```{r success rate per package, fig.height=10}
+success_rate %>%
+  gather(key="key", value="value", generated_traced, passed_generated, passed_traced) %>%
+  ggplot(aes(x=factor(package, levels=success_rate$package[order(success_rate$passed_traced)]), y=value, label=sprintf("%.0f %%", value*100))) +
+  geom_col() +
+  geom_text(hjust=-.2, size=2) + 
   scale_y_continuous(labels=scales::percent_format()) +
-  coord_flip()
+  coord_flip() +
+  facet_grid(. ~ key) +
+  labs(
+    title="Success rate per package",
+    subtitle="How many calls we reproduce?",
+    x="Package",
+    y="Success rate"
+  )
 ```
+
 
 
 

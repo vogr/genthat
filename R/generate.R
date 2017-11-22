@@ -109,11 +109,11 @@ generate_test_code.default <- function(trace, include_trace_dump) {
 #' @title generate test from a trace
 #' @description given a trace, it generates a test
 #' @return a data frame or a tibble with the following
-#' trace      : chr
 #' fun        : chr
-#' code       : chr (can be NA)
-#' error      : chr (can be NA)
-#' elapsed    : numeric
+#' pkg        : chr
+#' code       : chr (can be NA in which case gen_error must be a chr)
+#' error      : chr (can be NA in which case code must be NA)
+#' elapsed    : numeric (can be NA)
 #'
 #' @export
 #'
@@ -122,12 +122,11 @@ generate_test <- function(trace, ...) {
 }
 
 generate_test_result <- function(trace, code=NA, error=NA, elapsed=NA) {
-    list(
+    tibble::data_frame(
         fun=if (is.null(trace$fun)) NA else trace$fun,
         pkg=if (is.null(trace$pkg)) NA else trace$pkg,
-        trace=format(trace),
         code=code,
-        error=error,
+        gen_error=error,
         elapsed=elapsed
     )
 }
@@ -168,11 +167,11 @@ generate_test.genthat_trace <- function(trace, ...) {
 #' @param ... additional arguments supplied to `generate_test_code` function.
 #'
 #' @return a data frame or a tibble with the following
-#' fun        : chr
-#' trace      : chr
-#' trace_type : chr
-#' code       : chr (can be NA)
-#' error      : chr (can be NA)
+#' fun       : chr
+#' pkg       : chr
+#' code      : chr (can be NA in which case gen_error must be a chr)
+#' gen_error : chr (can be NA in which case code must be a NA)
+#' elapsed   : dbl
 #'
 #' @description Generates tests cases from the captured traces.
 #' @export
@@ -181,38 +180,35 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
     stopifnot(is.list(traces) || is.environment(traces))
 
     if (length(traces) == 0) {
-        return(dplyr::data_frame())
+        return(
+            tibble::data_frame(
+                fun=character(),
+                pkg=character(),
+                code=character(),
+                gen_error=character(),
+                elapsed=double()
+            )
+        )
     }
 
-    tests <- lapply(traces, function(x) {
-        test <- generate_test(x, ...)
-        dplyr::as_data_frame(test)
-    })
-
-    dplyr::bind_rows(tests)
+    purrr::map_dfr(traces, function(x) generate_test(x, ...))
 }
 
+#' @param tests this should be a data.frame with class genthat_tests, a result
+#'     from calling `generate_tests`.
 #' @export
 #' @importFrom magrittr %>%
 #'
 save_tests <- function(tests, output_dir) {
-    if (length(tests) == 0) {
-        return(list())
-    }
-
     stopifnot(is.character(output_dir) && length(output_dir) == 1)
     stopifnot(dir.exists(output_dir) || dir.create(output_dir))
     stopifnot(is.data.frame(tests))
 
     if (nrow(tests) == 0) {
-        return(list())
+        return(data_frame(test_file=character(), save_error=character()))
     }
 
     save_test <- function(fun, pkg, code, id) {
-        if (is.na(code)) {
-            return(NA)
-        }
-
         dname <- file.path(output_dir, pkg, fun)
         stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
@@ -221,13 +217,35 @@ save_tests <- function(tests, output_dir) {
         fname
     }
 
-    tests %>%
+    save_test_checked <- function(fun, pkg, code, id) {
+        tryCatch({
+            if (is.na(code)) {
+                data_frame(test_file=NA, save_error=NA)
+            } else {
+                data_frame(test_file=save_test(fun, pkg, code, id), save_error=NA)
+            }
+        }, error=function(e) {
+            data_frame(test_file=NA, save_error=e$message)
+        })
+    }
+
+    # add ID per function
+    tests_id <-tests %>%
         dplyr::group_by(pkg, fun) %>%
         dplyr::mutate(id=row_number()) %>%
-        dplyr::ungroup() %>%
-        dplyr::rowwise() %>%
-        dplyr::mutate(test_file=save_test(fun, pkg, code, id)) %>%
-        dplyr::select(test_file)
+        dplyr::ungroup()
+
+    # TODO; is there a better way to do this?
+    mapply(
+        save_test_checked,
+        tests_id$fun,
+        tests_id$pkg,
+        tests_id$code,
+        tests_id$id,
+        SIMPLIFY=FALSE,
+        USE.NAMES=FALSE
+    ) %>%
+        dplyr::bind_rows()
 }
 
 reformat_code <- function(code) {

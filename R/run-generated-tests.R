@@ -5,15 +5,14 @@ run_generated_test <- function(file, quiet=TRUE) {
 
     tryCatch({
         testthat:::capture_output(res <- testthat::test_file(file), print=!quiet)
-        res <- as.data.frame(res)
-        res$file <- file
+        res <- tibble::as_data_frame(res) %>%
+            mutate(file=file, run_error=NA, elapsed=real) %>%
+            select(-skipped, -user, -system, -real)
         res
     }, error=function(e) {
-        data.frame(
+        tibble::data_frame(
             file=file,
-            exception=e$message,
-            row.names=NULL,
-            stringsAsFactors=FALSE
+            run_error=e$message
         )
     })
 }
@@ -21,18 +20,29 @@ run_generated_test <- function(file, quiet=TRUE) {
 #' @export
 #'
 run_generated_tests <- function(files, quiet=TRUE) {
-    res <- lapply(files, function(f) {
-        if (!file.exists(f)) {
-            data.frame(
-                file=f,
-                exception=paste("File", f, "does not exist"),
-                row.names=NULL,
-                stringsAsFactors=FALSE
+    if (length(files) == 0) {
+        return(
+            tibble::data_frame(
+                file=characted(),
+                context=character(),
+                test=character(),
+                nb=integer(),
+                failed=integer(),
+                error=logical(),
+                warning=integer(),
+                elapsed=double(),
+                run_error=character()
             )
+        )
+    }
+
+    purrr::map_dfr(files, function(f) {
+        if (is.na(f)) {
+            tibble::data_frame(file=NA, run_error=NA)
+        } else if (!file.exists(f)) {
+            tibble::data_frame(file=f, run_error=paste("File", f, "does not exist"))
         } else {
             run_generated_test(f)
         }
     })
-
-    do.call(rbind, res)
 }
