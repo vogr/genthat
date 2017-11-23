@@ -320,6 +320,8 @@ stopwatch <- function(expr) {
 }
 
 next_file_in_row <- function(path) {
+    stopifnot(nchar(path) > 0)
+
     dname <- dirname(path)
     fname <- basename(path)
 
@@ -328,7 +330,7 @@ next_file_in_row <- function(path) {
 
     n <- length(Sys.glob(path=file.path(dname, paste0(name, "*", ".", ext))))
 
-    file.path(dname, paste0(name, "-", n, ".", ext))
+    file.path(dname, paste0(name, "-", n, ifelse(nchar(ext) > 0, paste0(".", ext), "")))
 }
 
 is_interesting_namespace <- function(env, prefix) {

@@ -92,6 +92,13 @@ test_that("is_package_namespace works", {
     expect_false(is_package_namespace(as.environment("package:genthat")))
 })
 
+test_that("next_file_in_row works with/without extensions", {
+    expect_error(next_file_in_row(""))
+    expect_equal(next_file_in_row("does-not-exist"), "./does-not-exist-0")
+    expect_equal(next_file_in_row("does-not-exist.R"), "./does-not-exist-0.R")
+})
+
+
 # TODO: update for link_environments()
 ## test_that("linked_environment links environments", {
 ##     e <- linked_environment(
