@@ -208,40 +208,33 @@ save_tests <- function(tests, output_dir) {
         return(data_frame(test_file=character(), save_error=character()))
     }
 
-    save_test <- function(fun, pkg, code, id) {
+    save_test <- function(fun, pkg, code) {
         dname <- file.path(output_dir, pkg, fun)
         stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
-        fname <- file.path(dname, paste0("test-", id, ".R"))
+        fname <- next_file_in_row(file.path(dname, "test.R"))
         write(code, file=fname)
         fname
     }
 
-    save_test_checked <- function(fun, pkg, code, id) {
+    save_test_checked <- function(fun, pkg, code) {
         tryCatch({
             if (is.na(code)) {
                 data_frame(test_file=NA, save_error=NA)
             } else {
-                data_frame(test_file=save_test(fun, pkg, code, id), save_error=NA)
+                data_frame(test_file=save_test(fun, pkg, code), save_error=NA)
             }
         }, error=function(e) {
             data_frame(test_file=NA, save_error=e$message)
         })
     }
 
-    # add ID per function
-    tests_id <-tests %>%
-        dplyr::group_by(pkg, fun) %>%
-        dplyr::mutate(id=row_number()) %>%
-        dplyr::ungroup()
-
     # TODO; is there a better way to do this?
     mapply(
         save_test_checked,
-        tests_id$fun,
-        tests_id$pkg,
-        tests_id$code,
-        tests_id$id,
+        tests$fun,
+        tests$pkg,
+        tests$code,
         SIMPLIFY=FALSE,
         USE.NAMES=FALSE
     ) %>%
