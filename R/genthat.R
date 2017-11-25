@@ -158,7 +158,32 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
 
             ## extract traces
             traces <- if (file.exists(stats_file)) {
-                read_stats_file(stats_file)
+                st <- read_stats_file(stats_file)
+
+                # we do not need it anymore and it could create conflicts
+                # if examples / tests / vignettes shares the same tags
+                file.remove(stats_file)
+
+                # we need to summarize by the tag, the reason is that some code
+                # might spawn additional R processes in which case we will see
+                # multiple rows in stats_file while having only one record in
+                # status. For example in forecast package , without this one
+                # would see 3x testthat execution since the package is running
+                # things with parallel R processes
+                st <- by(st, st$tag, function(x) {
+                    data.frame(
+                        tag=x$tag[[1]],
+                        filename=paste(x$filename, collapse="\n"),
+                        n_traces=sum(x$n_traces, na.rm=TRUE),
+                        n_complete=sum(x$n_complete, na.rm=TRUE),
+                        n_entry=sum(x$n_entry, na.rm=TRUE),
+                        n_error=sum(x$n_error, na.rm=TRUE),
+                        n_failures=sum(x$n_failures, na.rm=TRUE),
+                        stringsAsFactors=FALSE,
+                        row.names=FALSE
+                    )
+                })
+                do.call(rbind, st)
             } else {
                 # Running either failed or there were no calls to the traced
                 # functions (e.g. a data file) so the finalizer exporting the
