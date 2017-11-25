@@ -135,6 +135,7 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
             ## extract times
             times <- if (length(stopwatch) > 0) {
                 times_list <- as.list(stopwatch)
+                times_list <- lapply(times_list, as.double, units="secs")
                 rm(list=ls(stopwatch), envir=stopwatch)
 
                 data.frame(
