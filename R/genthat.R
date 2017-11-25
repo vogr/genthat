@@ -284,10 +284,11 @@ export_traces <- function(traces, output_dir, stats_file, tag=NA, batch_size=0) 
     n_entry <- length(trace_classes[trace_classes == 2])
     n_error <- length(trace_classes[trace_classes == 3])
     n_failures <- length(trace_classes[trace_classes == 4])
+    filename <- paste(fnames, collapse="\n")
 
     stats <- data.frame(
         tag=tag,
-        filename=paste(fnames, collapse="\n"),
+        filename=filename,
         n_traces=n_traces,
         n_complete=n_complete,
         n_entry=n_entry,
@@ -379,8 +380,10 @@ create_tracing_preable <- function(packages, output_dir, tag="",
         paste0('options(genthat.debug=', debug, ')'),
         paste0('options(genthat.log_file="', log_file, '")'),
         '',
+        # TODO: make invisible and only print details when debug is on
         paste0('genthat::set_decorator(', decorator_code, ')'),
         paste0('genthat::set_tracer(', tracer_code, ')'),
+        # TODO: add some stats
         sapply(packages, function(x) paste0('genthat::decorate_environment("', x, '")')),
         '',
         # TODO: why is this needed?

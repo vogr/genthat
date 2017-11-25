@@ -20,16 +20,6 @@ library(anytime)
 # this is where the result of the parallel is stored
 RUN_DIR=file.path("..", "runs/packages")
 
-COLS = tribble(
-  ~column, ~description,
-  "n_projects", "number of projects",
-  "n_traces", "number of all traces (i.e. the some of the following)",
-  "n_complete", "number of traces from which we can generate tests",
-  "n_entry", "number of function entry traces",
-  "n_error", "number of functions that returned exception (only available in `trycatch` decorator)",
-  "n_failures", "number of trace failures (exception during args/retv recording)"
-)
-
 is_package_ready <- function(path) {
   file.exists(file.path(path, "run-package", "output", "none", "all", "genthat-traces.csv")) &&
     file.exists(file.path(path, "trace", "output", "onexit--set", "all", "genthat-traces.csv")) &&
@@ -38,6 +28,8 @@ is_package_ready <- function(path) {
 }
 
 format_difftime <- function(x, ...) {
+  if (is.na(x)) return(NA)
+
   x <- as.integer(x)
   sprintf(
     "%02d:%02d:%02d", 
@@ -65,12 +57,22 @@ format_size <- function(x) {
 }
 ```
 
-# Running the experiment
+# Load data
 
-```{r}
-packages_paths <- list.dirs(RUN_DIR, recursive=FALSE) %>% keep(is_package_ready)
-packages <- basename(packages_paths)
-result <- data_frame(package=packages, path=packages_paths)
+```{r find packages}
+all_package_paths <- list.dirs(RUN_DIR, recursive=FALSE)
+all_packages <- basename(all_package_paths)
+
+package_paths <- all_package_paths %>% keep(is_package_ready)
+packages <- basename(package_paths)
+
+result <- data_frame(package=packages, path=package_paths)
+
+load_file_from_packages <- function(filepath, fun) {
+  result %>%
+    transmute(package, fname=file.path(path, filepath)) %>% 
+    pmap_dfr(fun)
+}
 ```
 
 ## List of participating packages
@@ -79,304 +81,11 @@ result <- data_frame(package=packages, path=packages_paths)
 DT::datatable(result)
 ```
 
+## List of missing packages
 
-# Execution logs
+**TODO: what happended to the packages that did not make it**
 
-In this section we look at the output form GNU parallel.
-
-```{r}
-read_parallel_log <- function(package, fname) {
-  read_tsv(
-    fname, 
-    col_types=cols_only(
-      Seq="i",
-      Starttime="d",
-      JobRuntime="d",
-      Exitval="i",
-      Signal="i",
-      Command="c"
-    )
-  ) %>%
-  transmute(
-    package=package,
-    started=anytime(Starttime),
-    ended=anytime(Starttime+JobRuntime),
-    duration=ended-started,
-    status=Exitval,
-    signal=Signal,
-    command=Command
-  )
-}
-
-load_file_from_packages <- function(filepath, fun) {
-  result %>%
-    transmute(package, fname=file.path(path, filepath)) %>% 
-    pmap_dfr(fun)
-}
-
-read_parallel_logs <- function(task_name) {
-  load_file_from_packages(file.path(task_name, "parallel.log"), read_parallel_log)
-}
-```
-
-## Tracing
-
-### Running a package without genthat
-
-```{r load run package parallel log}
-run_package_log <- read_parallel_logs("run-package") %>%
-  mutate(
-    decorator=str_replace(command, ".* --config ([^ ]+) .*", "\\1")
-  )
-```
-
-We have the run with two decorators, just to measure the overhead of the system.
-The `none` decorator entirely skips using R site file so genthat is not touched.
-There will still be a bit of an overhead, but similar should be expected when 
-using `tools::testInstalledPackages`.
-
-```{r}
-prod_run_package_log <- run_package_log %>% filter(decorator=="none")
-```
-
-```{r fig.height=15}
-prod_run_package_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Package running time [decorator=none, tracer=NA]",
-    subtitle="Running examples, tests, vignettes",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-### Running a package with genthat
-
-```{r load trace parallel log}
-trace_log <- read_parallel_logs("trace") %>%
-  mutate(
-    config=str_replace(command, ".* --config ([^ ]+) .*", "\\1"),
-    decorator=str_replace(config, "(.*)--(.*)", "\\1"),
-    tracer=str_replace(config, "(.*)--(.*)", "\\2")
-  ) %>%
-  select(-config)
-```
-
-Similarly here, we have multiple decorators and tracers.
-For generating tests, we use `onexit` decorator and `set` tracer.
-The others are just to find the missed opportunity used for analysis of the efectiveness.
-
-```{r}
-prod_trace_log <- trace_log %>% filter(decorator=="onexit", tracer=="set")
-```
-
-
-```{r package tracing time, fig.height=15}
-prod_trace_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Package tracing time [decorator=onexit, tracer=set]",
-    subtitle="Running examples, tests, vignettes",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-```{r trace size, fig.height=10}
-trace_size <- function(path) {
-  rdss <- list.files(
-    path=file.path(path, "trace", "output", "onexit--set", "all"), 
-    pattern="\\.RDS$", 
-    full.names=TRUE, 
-    recursive=FALSE
-  )
-  
-  sum(file.size(rdss))
-}
-
-traces_size <- result %>% mutate(size=sapply(path, trace_size))
-
-traces_size %>%
-  ggplot(
-    aes(
-      x=factor(package, levels=package[order(size)]), 
-      y=size, 
-      label=format_size(size)
-    )
-  ) +
-  geom_col() +
-  coord_flip() +
-  geom_text(hjust=-.1, size=2) +
-  # TODO: scale transfioramtion to show units
-  labs(
-    title="Tracing size [decorator=onexit, tracer=set]",
-    subtitle="Running examples, tests, vignettes",
-    x="Package",
-    y="Size [bytes]"
-  )
-```
-
-```{r fig.height=15}
-prod_trace_log %>% 
-  select(package, duration) %>%
-  left_join(select(prod_run_package_log, package, duration), by="package") %>%
-  mutate(diff=as.integer(duration.x)/as.integer(duration.y)) %>%
-  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=sprintf("%.2fx", diff))) +
-  geom_col() +
-  geom_text(hjust=-.1, size=2) +
-  coord_flip() +
-  labs(
-    title="Tracing vs Running",
-    subtitle="How much is tracing slower",
-    x="Package",
-    y="Slowdown"
-  )
-```
-
-```{r fig.height=10}
-traces_size %>% 
-  left_join(select(prod_trace_log, package, duration)) %>%
-  ggplot(aes(x=as.integer(duration), y=size, label=package)) +
-  geom_point() +
-  geom_text(size=2, hjust=0.2, nudge_x=0.05) +
-  scale_x_log10() +
-  scale_y_log10() +
-  labs(
-    title="Duration of tracing vs traces size",
-    x="Duration (log)",
-    y="Size (log)"
-  )
-```
-
-### Summary
-
-```{r fig.heigh=10}
-prod_trace_log %>% 
-  select(package, duration) %>%
-  left_join(select(prod_run_package_log, package, duration), by="package") %>%
-  transmute(tracing=as.integer(duration.x), running=as.integer(duration.y)) %>%
-  gather(key="key", value="value", tracing, running) %>%
-  ggplot(aes(x=key, y=value)) +
-  geom_boxplot() +
-  scale_y_log10() +
-  labs(
-    title="Summary of Tracing and Running",
-    x="Task",
-    y="Duration [s] (log)"
-  )
-```
-
-```{r fig.height=10}
-prod_trace_log %>% 
-  select(package, duration) %>%
-  left_join(select(prod_run_package_log, package, duration), by="package") %>%
-  transmute(
-    package, 
-    tracing=as.integer(duration.x), 
-    running=as.integer(duration.y),
-    slowdown=tracing/running
-  ) %>%
-  ggplot(aes(x=running, y=tracing, label=package, color=slowdown)) +
-  geom_jitter() +
-  geom_text(size=2, hjust=-0.3, color="black") +
-  scale_x_log10() +
-  scale_y_log10() +
-  scale_color_gradient(low="green", high="red") + 
-  labs(
-    title="Running vs Tracing",
-    x="Running time [s] (log)",
-    y="Tracing time [s] (log)"
-  )
-```
-
-
-## Test generation
-
-```{r load generate parallel log}
-generate_log <- read_parallel_logs("generate")
-```
-
-```{r test generating time, fig.height=15}
-generate_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Test generating time",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-## Test runnning
-
-```{r load run parallel log}
-run_log <- read_parallel_logs("run")
-```
-
-```{r test running time, fig.height=15}
-run_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Test running time",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-## Summary
-
-### Genthat tests vs Package running time
-
-```{r fig.height=15}
-prod_run_package_log %>% 
-  select(package, duration) %>%
-  left_join(select(run_log, package, duration), by="package") %>%
-  mutate(diff=as.integer(duration.y)/as.integer(duration.x)) %>%
-  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=sprintf("%.2fx", diff))) +
-  geom_col() +
-  geom_text(hjust=-.1, size=2) +
-  coord_flip() +
-  labs(
-    title="Genthat tests vs Package running time",
-    subtitle="How much are the genthat tests slower",
-    x="Package",
-    y="Slowdown"
-  )
-```
-
-
-# Data
+# Results
 
 ```{r}
 read_csv_checked <- function(...) {
@@ -396,10 +105,9 @@ load_csvs <- function(path, ...) {
 }
 ```
 
-
 ## Traces
 
-```{r}
+```{r load traces funs}
 load_traces_stats <- function(config) {
   load_csvs(file.path("trace", "output", config, "all", "genthat-traces.csv"), 
     col_types=cols_only(
@@ -431,7 +139,9 @@ sum_traces <- function(traces) {
       n_entry=sum(n_entry)
     )
 }
+```
 
+```{r load onexit--set traces}
 traces <- load_traces_stats("onexit--set")
 ```
 
@@ -457,9 +167,9 @@ count_entry_seq_traces <- load_traces_stats("count-entry--sequence")
 count_exit_seq_traces <- load_traces_stats("count-exit--sequence")
 onexit_seq_traces <- load_traces_stats("onexit--sequence")
 
-n_count_entry_seq_traces <- count_entry_seq_traces %>% sum_traces()
-n_count_exit_seq_traces <- count_exit_seq_traces %>% sum_traces()
-n_onexit_seq_traces <- onexit_seq_traces %>% sum_traces()
+n_count_entry_seq_traces <- sum_traces(count_entry_seq_traces)
+n_count_exit_seq_traces <- sum_traces(count_exit_seq_traces)
+n_onexit_seq_traces <- sum_traces(onexit_seq_traces)
 ```
 
 ```{r missing traces plot, fig.height=10, include=FALSE}
@@ -745,6 +455,295 @@ success_rate %>%
     subtitle="How many calls we reproduce?",
     x="Package",
     y="Success rate"
+  )
+```
+
+# Execution logs
+
+In this section we look at the output form GNU parallel.
+
+```{r}
+read_parallel_log <- function(package, fname) {
+  read_tsv(
+    fname, 
+    col_types=cols_only(
+      Seq="i",
+      Starttime="d",
+      JobRuntime="d",
+      Exitval="i",
+      Signal="i",
+      Command="c"
+    )
+  ) %>%
+  transmute(
+    package=package,
+    started=anytime(Starttime),
+    ended=anytime(Starttime+JobRuntime),
+    duration=ended-started,
+    status=Exitval,
+    signal=Signal,
+    command=Command
+  )
+}
+
+read_parallel_logs <- function(task_name) {
+  load_file_from_packages(file.path(task_name, "parallel.log"), read_parallel_log)
+}
+```
+
+## Tracing
+
+### Running a package without genthat
+
+```{r load run package parallel log}
+run_package_log <- read_parallel_logs("run-package") %>%
+  mutate(
+    decorator=str_replace(command, ".* --config ([^ ]+) .*", "\\1")
+  )
+```
+
+We have the run with two decorators, just to measure the overhead of the system.
+The `none` decorator entirely skips using R site file so genthat is not touched.
+There will still be a bit of an overhead, but similar should be expected when 
+using `tools::testInstalledPackages`.
+
+```{r}
+prod_run_package_log <- run_package_log %>% filter(decorator=="none")
+```
+
+```{r fig.height=15}
+prod_run_package_log %>%
+  ggplot(aes(
+    x=factor(package, levels=package[order(duration)]), 
+    y=duration, 
+    label=format_difftime(duration))
+  ) +
+  geom_col() +
+  coord_flip() +
+  scale_y_time() +
+  geom_text(hjust=-.1, size=2) +
+  labs(
+    title="Package running time [decorator=none, tracer=NA]",
+    subtitle="Running examples, tests, vignettes",
+    x="Package",
+    y="Time [hh:mm:ss]"
+  )
+```
+
+### Running a package with genthat
+
+```{r load trace parallel log}
+trace_log <- read_parallel_logs("trace") %>%
+  mutate(
+    config=str_replace(command, ".* --config ([^ ]+) .*", "\\1"),
+    decorator=str_replace(config, "(.*)--(.*)", "\\1"),
+    tracer=str_replace(config, "(.*)--(.*)", "\\2")
+  ) %>%
+  select(-config)
+```
+
+Similarly here, we have multiple decorators and tracers.
+For generating tests, we use `onexit` decorator and `set` tracer.
+The others are just to find the missed opportunity used for analysis of the efectiveness.
+
+```{r}
+prod_trace_log <- trace_log %>% filter(decorator=="onexit", tracer=="set")
+```
+
+
+```{r package tracing time, fig.height=15}
+prod_trace_log %>%
+  ggplot(aes(
+    x=factor(package, levels=package[order(duration)]), 
+    y=duration, 
+    label=format_difftime(duration))
+  ) +
+  geom_col() +
+  coord_flip() +
+  scale_y_time() +
+  geom_text(hjust=-.1, size=2) +
+  labs(
+    title="Package tracing time [decorator=onexit, tracer=set]",
+    subtitle="Running examples, tests, vignettes",
+    x="Package",
+    y="Time [hh:mm:ss]"
+  )
+```
+
+```{r trace size, fig.height=10}
+trace_size <- function(path) {
+  rdss <- list.files(
+    path=file.path(path, "trace", "output", "onexit--set", "all"), 
+    pattern="\\.RDS$", 
+    full.names=TRUE, 
+    recursive=FALSE
+  )
+  
+  sum(file.size(rdss))
+}
+
+traces_size <- result %>% mutate(size=sapply(path, trace_size))
+
+traces_size %>%
+  ggplot(
+    aes(
+      x=factor(package, levels=package[order(size)]), 
+      y=size, 
+      label=format_size(size)
+    )
+  ) +
+  geom_col() +
+  coord_flip() +
+  geom_text(hjust=-.1, size=2) +
+  # TODO: scale transfioramtion to show units
+  labs(
+    title="Tracing size [decorator=onexit, tracer=set]",
+    subtitle="Running examples, tests, vignettes",
+    x="Package",
+    y="Size [bytes]"
+  )
+```
+
+```{r fig.height=15}
+prod_trace_log %>% 
+  select(package, duration) %>%
+  left_join(select(prod_run_package_log, package, duration), by="package") %>%
+  mutate(diff=as.integer(duration.x)/as.integer(duration.y)) %>%
+  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=sprintf("%.2fx", diff))) +
+  geom_col() +
+  geom_text(hjust=-.1, size=2) +
+  coord_flip() +
+  labs(
+    title="Tracing vs Running",
+    subtitle="How much is tracing slower",
+    x="Package",
+    y="Slowdown"
+  )
+```
+
+```{r fig.height=10}
+traces_size %>% 
+  left_join(select(prod_trace_log, package, duration)) %>%
+  ggplot(aes(x=as.integer(duration), y=size, label=package)) +
+  geom_point() +
+  geom_text(size=2, hjust=0.2, nudge_x=0.05) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title="Duration of tracing vs traces size",
+    x="Duration (log)",
+    y="Size (log)"
+  )
+```
+
+### Summary
+
+```{r fig.heigh=10}
+prod_trace_log %>% 
+  select(package, duration) %>%
+  left_join(select(prod_run_package_log, package, duration), by="package") %>%
+  transmute(tracing=as.integer(duration.x), running=as.integer(duration.y)) %>%
+  gather(key="key", value="value", tracing, running) %>%
+  ggplot(aes(x=key, y=value)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(
+    title="Summary of Tracing and Running",
+    x="Task",
+    y="Duration [s] (log)"
+  )
+```
+
+```{r fig.height=10}
+prod_trace_log %>% 
+  select(package, duration) %>%
+  left_join(select(prod_run_package_log, package, duration), by="package") %>%
+  transmute(
+    package, 
+    tracing=as.integer(duration.x), 
+    running=as.integer(duration.y),
+    slowdown=tracing/running
+  ) %>%
+  ggplot(aes(x=running, y=tracing, label=package, color=slowdown)) +
+  geom_jitter() +
+  geom_text(size=2, hjust=-0.3, color="black") +
+  scale_x_log10() +
+  scale_y_log10() +
+  scale_color_gradient(low="green", high="red") + 
+  labs(
+    title="Running vs Tracing",
+    x="Running time [s] (log)",
+    y="Tracing time [s] (log)"
+  )
+```
+
+
+## Test generation
+
+```{r load generate parallel log}
+generate_log <- read_parallel_logs("generate")
+```
+
+```{r test generating time, fig.height=15}
+generate_log %>%
+  ggplot(aes(
+    x=factor(package, levels=package[order(duration)]), 
+    y=duration, 
+    label=format_difftime(duration))
+  ) +
+  geom_col() +
+  coord_flip() +
+  scale_y_time() +
+  geom_text(hjust=-.1, size=2) +
+  labs(
+    title="Test generating time",
+    x="Package",
+    y="Time [hh:mm:ss]"
+  )
+```
+
+## Test runnning
+
+```{r load run parallel log}
+run_log <- read_parallel_logs("run")
+```
+
+```{r test running time, fig.height=15}
+run_log %>%
+  ggplot(aes(
+    x=factor(package, levels=package[order(duration)]), 
+    y=duration, 
+    label=format_difftime(duration))
+  ) +
+  geom_col() +
+  coord_flip() +
+  scale_y_time() +
+  geom_text(hjust=-.1, size=2) +
+  labs(
+    title="Test running time",
+    x="Package",
+    y="Time [hh:mm:ss]"
+  )
+```
+
+## Summary
+
+### Genthat tests vs Package running time
+
+```{r fig.height=15}
+prod_run_package_log %>% 
+  select(package, duration) %>%
+  left_join(select(run_log, package, duration), by="package") %>%
+  mutate(diff=as.integer(duration.y)/as.integer(duration.x)) %>%
+  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=sprintf("%.2fx", diff))) +
+  geom_col() +
+  geom_text(hjust=-.1, size=2) +
+  coord_flip() +
+  labs(
+    title="Genthat tests vs Package running time",
+    subtitle="How much are the genthat tests slower",
+    x="Package",
+    y="Slowdown"
   )
 ```
 

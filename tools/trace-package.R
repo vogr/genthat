@@ -51,7 +51,6 @@ generate_task <- function(traces, output, quiet) {
     generate <- function(rds) {
         tryCatch({
             traces <- genthat:::import_traces(rds)
-            # TODOD: sync output ~ output_dir
             genthat:::generate_and_save(traces, output_dir=output, quiet=quiet)
         }, error=function(e) {
             log_debug("Unable to generate tests for traces from ", rds)
