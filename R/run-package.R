@@ -6,10 +6,11 @@
 #'
 # TODO: support commentDontrun, commentDonttest
 run_package <- function(pkg, pkg_dir=find.package(pkg),
-                       types=c("examples", "tests", "vignettes", "all"),
-                       working_dir=tempfile(pattern="run_package"),
-                       quiet=TRUE,
-                       runner=run_r_script) {
+                        types=c("examples", "tests", "vignettes", "all"),
+                        filter=NULL,
+                        working_dir=tempfile(pattern="run_package"),
+                        quiet=TRUE,
+                        runner=run_r_script) {
 
     stopifnot(is.character(pkg) && length(pkg) == 1)
     stopifnot(dir.exists(pkg_dir))
@@ -45,7 +46,7 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
             stopifnot(dir.exists(cwd) || dir.create(cwd))
             setwd(cwd)
 
-            fun(pkg, pkg_dir, working_dir=cwd, quiet=quiet, runner=runner)
+            fun(pkg, pkg_dir, filter=filter, working_dir=cwd, quiet=quiet, runner=runner)
         }, empty=function(e) {
             log_debug("No ", type, " for package ", pkg)
 
@@ -59,7 +60,7 @@ run_package <- function(pkg, pkg_dir=find.package(pkg),
 }
 
 #' @importFrom tools Rd_db Rd2ex
-run_package_examples <- function(pkg, pkg_dir, working_dir, quiet, runner) {
+run_package_examples <- function(pkg, pkg_dir, filter, working_dir, quiet, runner) {
     db <- tools::Rd_db(basename(pkg_dir), lib.loc=dirname(pkg_dir))
     if (!length(db)) {
         signal_empty()
@@ -91,10 +92,10 @@ run_package_examples <- function(pkg, pkg_dir, working_dir, quiet, runner) {
 
     examples <- na.omit(examples)
 
-    run_files(examples, quiet, runner)
+    run_files(examples, filter, quiet, runner)
 }
 
-run_package_tests <- function(pkg, pkg_dir, working_dir, quiet=quiet, runner) {
+run_package_tests <- function(pkg, pkg_dir, filter, working_dir, quiet=quiet, runner) {
     test_dir <- file.path(pkg_dir, "tests")
 
     if (!dir.exists(test_dir)) {
@@ -108,11 +109,11 @@ run_package_tests <- function(pkg, pkg_dir, working_dir, quiet=quiet, runner) {
     tests <- tests[!dir.exists(tests)]
     tests <- tests[grepl("\\.R$", tests)]
 
-    run_files(tests, quiet, runner)
+    run_files(tests, filter, quiet, runner)
 }
 
 #' @importFrom tools checkVignettes getVignetteInfo
-run_package_vignettes <- function(pkg, pkg_dir, working_dir, quiet=quiet, runner) {
+run_package_vignettes <- function(pkg, pkg_dir, filter, working_dir, quiet=quiet, runner) {
     vinfo <- tools::pkgVignettes(pkg, source=T)
     if (length(vinfo$docs) == 0) {
         signal_empty()
@@ -136,11 +137,18 @@ run_package_vignettes <- function(pkg, pkg_dir, working_dir, quiet=quiet, runner
     file.copy(files, to=working_dir)
     vignettes <- file.path(working_dir, basename(files))
 
-    run_files(vignettes, quiet, runner)
+    run_files(vignettes, filter, quiet, runner)
 }
 
-run_files <- function(files, quiet, runner) {
+#' @param filter a regular expression matching desired filenames without the '.R' extension
+
+run_files <- function(files, filter, quiet, runner) {
     names(files) <- basename(files)
+
+    if (!is.null(filter)) {
+        stopifnot(is.character(filter) && length(filter) == 1)
+        files <- files[grepl(filter, tools::file_path_sans_ext(files))]
+    }
 
     sapply(files, function(f) {
         if (!quiet) {

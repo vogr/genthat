@@ -46,6 +46,7 @@ trace_from_source_package <- function(path, quiet=TRUE, ...) {
 # TODO: update the documentation
 # TODO: sync names usage pkg ~ package
 trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
+                          filter=NULL,
                           output_dir=".", working_dir=tempfile(pattern="genthat-trace-"),
                           decorator="onexit", tracer="set",
                           batch_size=0, quiet=TRUE, lib_paths=NULL) {
@@ -111,7 +112,7 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
     }
 
     runs <- lapply(types, function(type) {
-        run <- run_package(pkg, pkg_dir, type, working_dir, quiet=quiet, runner)
+        run <- run_package(pkg, pkg_dir=pkg_dir, types=type, filter=filter, working_dir=working_dir, quiet=quiet, runner=runner)
         run <- run[[type]]
 
         df <- if (is.null(run) || all(is.na(run))) {

@@ -3,22 +3,22 @@ context("run-package")
 test_that("run package works", {
     with_test_pkgs({
         ret <- run_package("samplepkg", types="examples", quiet=TRUE)
-
         expect_length(ret, 1)
         expect_equal(ret$examples, c("My-add.Rd.R"=0, "My-call.Rd.R"=0, "My-public.Rd.R"=0))
 
-        ret <- run_package("samplepkg", types="tests", quiet=TRUE)
+        ret <- run_package("samplepkg", types="examples", filter="call", quiet=TRUE)
+        expect_length(ret, 1)
+        expect_equal(ret$examples, c("My-call.Rd.R"=0))
 
+        ret <- run_package("samplepkg", types="tests", quiet=TRUE)
         expect_length(ret, 1)
         expect_equal(ret$tests, c("testthat.R"=0))
 
         ret <- run_package("samplepkg", types="vignettes", quiet=TRUE)
-
         expect_length(ret, 1)
         expect_equal(ret$vignettes, c("my-ext-vignette-notrace.R"=0, "my-ext-vignette-trace.R"=0, "my-vignette.R"=0))
 
         ret <- run_package("samplepkg", quiet=TRUE)
-
         expect_length(ret, 3)
         expect_equal(ret$examples, c("My-add.Rd.R"=0, "My-call.Rd.R"=0, "My-public.Rd.R"=0))
         expect_equal(ret$tests, c("testthat.R"=0))
