@@ -20,6 +20,5 @@ parallel \
     --result "runs/packages" \
     --joblog "runs/packages/parallel.log" \
     --shuf \
-    --timeout 4h \
     -a "$package_list" \
     ./run.sh "{1}"

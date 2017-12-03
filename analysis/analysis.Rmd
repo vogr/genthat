@@ -3,6 +3,7 @@ title: "R Notebook"
 output:
   html_document:
     df_print: paged
+    toc: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -20,11 +21,16 @@ library(anytime)
 # this is where the result of the parallel is stored
 RUN_DIR=file.path("..", "runs/packages")
 
-is_package_ready <- function(path) {
-  file.exists(file.path(path, "run-package", "output", "none", "all", "genthat-traces.csv")) &&
-    file.exists(file.path(path, "trace", "output", "onexit--set", "all", "genthat-traces.csv")) &&
-    file.exists(file.path(path, "generate", "output", "genthat-generate.csv")) &&
-    file.exists(file.path(path, "run", "output", "genthat-run-tests.csv"))
+package_stat <- function(path) {
+    (2*file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-traces.csv")))^1 +
+    (2*file.exists(file.path(path, "trace-on.exit--sequence", "output", "all", "genthat-traces.csv")))^2 +
+    (2*file.exists(file.path(path, "trace-onexit--set", "output", "all", "genthat-traces.csv")))^3 +
+    (2*file.exists(file.path(path, "trace-onexit--sequence", "output", "all", "genthat-traces.csv")))^4 +
+    (2*file.exists(file.path(path, "trace-count-entry--sequence", "output", "all", "genthat-traces.csv")))^5 +
+    (2*file.exists(file.path(path, "trace-count-exit--sequence", "output", "all", "genthat-traces.csv")))^6 +
+    (2*file.exists(file.path(path, "generate", "output", "genthat-generate.csv")))^7 +
+    (2*file.exists(file.path(path, "run", "output", "genthat-run-tests.csv")))^8 +
+    (2*file.exists(file.path(path, "run-package", "output", "none", "all", "genthat-traces.csv")))^9
 }
 
 format_difftime <- function(x, ...) {
@@ -60,16 +66,18 @@ format_size <- function(x) {
 # Load data
 
 ```{r find packages}
-all_package_paths <- list.dirs(RUN_DIR, recursive=FALSE)
-all_packages <- basename(all_package_paths)
+all_packages <- 
+  data_frame(path=list.dirs(RUN_DIR, recursive=FALSE)) %>%
+  mutate(package=basename(path), stat=package_stat(path))
 
-package_paths <- all_package_paths %>% keep(is_package_ready)
-packages <- basename(package_paths)
-
-result <- data_frame(package=packages, path=package_paths)
+ready_stat <- sum(2^(1:8))
+packages <- filter(
+  all_packages, 
+  bitwAnd(stat, ready_stat) == ready_stat
+)
 
 load_file_from_packages <- function(filepath, fun) {
-  result %>%
+  packages %>%
     transmute(package, fname=file.path(path, filepath)) %>% 
     pmap_dfr(fun)
 }
@@ -78,7 +86,7 @@ load_file_from_packages <- function(filepath, fun) {
 ## List of participating packages
 
 ```{r}
-DT::datatable(result)
+DT::datatable(packages)
 ```
 
 ## List of missing packages
@@ -98,7 +106,8 @@ read_csv_checked <- function(...) {
 
 load_csvs <- function(path, ...) {
   load_file_from_packages(path, function(package, fname) {
-    read_csv_checked(fname, ...) %>%
+    x <- read_csv_checked(fname, ...)
+    x %>%
       mutate(package=package) %>%
       select(package, everything())
   })
@@ -109,29 +118,28 @@ load_csvs <- function(path, ...) {
 
 ```{r load traces funs}
 load_traces_stats <- function(config) {
-  load_csvs(file.path("trace", "output", config, "all", "genthat-traces.csv"), 
+  load_csvs(file.path(str_c("trace-", config), "output", "all", "genthat-traces.csv"), 
     col_types=cols_only(
       type="c",
       tag="c",
       filename="c",
-      n_traces="i",
-      n_complete="i",
-      n_entry="i",
-      n_failures="i",
+      n_traces="d",
+      n_complete="d",
+      n_entry="d",
+      n_failures="d",
       status="i",
       running_time="d"
     )
+  ) %>% mutate(
+    n_traces=ifelse(is.na(n_traces), 0, as.integer(n_traces)), 
+    n_complete=ifelse(is.na(n_complete), 0, as.integer(n_complete)), 
+    n_entry=ifelse(is.na(n_entry), 0, as.integer(n_entry)), 
+    n_failures=ifelse(is.na(n_failures), 0, as.integer(n_failures))
   )
 }
 
 sum_traces <- function(traces) {
   traces %>%
-    mutate(
-      n_traces=ifelse(is.na(n_traces), 0, n_traces), 
-      n_complete=ifelse(is.na(n_complete), 0, n_complete), 
-      n_entry=ifelse(is.na(n_entry), 0, n_entry), 
-      n_failures=ifelse(is.na(n_failures), 0, n_failures)
-    ) %>%
     group_by(package) %>%
     summarise(
       n_traces=sum(n_traces),
@@ -142,10 +150,10 @@ sum_traces <- function(traces) {
 ```
 
 ```{r load onexit--set traces}
-traces <- load_traces_stats("onexit--set")
+traces <- load_traces_stats("on.exit--set")
 ```
 
-```{r fig.height=10}
+```{r fig.height=13}
 n_traces <- sum_traces(traces)
 
 n_traces %>%
@@ -166,64 +174,126 @@ n_traces %>%
 count_entry_seq_traces <- load_traces_stats("count-entry--sequence")
 count_exit_seq_traces <- load_traces_stats("count-exit--sequence")
 onexit_seq_traces <- load_traces_stats("onexit--sequence")
+ondotexit_seq_traces <- load_traces_stats("on.exit--sequence")
 
 n_count_entry_seq_traces <- sum_traces(count_entry_seq_traces)
 n_count_exit_seq_traces <- sum_traces(count_exit_seq_traces)
 n_onexit_seq_traces <- sum_traces(onexit_seq_traces)
+n_ondotexit_seq_traces <- sum_traces(ondotexit_seq_traces)
 ```
 
-```{r missing traces plot, fig.height=10, include=FALSE}
-n_missing_traces <-
+### Missing calls and traces
+
+The following tries to estimate the number of missing calls. A missing call is a call that either did not terminate normally (there was an exception or a long jump) or did exit normally, but there was an exception (or something) that prevented the recorder to store the complete trace.
+The former one is referred to as _missed call_ and the latter as _missed trace_.
+The way we masure them is by running code with decorators that only records calls entries and exits without looking at any arguments.
+
+
+```{r missing calls plot, fig.height=13}
+missing_calls <-
   inner_join(
-    select(n_count_exit_seq_traces, package, n_entry),
-    select(n_onexit_seq_traces, package, n_complete),
-    by="package"
+    select(count_entry_seq_traces, package, type, tag, n_entry=n_traces),
+    select(ondotexit_seq_traces, package, type, tag, n_traces, n_complete),
+    by=c("package", "type", "tag")
   ) %>%
-  mutate(missing_traces=ifelse(n_complete > 0, n_complete/n_entry, 0)) %>%
-  select(package, missing_traces)
+  select(package, type, tag, n_entry, n_traces, n_complete)
 
-n_missing_traces %>%
-  mutate(missing_traces=1-missing_traces) %>%
-  ggplot(aes(x=factor(package, levels=package[order(missing_traces)]), y=missing_traces, label=sprintf("%.0f %%", missing_traces*100))) +
-  geom_col() +
-  geom_text(hjust=-.2, size=2) +
-  scale_y_continuous(labels=scales::percent_format()) +
-  coord_flip() +
-  labs(
-    title="Missing traces",
-    subtitle="How many traces did we missed? Counted calls that exit normally.",
-    x="Package",
-    y="Ratio of missing traces"
-  )
-```
-
-### Missing calls
-
-```{r missing calls plot, fig.height=10}
-n_non_return <-
-  inner_join(
-    select(n_count_entry_seq_traces, package, entry=n_entry),
-    select(n_count_exit_seq_traces, package, exit=n_entry),
-    by="package"
+n_missing_calls <- missing_calls %>%
+  group_by(package) %>%
+  summarise(
+    n_entry=sum(n_entry),
+    n_traces=sum(n_traces),
+    n_complete=sum(n_complete)
   ) %>%
-  mutate(missing=ifelse(entry > 0, exit/entry, 0)) %>%
-  select(package, missing)
+  mutate(
+    calls=ifelse(n_entry > 0, 1-n_traces/n_entry, 0),
+    traces=ifelse(n_traces > 0, 1-n_complete/n_traces, 0),
+    total=calls+traces
+  ) %>%
+  select(package, calls, traces, total)
 
-n_non_return %>%
-  mutate(missing=1-missing) %>%
-  ggplot(aes(x=factor(package, levels=package[order(missing)]), y=missing, label=sprintf("%.0f %%", missing*100))) +
-  geom_col() +
-  geom_text(hjust=-.2, size=2) +
+n_missing_calls  %>%
+  gather(key="key", value="value", calls, traces) %>%
+  ggplot(
+    aes(
+      x=factor(package, levels=n_missing_calls$package[order(n_missing_calls$total)]), 
+      y=value, 
+      fill=key
+    )
+  ) +
+  geom_col(position="dodge") +
   scale_y_continuous(labels=scales::percent_format()) +
+  scale_fill_discrete(labels=c("calls"="Missed calls", "traces"="Missed traces")) +
   coord_flip() +
   labs(
     title="Missing calls",
-    subtitle="How many calls do not exit normally.",
+    subtitle="How many calls did we missed?",
     x="Package",
-    y="Ratio of missing calls"
+    y="Ratio of missing calls",
+    fill="Ratio"
   )
 ```
 
+## on.exit vs onexit
+
+```{r fig.height=15}
+diffs_calls <-
+  full_join(
+    select(count_entry_seq_traces, package, type, tag, n_entry), 
+    select(onexit_seq_traces, package, type, tag, onexit=n_complete),
+    by=c("package", "type", "tag")
+  ) %>% 
+  full_join(
+    select(ondotexit_seq_traces, package, type, tag, ondotexit=n_complete),
+    by=c("package", "type", "tag")
+  ) %>%
+  select(package, type, tag, n_entry, onexit, ondotexit)
+
+n_diffs_calls <- diffs_calls %>%
+  group_by(package) %>%
+  summarise(
+    n_entry=sum(n_entry),
+    onexit=sum(onexit),
+    ondotexit=sum(ondotexit)
+  ) %>%
+  mutate(
+    r1=ifelse(n_entry > 0, 1-onexit/n_entry, 0),
+    r2=ifelse(n_entry > 0, 1-ondotexit/n_entry, 0),
+    d=ifelse(r1 > 0, r2/r1, 0)
+  ) %>%
+  select(package, r1, r2, d)
+
+n_diffs_calls %>%
+  ggplot(
+    aes(
+      x=factor(package, levels=n_diffs_calls$package[order(n_diffs_calls$d)]), 
+      y=d
+    )
+  ) +
+  geom_col() +
+  scale_y_continuous(labels=scales::percent_format()) +
+  coord_flip() +
+  labs(
+    title="on.exit vs onexit - number of calls on.exit records over onexit",
+    subtitle="Which decorator is better?",
+    x="Package",
+    y="Ratio of captured calls"
+  )
+```
+
+```{r}
+p0 = ggplot(n_diffs_calls, aes(y=d)) + geom_violin(aes(x = "on.exit / onexit"))
+
+# compute lower and upper whiskers
+ylim1 = boxplot.stats(n_diffs_calls$d)$stats[c(1, 5)]
+
+# scale y limits based on ylim1
+p0 + coord_cartesian(ylim = ylim1*1.05) +   labs(
+    title="on.exit vs onexit overview without outliers",
+    subtitle="Which decorator is better?",
+    y="Ratio of captured calls"
+  )
+```
 
 ## Test Generation
 
@@ -231,18 +301,15 @@ n_non_return %>%
 generated_tests <- load_csvs(file.path("generate", "output", "genthat-generate.csv"), col_types=cols_only(
     fun="c",
     test_file="c",
-    error="c",
+    gen_error="c",
     elapsed="d"
   )
 )
-
-# FIXME: just a quick fix
-generated_tests <- generated_tests[!duplicated(generated_tests$test_file), ]
 ```
 
 ### Number of tests
 
-```{r number of generated tests, fig.height=10}
+```{r number of generated tests, fig.height=13}
 n_generated_tests <- 
   generated_tests %>%
   group_by(package) %>%
@@ -252,49 +319,50 @@ n_generated_tests <-
   )
 
 n_generated_tests %>%
-  ggplot(aes(x=factor(package, levels=package[order(generated)]), y=generated, label=str_c(generated, generated+failed, sep=" / "))) +
+  left_join(select(n_traces, package, n_complete), by="package") %>%
+  mutate(ratio=ifelse(n_complete > 0, generated / n_complete, 0)) %>%
+  ggplot(aes(
+    x=factor(package, levels=package[order(ratio)]), 
+    y=ratio, 
+    label=sprintf("%.2f %%", ratio*100)
+  )) +
   geom_col() +
+  geom_text(aes(label=sprintf("%d", generated), color=ifelse(generated > 0, "white", "black")), hjust=1.5, size=2) +
   geom_text(hjust=-.2, size=2) +
+  scale_y_continuous(labels=scales::percent_format()) +
+  scale_color_identity() +
   coord_flip() +
   labs(
-    title="Number of generated tests",
+    title="Percentage of generated tests",
     x="Package",
-    y="Number of tests"
+    y="Generated tests [%]"
   )
 ```
 
-### Missing tests
+### Test generation problems
 
-```{r fig.height=10}
-n_traces %>%
-  select(package, traces=n_complete) %>%
-  left_join(select(n_generated_tests, package, generated), by="package") %>%
-  mutate(diff=traces-generated) %>%
-  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=diff)) +
-  geom_col() +
-  geom_text(hjust=-.2, size=2) +
-  coord_flip() +
-  labs(
-    title="Number of missing tests",
-    subtitle="Number of traces with no tests",
-    x="Package",
-    y="Number of missings tests"
-  )
-
+```{r gen errors}
+generated_tests %>%
+  mutate(gen_error=ifelse(is.na(gen_error), "No error", gen_error)) %>%
+  count(gen_error) %>%
+  arrange(desc(n)) %>%
+  DT::datatable()
 ```
 
 ### Test size
 
-```{r}
+```{r load test size}
 test_sizes <- load_file_from_packages(file.path("generate", "output"), function(package, fname) {
   files <- list.files(fname, pattern="test-.*\\.R$", full.names=TRUE, recursive=TRUE)
-  data_frame(file=files, size=file.size(files))
+  data_frame(package=package, file=files, size=file.size(files))
 })
+```
 
+```{r test size, fig.height=13}
 test_sizes %>%
-  ggplot(aes(size)) +
-  geom_histogram(bins=30) +
-  scale_x_log10(labels=function(x) {
+  ggplot(aes(x="size", y=size)) +
+  geom_violin() +
+  scale_y_log10(labels=function(x) {
     if (length(x) == 0) return(character())
     sapply(x, format_size, USE.NAMES=FALSE)
   }) +
@@ -304,10 +372,17 @@ test_sizes %>%
   )
 ```
 
+#### TOP 100
+
+```{r}
+test_sizes %>% 
+  top_n(100, size) %>% 
+  arrange(desc(size)) %>%
+  mutate(size=format_size(size)) %>% 
+  DT::datatable()
+```
 
 ## Test runs
-
-### Number of tests run
 
 ```{r loading run results}
 run_tests <- load_csvs(file.path("run", "output", "genthat-run-tests.csv"), col_types=cols_only(
@@ -315,99 +390,115 @@ run_tests <- load_csvs(file.path("run", "output", "genthat-run-tests.csv"), col_
     test="c",
     nb="i",
     failed="i",
-    skipped="l",
     error="l",
     warning="i",
-    real="d"
+    run_error="c",
+    elapsed="d"
   )
 )
 ```
 
-```{r}
-run_tests %>% filter(nb > 1) %>% DT::datatable()
-```
+### Inconsistent data
+
+There is one expectation per test. Running the code might generate some warnings. 
+However, the number of assertions (`nb-waring`) should be 1. 
+If it is not, there is a problem.
 
 ```{r}
-prod_run_tests <-
+run_tests %>% filter((nb - warning) > 1) %>% DT::datatable()
+```
+
+### Test running problems
+
+```{r run errors}
+run_tests %>%
+  mutate(run_error=ifelse(is.na(run_error), "No error", run_error)) %>%
+  count(run_error) %>%
+  arrange(desc(n)) %>%
+  DT::datatable()
+```
+
+### Test numbers
+
+```{r}
+run_tests <-
   run_tests %>%
-  filter(is.na(nb) | nb <= 1) %>%
+  filter(is.na(nb) | (nb - warning) <= 1) %>%
   transmute(
     package,
     fun=test,
     failed=ifelse(is.na(failed), FALSE, failed == 1),
-    skipped=ifelse(is.na(skipped), FALSE, skipped),
     error=ifelse(is.na(error), FALSE, error),
     exception=ifelse(is.na(nb), TRUE, FALSE),
-    passed=(failed + skipped + error + exception == 0),
-    duration=ifelse(is.na(real), 0, real),
+    passed=(failed + error + exception == 0),
+    elapsed=ifelse(is.na(elapsed), 0, elapsed),
     file
   )
-
-# TODO: look at failed tests in exception field
 ```
 
-The difference is: `r nrow(run_tests) - nrow(prod_run_tests)`
+Check inconsitencies
 
-### Problems
 ```{r}
-prod_run_tests %>% rowwise() %>% mutate(x=sum(passed, failed, skipped, error, exception)) %>% filter(x>1)
+run_tests %>% rowwise() %>% mutate(x=sum(passed, failed, error, exception)) %>% filter(x>1)
 ```
 
-
-```{r fig.height=10}
-n_run_tests <-
-  prod_run_tests %>%
+```{r number of tests, fig.height=13}
+run_tests %>%
   group_by(package) %>%
   summarise(
-    count=n(),
+    passed=sum(passed)
+  ) %>%
+  right_join(filter(select(n_generated_tests, package, generated), generated > 0), by="package") %>%
+  mutate(ratio=passed / generated) %>%
+  ggplot(aes(
+    x=factor(package, levels=package[order(ratio)]), 
+    y=ratio, 
+    label=sprintf("%.2f %%", ratio*100)
+  )) +
+  geom_col() +
+  geom_text(aes(label=sprintf("%d", passed), color=ifelse(passed > 0, "white", "black")), hjust=1.5, size=2) +
+  geom_text(hjust=-.2, size=2) +
+  scale_y_continuous(labels=scales::percent_format()) +
+  scale_color_identity() +
+  coord_flip() +
+  labs(
+    title="Percentage of successfuly ran tests",
+    subtitle="How many of the generated tests can we run?",
+    x="Package",
+    y="[%]"
+  )
+```
+
+```{r run tests results, fig.height=13}
+n_run_tests <- 
+  run_tests %>%
+  group_by(package) %>%
+  summarise(
+    n=n(),
     passed=sum(passed),
     failed=sum(failed),
-    skipped=sum(skipped),
     error=sum(error),
     exception=sum(exception)
   )
 
 n_run_tests %>%
-  gather(key="key", value="value", passed, failed, skipped, error, exception) %>%
-  mutate(value=ifelse(is.na(value), 0, value)) %>%
+  mutate(
+    passed=ifelse(n > 0, passed/n, 0),
+    failed=ifelse(n > 0, failed/n, 0),
+    error=ifelse(n > 0, error/n, 0),
+    exception=ifelse(n > 0, exception/n, 0)
+  ) %>%
+  gather(key="key", value="value", passed, failed, error, exception) %>%
   ggplot(aes(x=package, y=value, fill=key)) +
   geom_col() +
-  scale_fill_manual(values=c("error"="orange", "skipped"="gray", "exception"="black", "failed"="red", "passed"="green")) +
-  coord_flip()
-```
-
-```{r}
-n_run_tests %>%
-  gather(key="key", value="value", passed, failed, skipped, error, exception, count) %>%
-  mutate(value=ifelse(is.na(value), 0, value)) %>%
-  ggplot(aes(x=key, y=value)) +
-  geom_col() +
-  labs(
-    title="Summary of running generated tests",
-    x="Result",
-    y="Number of tests"
-  )
-```
-
-
-```{r fig.height=10}
-n_generated_tests %>%
-  left_join(select(n_run_tests, package, passed), by="package") %>%
-  mutate(diff=passed/generated, diff=ifelse(is.na(diff), 0, diff)) %>%
-  ggplot(aes(
-    x=factor(package, levels=package[rev(order(-diff))]), 
-    y=diff, 
-    label=str_c(ifelse(is.na(passed), "0", passed), ifelse(is.na(generated), "0", generated), sep=" / "))
-  ) +
-  geom_col() +
-  geom_text(hjust=-.2, size=2) +
-  scale_y_continuous(labels=scales::percent) +
   coord_flip() +
+  scale_fill_manual(values=c("error"="orange", "exception"="black", "failed"="red", "passed"="green")) +
   labs(
-    title="Test running success",
-    x="package",
-    y="Number of tests passed / Number of tests generated"
+    title="Test running results",
+    x="Package",
+    y="Ratio of different results"
   )
+  
 ```
 
 ## Summary
@@ -441,7 +532,15 @@ success_rate %>%
   )
 ```
 
-```{r success rate per package, fig.height=10}
+#### Success rate in numbers
+
+```{r}
+stats <- fBasics::basicStats(success_rate %>% select(generated_traced, passed_generated, passed_traced)) %>% as_data_frame()
+
+bind_cols(data_frame(stats=rownames(stats)), stats)
+```
+
+```{r success rate per package, fig.height=13}
 success_rate %>%
   gather(key="key", value="value", generated_traced, passed_generated, passed_traced) %>%
   ggplot(aes(x=factor(package, levels=success_rate$package[order(success_rate$passed_traced)]), y=value, label=sprintf("%.0f %%", value*100))) +
@@ -458,295 +557,39 @@ success_rate %>%
   )
 ```
 
-# Execution logs
-
-In this section we look at the output form GNU parallel.
-
-```{r}
-read_parallel_log <- function(package, fname) {
-  read_tsv(
-    fname, 
-    col_types=cols_only(
-      Seq="i",
-      Starttime="d",
-      JobRuntime="d",
-      Exitval="i",
-      Signal="i",
-      Command="c"
-    )
-  ) %>%
+```{r, fig.height=13}
+results <- 
+  missing_calls %>% group_by(package) %>% summarise(n_entry=sum(n_entry)) %>%
+  left_join(transmute(n_traces, package, traces=n_traces, missing=n_traces-n_complete), by="package") %>%
+  left_join(select(n_generated_tests, package, not_generated=failed), by="package") %>%
+  left_join(transmute(n_run_tests, package, failed=failed+error+exception, passed=passed), by="package") %>%
   transmute(
-    package=package,
-    started=anytime(Starttime),
-    ended=anytime(Starttime+JobRuntime),
-    duration=ended-started,
-    status=Exitval,
-    signal=Signal,
-    command=Command
+    package,
+    traces=ifelse(is.na(traces), 0, traces),
+    missing=ifelse(is.na(missing), 0, missing),
+    not_generated=ifelse(is.na(not_generated), 0, not_generated-missing),
+    failed=ifelse(is.na(failed), 0, failed),
+    passed=ifelse(is.na(passed), 0, passed)
   )
-}
 
-read_parallel_logs <- function(task_name) {
-  load_file_from_packages(file.path(task_name, "parallel.log"), read_parallel_log)
-}
+results %>%
+  gather(key="key", value="value", missing, not_generated, failed, passed) %>%
+  mutate(value=ifelse(traces > 0, value/traces, 0)) %>%
+  ggplot(aes(x=factor(package, levels=results$package[order(results$passed/results$traces)]), y=value, fill=key)) +
+  geom_col() +
+  coord_flip()
 ```
 
-## Tracing
+# Setup
 
-### Running a package without genthat
+git commit:
 
-```{r load run package parallel log}
-run_package_log <- read_parallel_logs("run-package") %>%
-  mutate(
-    decorator=str_replace(command, ".* --config ([^ ]+) .*", "\\1")
-  )
+```{sh}
+git rev-parse HEAD
 ```
 
-We have the run with two decorators, just to measure the overhead of the system.
-The `none` decorator entirely skips using R site file so genthat is not touched.
-There will still be a bit of an overhead, but similar should be expected when 
-using `tools::testInstalledPackages`.
+all packages:
 
 ```{r}
-prod_run_package_log <- run_package_log %>% filter(decorator=="none")
+all_packages %>% DT::datatable()
 ```
-
-```{r fig.height=15}
-prod_run_package_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Package running time [decorator=none, tracer=NA]",
-    subtitle="Running examples, tests, vignettes",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-### Running a package with genthat
-
-```{r load trace parallel log}
-trace_log <- read_parallel_logs("trace") %>%
-  mutate(
-    config=str_replace(command, ".* --config ([^ ]+) .*", "\\1"),
-    decorator=str_replace(config, "(.*)--(.*)", "\\1"),
-    tracer=str_replace(config, "(.*)--(.*)", "\\2")
-  ) %>%
-  select(-config)
-```
-
-Similarly here, we have multiple decorators and tracers.
-For generating tests, we use `onexit` decorator and `set` tracer.
-The others are just to find the missed opportunity used for analysis of the efectiveness.
-
-```{r}
-prod_trace_log <- trace_log %>% filter(decorator=="onexit", tracer=="set")
-```
-
-
-```{r package tracing time, fig.height=15}
-prod_trace_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Package tracing time [decorator=onexit, tracer=set]",
-    subtitle="Running examples, tests, vignettes",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-```{r trace size, fig.height=10}
-trace_size <- function(path) {
-  rdss <- list.files(
-    path=file.path(path, "trace", "output", "onexit--set", "all"), 
-    pattern="\\.RDS$", 
-    full.names=TRUE, 
-    recursive=FALSE
-  )
-  
-  sum(file.size(rdss))
-}
-
-traces_size <- result %>% mutate(size=sapply(path, trace_size))
-
-traces_size %>%
-  ggplot(
-    aes(
-      x=factor(package, levels=package[order(size)]), 
-      y=size, 
-      label=format_size(size)
-    )
-  ) +
-  geom_col() +
-  coord_flip() +
-  geom_text(hjust=-.1, size=2) +
-  # TODO: scale transfioramtion to show units
-  labs(
-    title="Tracing size [decorator=onexit, tracer=set]",
-    subtitle="Running examples, tests, vignettes",
-    x="Package",
-    y="Size [bytes]"
-  )
-```
-
-```{r fig.height=15}
-prod_trace_log %>% 
-  select(package, duration) %>%
-  left_join(select(prod_run_package_log, package, duration), by="package") %>%
-  mutate(diff=as.integer(duration.x)/as.integer(duration.y)) %>%
-  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=sprintf("%.2fx", diff))) +
-  geom_col() +
-  geom_text(hjust=-.1, size=2) +
-  coord_flip() +
-  labs(
-    title="Tracing vs Running",
-    subtitle="How much is tracing slower",
-    x="Package",
-    y="Slowdown"
-  )
-```
-
-```{r fig.height=10}
-traces_size %>% 
-  left_join(select(prod_trace_log, package, duration)) %>%
-  ggplot(aes(x=as.integer(duration), y=size, label=package)) +
-  geom_point() +
-  geom_text(size=2, hjust=0.2, nudge_x=0.05) +
-  scale_x_log10() +
-  scale_y_log10() +
-  labs(
-    title="Duration of tracing vs traces size",
-    x="Duration (log)",
-    y="Size (log)"
-  )
-```
-
-### Summary
-
-```{r fig.heigh=10}
-prod_trace_log %>% 
-  select(package, duration) %>%
-  left_join(select(prod_run_package_log, package, duration), by="package") %>%
-  transmute(tracing=as.integer(duration.x), running=as.integer(duration.y)) %>%
-  gather(key="key", value="value", tracing, running) %>%
-  ggplot(aes(x=key, y=value)) +
-  geom_boxplot() +
-  scale_y_log10() +
-  labs(
-    title="Summary of Tracing and Running",
-    x="Task",
-    y="Duration [s] (log)"
-  )
-```
-
-```{r fig.height=10}
-prod_trace_log %>% 
-  select(package, duration) %>%
-  left_join(select(prod_run_package_log, package, duration), by="package") %>%
-  transmute(
-    package, 
-    tracing=as.integer(duration.x), 
-    running=as.integer(duration.y),
-    slowdown=tracing/running
-  ) %>%
-  ggplot(aes(x=running, y=tracing, label=package, color=slowdown)) +
-  geom_jitter() +
-  geom_text(size=2, hjust=-0.3, color="black") +
-  scale_x_log10() +
-  scale_y_log10() +
-  scale_color_gradient(low="green", high="red") + 
-  labs(
-    title="Running vs Tracing",
-    x="Running time [s] (log)",
-    y="Tracing time [s] (log)"
-  )
-```
-
-
-## Test generation
-
-```{r load generate parallel log}
-generate_log <- read_parallel_logs("generate")
-```
-
-```{r test generating time, fig.height=15}
-generate_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Test generating time",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-## Test runnning
-
-```{r load run parallel log}
-run_log <- read_parallel_logs("run")
-```
-
-```{r test running time, fig.height=15}
-run_log %>%
-  ggplot(aes(
-    x=factor(package, levels=package[order(duration)]), 
-    y=duration, 
-    label=format_difftime(duration))
-  ) +
-  geom_col() +
-  coord_flip() +
-  scale_y_time() +
-  geom_text(hjust=-.1, size=2) +
-  labs(
-    title="Test running time",
-    x="Package",
-    y="Time [hh:mm:ss]"
-  )
-```
-
-## Summary
-
-### Genthat tests vs Package running time
-
-```{r fig.height=15}
-prod_run_package_log %>% 
-  select(package, duration) %>%
-  left_join(select(run_log, package, duration), by="package") %>%
-  mutate(diff=as.integer(duration.y)/as.integer(duration.x)) %>%
-  ggplot(aes(x=factor(package, levels=package[order(diff)]), y=diff, label=sprintf("%.2fx", diff))) +
-  geom_col() +
-  geom_text(hjust=-.1, size=2) +
-  coord_flip() +
-  labs(
-    title="Genthat tests vs Package running time",
-    subtitle="How much are the genthat tests slower",
-    x="Package",
-    y="Slowdown"
-  )
-```
-
-
-
-

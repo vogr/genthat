@@ -21,14 +21,14 @@ function _parallel {
     fi
 
     parallel \
-        --jobs 100% \
         --bar \
+        --jobs 1 \
         --tagstring "{}:" \
         --files \
         --result "$output" \
         --joblog "$output/parallel.log" \
         --shuf \
-        --timeout 4h \
+        --timeout 5h \
         "$@"
 }
 
@@ -49,36 +49,46 @@ function run_task {
     fi
 }
 
-run_task \
-    "run-package" \
-    ./tools/trace-package.R trace \
-    --package "$package" \
-    --config "{1}" \
-    --type "{2}" \
-    --output "$output_base/run-package/output/{1}/{2}" \
-    ::: none noop \
-    ::: all
+function trace_task {
+    config="$1"
+    name="trace-$config"
 
-run_task \
-    "trace" \
-     ./tools/trace-package.R trace \
-     --package "$package" \
-     --config "{1}" \
-     --type "{2}" \
-     --output "$output_base/trace/output/{1}/{2}" \
-     ::: count-entry--sequence count-exit--sequence onexit--set onexit--sequence \
-     ::: all
+    run_task \
+        "$name" \
+        ./tools/trace-package.R trace \
+        --package "$package" \
+        --config "$config" \
+        --type "{1}" \
+        --output "$output_base/$name/output/{1}" \
+        ::: all
+}
 
-run_task \
-    "generate" \
-    ./tools/trace-package.R generate \
-    --traces "$output_base/trace/output/onexit--set/{1}" \
-    --output "$output_base/generate/output" \
-    ::: all
+# run_task \
+#    "run-package" \
+#    ./tools/trace-package.R trace \
+#    --package "$package" \
+#    --config "{1}" \
+#    --type "{2}" \
+#    --output "$output_base/run-package/output/{1}/{2}" \
+#    ::: none \
+#    ::: all
 
-run_task \
-    "run" \
-    ./tools/trace-package.R run \
-    --tests "$output_base/generate/{1}" \
-    --output "$output_base/run/output" \
-    ::: output
+#trace_task count-entry--sequence
+#trace_task count-exit--sequence
+#trace_task onexit--sequence
+#trace_task on.exit--sequence
+trace_task on.exit--set
+
+# run_task \
+#     "generate" \
+#     ./tools/trace-package.R generate \
+#     --traces "$output_base/trace/output/on.exit--set/{1}" \
+#     --output "$output_base/generate/output" \
+#     ::: all
+
+# run_task \
+#     "run" \
+#     ./tools/trace-package.R run \
+#     --tests "$output_base/generate/{1}" \
+#     --output "$output_base/run/output" \
+#     ::: output
