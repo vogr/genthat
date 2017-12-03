@@ -267,7 +267,8 @@ public:
         case INTSXP:
         case REALSXP:
         case CPLXSXP:
-        case STRSXP: {
+        case STRSXP:
+        case RAWSXP: {
             // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
             StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
             string res = concatenate(deparsed, "\n");
@@ -477,8 +478,6 @@ public:
             throw sexp_not_supported_error("CHARSXP");
         case EXPRSXP:
             throw sexp_not_supported_error("EXPRSXP");
-        case RAWSXP:
-            throw sexp_not_supported_error("RAWSXP");
         case PROMSXP: {
             // s = Rf_eval(s, R_BaseEnv);
             // return serialize(s, quote);
