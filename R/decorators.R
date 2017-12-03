@@ -182,3 +182,37 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
 decorate_with_noop <- function(fun, name, pkg, record_fun) {
     fun
 }
+
+decorate_with_on.exit <- function(fun, name, pkg, record_fun) {
+    check_decorate_args(fun, name, pkg, record_fun)
+
+    create_function(
+        params=formals(fun),
+        body=substitute({
+            on.exit({
+                if (.Internal(getOption("genthat.tracing"))) {
+                    .Internal(options(genthat.tracing=FALSE))
+                    default <- genthat:::`__genthat_default_retv`
+                    retv <- returnValue(default=default)
+                    if (!identical(retv, default) && !genthat:::is_exception_returnValue(retv)) {
+                        RECORD_FUN(
+                            name=NAME,
+                            pkg=PKG,
+                            args=as.list(match.call())[-1],
+                            retv=retv,
+                            env=parent.frame()
+                        )
+                    }
+
+                    .Internal(options(genthat.tracing=TRUE))
+                }
+            })
+
+            BODY
+        }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
+        env=environment(fun),
+        attributes=list(
+            `__genthat_original_fun`=create_duplicate(fun)
+        )
+    )
+}

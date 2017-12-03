@@ -13,11 +13,11 @@ generate_tests(traces, quiet = TRUE, ...)
 }
 \value{
 a data frame or a tibble with the following
-fun        : chr
-trace      : chr
-trace_type : chr
-code       : chr (can be NA)
-error      : chr (can be NA)
+fun       : chr
+pkg       : chr
+code      : chr (can be NA in which case gen_error must be a chr)
+gen_error : chr (can be NA in which case code must be a NA)
+elapsed   : dbl
 }
 \description{
 Generates tests cases from the captured traces.

@@ -5,9 +5,9 @@
 \title{Decorate all functions from given package and runs package code}
 \usage{
 trace_package(pkg, types = c("examples", "tests", "vignettes", "all"),
-  output_dir = ".", working_dir = tempfile(pattern = "genthat-trace-"),
-  decorator = "onexit", tracer = "set", batch_size = 0, quiet = TRUE,
-  lib_paths = NULL)
+  filter = NULL, output_dir = ".", working_dir = tempfile(pattern =
+  "genthat-trace-"), decorator = "onexit", tracer = "set", batch_size = 0,
+  quiet = TRUE, lib_paths = NULL)
 }
 \description{
 Decorates all functions in a package and then generates test cases based on

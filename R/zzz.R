@@ -1,9 +1,7 @@
 # private genthat space
-`__genthat_private` <- new.env(parent=emptyenv())
+`__genthat_default_retv` <- new.env(parent=emptyenv())
 
 .onLoad <- function(libname, pkgname) {
-    `__genthat_private`$on_exit_original <- create_duplicate(on.exit)
-
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
 

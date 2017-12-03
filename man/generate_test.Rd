@@ -8,11 +8,11 @@ generate_test(trace, ...)
 }
 \value{
 a data frame or a tibble with the following
-trace      : chr
 fun        : chr
-code       : chr (can be NA)
-error      : chr (can be NA)
-elapsed    : numeric
+pkg        : chr
+code       : chr (can be NA in which case gen_error must be a chr)
+error      : chr (can be NA in which case code must be NA)
+elapsed    : numeric (can be NA)
 }
 \description{
 given a trace, it generates a test

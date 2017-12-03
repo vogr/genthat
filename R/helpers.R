@@ -367,3 +367,12 @@ log_debug <- function(...) {
     msg <- paste0(...)
     cat(msg, "\n")
 }
+
+is_exception_returnValue <- function(retv) {
+    message(is.list(retv))
+    is.list(retv) &&
+        length(retv) == 3 &&
+        (is.null(retv[[1]]) || is(retv[[1]], "condition")) &&
+        is.language(retv[[2]]) &&
+        is.function(retv[[3]])
+}
