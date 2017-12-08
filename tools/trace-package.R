@@ -22,6 +22,12 @@ run_option_list <- list(
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
 
+coverage_option_list <- list(
+    make_option("--package", type="character", help="Package to trace", metavar="PATH"),
+    make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
+    make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
+)
+
 trace_option_list <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
     make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
@@ -97,8 +103,14 @@ run_task <- function(tests, output, quiet) {
     }
 }
 
+coverage_task <- function(package, output, quiet) {
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    res <- covr::package_coverage(path=file.path("~/CRAN/extr", package), type="all", quiet=quiet)
+    saveRDS(res, file.path(output, "covr.RDS"))
+}
+
 trace_task <- function(package, config, type, output, batch_size, stats_file, debug, quiet) {
-    stopifnot(batch_size > 0)
+    stopifnot(is.integer(batch_size))
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
     stopifnot(length(stats_file) == 1, nchar(stats_file) > 0)
     # TODO: sync type vs types
@@ -108,6 +120,9 @@ trace_task <- function(package, config, type, output, batch_size, stats_file, de
     stopifnot(nrow(config) == 1)
     decorator <- config[, 1]
     tracer <- config[, 2]
+
+    working_dir <- file.path(output, "tmp")
+    stopifnot(dir.exists(working_dir) || dir.create(working_dir, recursive=TRUE))
 
     if (decorator == "none") {
         decorator <- NULL
@@ -126,7 +141,7 @@ trace_task <- function(package, config, type, output, batch_size, stats_file, de
         "', output='",output,
         "', decorator='",decorator,
         "', tracer='",tracer,
-        "', working_dir='",output,
+        "', working_dir='",working_dir,
         "', quiet=",quiet,
         ", batch_size=",batch_size,
         ")"
@@ -137,7 +152,7 @@ trace_task <- function(package, config, type, output, batch_size, stats_file, de
         output=output,
         decorator=decorator,
         tracer=tracer,
-        working_dir=output,
+        working_dir=working_dir,
         quiet=quiet,
         batch_size=batch_size
     )
@@ -149,7 +164,7 @@ main <- function(args) {
     # TODO handle help option
     # TODO handle debug option
 
-    task_name <- match.arg(args[1], c("generate", "run", "trace"), several.ok=FALSE)
+    task_name <- match.arg(args[1], c("coverage", "generate", "run", "trace"), several.ok=FALSE)
 
     task_fun <- get(str_c(task_name, "_task"))
     option_list <- get(str_c(task_name, "_option_list"))
