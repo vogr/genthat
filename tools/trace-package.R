@@ -54,6 +54,12 @@ generate_task <- function(traces, output, quiet) {
         log_debug("Found ", length(rdss), " files")
     }
 
+    if (length(rdss) == 0) {
+        # in order to generate the genthat-generate.csv file we fake empty traces
+        rdss <- tempfile()
+        saveRDS(list(), rdss)
+    }
+
     generate <- function(rds) {
         tryCatch({
             traces <- genthat:::import_traces(rds)
