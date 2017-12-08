@@ -92,6 +92,10 @@ run_package_examples <- function(pkg, pkg_dir, filter, working_dir, quiet, runne
 
     examples <- na.omit(examples)
 
+    if (length(examples) == 0) {
+        signal_empty()
+    }
+
     run_files(examples, filter, quiet, runner)
 }
 
@@ -143,6 +147,8 @@ run_package_vignettes <- function(pkg, pkg_dir, filter, working_dir, quiet=quiet
 #' @param filter a regular expression matching desired filenames without the '.R' extension
 
 run_files <- function(files, filter, quiet, runner) {
+    stopifnot(length(files) > 0)
+
     names(files) <- basename(files)
 
     if (!is.null(filter)) {
