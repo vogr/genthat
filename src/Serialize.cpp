@@ -268,7 +268,10 @@ public:
         case REALSXP:
         case CPLXSXP:
         case STRSXP:
-        case RAWSXP: {
+        case RAWSXP:
+        case EXPRSXP:
+        case SPECIALSXP:
+        case BUILTINSXP: {
             // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
             StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
             string res = concatenate(deparsed, "\n");
@@ -419,10 +422,6 @@ public:
             return res;
         }
             // the following is annoying, but the sexptype2char from memory.c is not public
-        case SPECIALSXP:
-            throw sexp_not_supported_error("SPECIALSXP");
-        case BUILTINSXP:
-            throw sexp_not_supported_error("BUILTINSXP");
         case EXTPTRSXP:
             throw sexp_not_supported_error("EXTPTRSXP");
         case BCODESXP:
@@ -476,8 +475,6 @@ public:
             throw sexp_not_supported_error("DOTSXP");
         case CHARSXP:
             throw sexp_not_supported_error("CHARSXP");
-        case EXPRSXP:
-            throw sexp_not_supported_error("EXPRSXP");
         case PROMSXP: {
             // s = Rf_eval(s, R_BaseEnv);
             // return serialize(s, quote);
