@@ -234,7 +234,6 @@ export_traces <- function(traces, output_dir, stats_file, tag=NA, batch_size=0) 
     stopifnot(is.character(stats_file) && length(stats_file) && nchar(stats_file) > 0)
     stopifnot(length(output_dir) == 1 && (dir.exists(output_dir) || dir.create(output_dir)))
     stopifnot(is.na(tag) || (is.character(tag) && length(tag) == 1 && nchar(tag) > 0))
-    stopifnot(batch_size >= 0)
 
     n_traces <- length(traces)
     if (n_traces == 0) {
@@ -243,33 +242,35 @@ export_traces <- function(traces, output_dir, stats_file, tag=NA, batch_size=0) 
         log_debug("Saving ", n_traces, " traces into ", output_dir)
     }
 
-    if (batch_size == 0) {
-        batch_size <- n_traces
-    }
+    if (batch_size != -1) {
+        if (batch_size == 0) { batch_size <- n_traces }
 
-    file_prefix <- if (is.na(tag)) {
-        ""
+        file_prefix <- if (is.na(tag)) {
+            ""
+        } else {
+            paste0(tag, "-")
+        }
+
+        n_batches <- ceiling(n_traces / batch_size)
+
+        # TODO: use next_file_in_row
+        n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(file_prefix, "*", ".RDS"))))
+
+        fnames <- sapply(1:n_batches, function(i) {
+            lower <- (i - 1) * batch_size + 1
+            upper <- min(n_traces, lower + batch_size - 1)
+
+            fname <- file.path(output_dir, paste0(file_prefix, (i + n_existing), ".RDS"))
+            batch <- traces[lower:upper]
+
+            log_debug("Saving traces [", i, "/", n_batches, "] to: ", fname)
+            saveRDS(batch, fname)
+
+            fname
+        }, USE.NAMES=FALSE)
     } else {
-        paste0(tag, "-")
+        fnames <- NA
     }
-
-    n_batches <- ceiling(n_traces / batch_size)
-
-    # TODO: use next_file_in_row
-    n_existing <- length(Sys.glob(path=file.path(output_dir, paste0(file_prefix, "*", ".RDS"))))
-
-    fnames <- sapply(1:n_batches, function(i) {
-        lower <- (i - 1) * batch_size + 1
-        upper <- min(n_traces, lower + batch_size - 1)
-
-        fname <- file.path(output_dir, paste0(file_prefix, (i + n_existing), ".RDS"))
-        batch <- traces[lower:upper]
-
-        log_debug("Saving traces [", i, "/", n_batches, "] to: ", fname)
-        saveRDS(batch, fname)
-
-        fname
-    }, USE.NAMES=FALSE)
 
     trace_classes <- sapply(traces, function(x) {
         switch(
@@ -285,6 +286,8 @@ export_traces <- function(traces, output_dir, stats_file, tag=NA, batch_size=0) 
     n_entry <- length(trace_classes[trace_classes == 2])
     n_error <- length(trace_classes[trace_classes == 3])
     n_failures <- length(trace_classes[trace_classes == 4])
+
+    #TODO: can we actually not collapse it?
     filename <- paste(fnames, collapse="\n")
 
     stats <- data.frame(
@@ -335,9 +338,8 @@ generate_and_save <- function(traces, output_dir,
     test_files <- save_tests(tests, output_dir)
 
     info <- dplyr::bind_cols(tests, test_files)
-    info <- info %>%
-        dplyr::mutate(gen_error=ifelse(is.na(gen_error), save_error, gen_error)) %>%
-        dplyr::select(fun, pkg, test_file, elapsed, gen_error)
+    info <- dplyr::mutate(info, gen_error=ifelse(is.na(gen_error), save_error, gen_error))
+    info <- dplyr::select(info, fun, pkg, test_file, elapsed, gen_error)
     # the append has to be there since we call this one often
     # in a loop over RDS trace files
     readr::write_csv(info, path=info_file, append=file.exists(info_file))
