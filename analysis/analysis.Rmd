@@ -22,15 +22,18 @@ library(anytime)
 RUN_DIR=file.path("..", "runs/packages")
 
 package_stat <- function(path) {
-    (2*file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-traces.csv")))^1 +
-    (2*file.exists(file.path(path, "trace-on.exit--sequence", "output", "all", "genthat-traces.csv")))^2 +
-    (2*file.exists(file.path(path, "trace-onexit--set", "output", "all", "genthat-traces.csv")))^3 +
-    (2*file.exists(file.path(path, "trace-onexit--sequence", "output", "all", "genthat-traces.csv")))^4 +
-    (2*file.exists(file.path(path, "trace-count-entry--sequence", "output", "all", "genthat-traces.csv")))^5 +
-    (2*file.exists(file.path(path, "trace-count-exit--sequence", "output", "all", "genthat-traces.csv")))^6 +
-    (2*file.exists(file.path(path, "generate", "output", "genthat-generate.csv")))^7 +
-    (2*file.exists(file.path(path, "run", "output", "genthat-run-tests.csv")))^8 +
-    (2*file.exists(file.path(path, "run-package", "output", "none", "all", "genthat-traces.csv")))^9
+  data.frame(
+    on.exit_set=file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-traces.csv")),
+    on.exit_seq=file.exists(file.path(path, "trace-on.exit--sequence", "output", "all", "genthat-traces.csv")),
+    onexit_set=file.exists(file.path(path, "trace-onexit--set", "output", "all", "genthat-traces.csv")),
+    onexit_seq=file.exists(file.path(path, "trace-onexit--sequence", "output", "all", "genthat-traces.csv")),
+    count_entry_seq=file.exists(file.path(path, "trace-count-entry--sequence", "output", "all", "genthat-traces.csv")),
+    count_exit_seq=file.exists(file.path(path, "trace-count-exit--sequence", "output", "all", "genthat-traces.csv")),
+    generate=file.exists(file.path(path, "generate", "output", "genthat-generate.csv")),
+    run=file.exists(file.path(path, "run", "output", "genthat-run-tests.csv")),
+    run_package=file.exists(file.path(path, "run-package", "output", "none", "all", "genthat-traces.csv")),
+    coverage=file.exists(file.path(path, "coverage", "output", "all", "covr.RDS"))
+  )
 }
 
 format_difftime <- function(x, ...) {
@@ -68,12 +71,28 @@ format_size <- function(x) {
 ```{r find packages}
 all_packages <- 
   data_frame(path=list.dirs(RUN_DIR, recursive=FALSE)) %>%
-  mutate(package=basename(path), stat=package_stat(path))
+  filter(!endsWith(path, "/1")) %>%
+  mutate(package=basename(path))
 
-ready_stat <- sum(2^(1:8))
+all_packages <-
+  bind_cols(all_packages, package_stat(all_packages$path))
+
+all_packages_obs <-
+  all_packages %>%
+  gather(
+    key="task", 
+    value="success", 
+    on.exit_set:coverage
+  )
+
 packages <- filter(
   all_packages, 
-  bitwAnd(stat, ready_stat) == ready_stat
+  on.exit_set==TRUE, 
+  on.exit_seq==TRUE, 
+  onexit_seq==TRUE, 
+  count_entry_seq==TRUE, 
+  generate==TRUE, 
+  run==TRUE
 )
 
 load_file_from_packages <- function(filepath, fun) {
@@ -83,15 +102,76 @@ load_file_from_packages <- function(filepath, fun) {
 }
 ```
 
-## List of participating packages
+## Participating packages
+
+### Run summary
 
 ```{r}
-DT::datatable(packages)
+all_packages_obs %>%
+  filter(success==TRUE) %>%
+  count(task) %>%
+  DT::datatable()
 ```
 
-## List of missing packages
+### Details
 
-**TODO: what happended to the packages that did not make it**
+```{r fig.height=30}
+all_packages_obs %>%
+  filter(!(task %in% c("onexit_set", "count_exit_seq")), success==FALSE) %>%
+  ggplot(aes(
+    x=factor(
+      task, 
+      levels=c(
+        "on.exit_set", 
+        "on.exit_seq", 
+        "onexit_set", 
+        "onexit_seq", 
+        "count_entry_seq", 
+        "count_exit_seq", 
+        "generate", 
+        "run", 
+        "run_package", 
+        "coverage"
+      )
+    ), 
+    y=package)
+  ) + 
+  geom_point() + 
+  theme(strip.text.y=element_text(angle = 0)) +
+  labs(
+    title="Running failures",
+    subtitle="Which packages failed which tasks",
+    x="Task",
+    y="Package"
+  )
+```
+
+- Failed tracing
+
+```{r}
+all_packages %>% 
+  filter(on.exit_set==FALSE) %>% 
+  select(package) %>%
+  DT::datatable()
+```
+
+- Failed test generation
+
+```{r}
+all_packages %>% 
+  filter(on.exit_set==TRUE, generate==FALSE) %>% 
+  select(package) %>%
+  DT::datatable()
+```
+
+- Failed running
+
+```{r}
+all_packages %>% 
+  filter(on.exit_set==TRUE, generate==TRUE, run==FALSE) %>% 
+  select(package) %>%
+  DT::datatable()
+```
 
 # Results
 
@@ -115,6 +195,8 @@ load_csvs <- function(path, ...) {
 ```
 
 ## Traces
+
+TODO: how many package do not have any traces (and why?)
 
 ```{r load traces funs}
 load_traces_stats <- function(config) {
@@ -172,12 +254,12 @@ n_traces %>%
 
 ```{r load other trace stats}
 count_entry_seq_traces <- load_traces_stats("count-entry--sequence")
-count_exit_seq_traces <- load_traces_stats("count-exit--sequence")
+#count_exit_seq_traces <- load_traces_stats("count-exit--sequence")
 onexit_seq_traces <- load_traces_stats("onexit--sequence")
 ondotexit_seq_traces <- load_traces_stats("on.exit--sequence")
 
 n_count_entry_seq_traces <- sum_traces(count_entry_seq_traces)
-n_count_exit_seq_traces <- sum_traces(count_exit_seq_traces)
+#n_count_exit_seq_traces <- sum_traces(count_exit_seq_traces)
 n_onexit_seq_traces <- sum_traces(onexit_seq_traces)
 n_ondotexit_seq_traces <- sum_traces(ondotexit_seq_traces)
 ```
@@ -214,6 +296,7 @@ n_missing_calls <- missing_calls %>%
 
 n_missing_calls  %>%
   gather(key="key", value="value", calls, traces) %>%
+  filter(value != 0) %>%
   ggplot(
     aes(
       x=factor(package, levels=n_missing_calls$package[order(n_missing_calls$total)]), 
@@ -226,10 +309,34 @@ n_missing_calls  %>%
   scale_fill_discrete(labels=c("calls"="Missed calls", "traces"="Missed traces")) +
   coord_flip() +
   labs(
-    title="Missing calls",
-    subtitle="How many calls did we missed?",
-    x="Package",
-    y="Ratio of missing calls",
+    title="Missing calls/traces",
+    subtitle="How many calls/traces did we missed?",
+    x="Package (for which ration != 0)",
+    y="Ratio of missing calls/traces",
+    fill="Ratio"
+  )
+```
+
+The following shows how many calls we miss because there is an exception during the arguments recording.
+
+```{r}
+n_missing_calls  %>%
+  filter(traces != 0) %>%
+  ggplot(
+    aes(
+      x=factor(package, levels=n_missing_calls$package[order(n_missing_calls$traces)]), 
+      y=traces
+    )
+  ) +
+  geom_col() +
+  scale_y_continuous(labels=scales::percent_format()) +
+  scale_fill_discrete(labels=c("calls"="Missed calls", "traces"="Missed traces")) +
+  coord_flip() +
+  labs(
+    title="Missing traces",
+    subtitle="How many traces did we missed?",
+    x="Package (for which ration != 0)",
+    y="Ratio of missing traces",
     fill="Ratio"
   )
 ```
@@ -264,6 +371,7 @@ n_diffs_calls <- diffs_calls %>%
   select(package, r1, r2, d)
 
 n_diffs_calls %>%
+  filter(d != 0) %>%
   ggplot(
     aes(
       x=factor(package, levels=n_diffs_calls$package[order(n_diffs_calls$d)]), 
@@ -320,32 +428,62 @@ n_generated_tests <-
 
 n_generated_tests %>%
   left_join(select(n_traces, package, n_complete), by="package") %>%
-  mutate(ratio=ifelse(n_complete > 0, generated / n_complete, 0)) %>%
+  mutate(ratio=ifelse(n_complete > 0, 1 - generated / n_complete, 1)) %>%
+  filter(ratio != 0) %>%
   ggplot(aes(
     x=factor(package, levels=package[order(ratio)]), 
     y=ratio, 
     label=sprintf("%.2f %%", ratio*100)
   )) +
   geom_col() +
-  geom_text(aes(label=sprintf("%d", generated), color=ifelse(generated > 0, "white", "black")), hjust=1.5, size=2) +
+  geom_text(aes(label=sprintf("%d  ", n_complete - generated), y=0), hjust=1, size=2) +
   geom_text(hjust=-.2, size=2) +
   scale_y_continuous(labels=scales::percent_format()) +
   scale_color_identity() +
   coord_flip() +
   labs(
-    title="Percentage of generated tests",
-    x="Package",
+    title="Percentage of missed generated tests",
+    subtitle="From how many traces we could not generate tests?",
+    x="Package (for which there are missing tests)",
     y="Generated tests [%]"
   )
 ```
 
 ### Test generation problems
 
+The following stats are for all the tests across all the packages.
+
 ```{r gen errors}
 generated_tests %>%
   mutate(gen_error=ifelse(is.na(gen_error), "No error", gen_error)) %>%
   count(gen_error) %>%
   arrange(desc(n)) %>%
+  DT::datatable()
+```
+
+```{r}
+generated_tests %>%
+  mutate(
+    gen_error=ifelse(is.na(gen_error), "No error", gen_error),
+    gen_error=ifelse(startsWith(gen_error, "Generate error"), "Generate error", gen_error),
+    gen_error=ifelse(startsWith(gen_error, "Trace error"), "Trace error", gen_error)
+  ) %>%
+  count(gen_error) %>%
+  arrange(desc(n)) %>%
+  DT::datatable()
+```
+
+#### Focus on generation errors
+
+```{r}
+generated_tests %>% 
+  filter(!is.na(gen_error), startsWith(gen_error, "Generate error")) %>%
+  count(gen_error, package) %>%
+  group_by(package) %>%
+  summarise(failed=sum(n), `types of errors`=n()) %>%
+  left_join(count(generated_tests, package), by="package") %>%
+  mutate(ratio=sprintf("%.0f%%", failed/n*100)) %>%
+  arrange(desc(failed/n)) %>%
   DT::datatable()
 ```
 
@@ -405,7 +543,7 @@ However, the number of assertions (`nb-waring`) should be 1.
 If it is not, there is a problem.
 
 ```{r}
-run_tests %>% filter((nb - warning) > 1) %>% DT::datatable()
+run_tests %>% filter((nb - warning) > 1) %>% count(package) %>% DT::datatable()
 ```
 
 ### Test running problems
@@ -469,6 +607,13 @@ run_tests %>%
   )
 ```
 
+#### Errors
+
+```{r}
+
+```
+
+
 ```{r run tests results, fig.height=13}
 n_run_tests <- 
   run_tests %>%
@@ -498,7 +643,6 @@ n_run_tests %>%
     x="Package",
     y="Ratio of different results"
   )
-  
 ```
 
 ## Summary
