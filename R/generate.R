@@ -197,7 +197,6 @@ generate_tests <- function(traces, quiet=TRUE, ...) {
 #' @param tests this should be a data.frame with class genthat_tests, a result
 #'     from calling `generate_tests`.
 #' @export
-#' @importFrom magrittr %>%
 #'
 save_tests <- function(tests, output_dir) {
     stopifnot(is.character(output_dir) && length(output_dir) == 1)
@@ -230,15 +229,15 @@ save_tests <- function(tests, output_dir) {
     }
 
     # TODO; is there a better way to do this?
-    mapply(
+    rows <- mapply(
         save_test_checked,
         tests$fun,
         tests$pkg,
         tests$code,
         SIMPLIFY=FALSE,
         USE.NAMES=FALSE
-    ) %>%
-        dplyr::bind_rows()
+    )
+    dplyr::bind_rows(rows)
 }
 
 reformat_code <- function(code) {

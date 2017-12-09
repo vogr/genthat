@@ -4,10 +4,10 @@ run_generated_test <- function(file, quiet=TRUE) {
     stopifnot(file.exists(file))
 
     tryCatch({
-        testthat:::capture_output(res <- testthat::test_file(file), print=!quiet)
-        res <- tibble::as_data_frame(res) %>%
-            mutate(file=file, run_error=NA, elapsed=real) %>%
-            select(-skipped, -user, -system, -real)
+        output <- testthat:::capture_output(res <- testthat::test_file(file), print=!quiet)
+        res <- tibble::as_data_frame(res)
+        res <- dplyr::mutate(res, file=file, run_error=NA, elapsed=real, output=output)
+        res <- dplyr::select(res, -skipped, -user, -system, -real)
         res
     }, error=function(e) {
         tibble::data_frame(
