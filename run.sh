@@ -1,12 +1,20 @@
 #!/bin/bash
 set -e
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <package>"
+FORCE=${FORCE:-}
+
+if [ $# -eq 1 ]; then
+    tasks="--run-package --trace --generate --run --coverage"
+    package="$1"
+elif [ $# -gt 1 ]; then
+    tasks=""
+    while [ $# -gt 1 ]; do tasks="$tasks $1"; shift; done
+    package="$1"
+else
+    echo "Usage: $0 [TASKS] <package>"
     exit 1
 fi
 
-package="$1"
 output_base="runs/packages/$package"
 
 function _parallel {
@@ -38,6 +46,11 @@ function do_run_task {
 
     output="$output_base/$name"
 
+    if [ ! -z "$FORCE" ]; then
+        echo "removing existing output: $output"
+        rm -fr "$output"
+    fi
+
     if [ ! -d "$output" ]; then
         echo "running task $name..."
 
@@ -49,7 +62,7 @@ function do_run_task {
     fi
 }
 
-function trace_task {
+function do_trace_task {
     config="$1"
     batch_size="$2"
     name="trace-$config"
@@ -63,6 +76,15 @@ function trace_task {
         --output "$output_base/$name/output/{1}" \
         --batch-size "$batch_size" \
         ::: all
+}
+
+function trace_task {
+    do_trace_task count-entry--sequence -1
+    #do_trace_task count-exit--sequence -1
+    do_trace_task onexit--sequence -1
+    #do_trace_task onexit--set -1
+    do_trace_task on.exit--sequence -1
+    do_trace_task on.exit--set 0
 }
 
 function run_package_task {
@@ -104,14 +126,26 @@ function coverage_task {
         ::: all
 }
 
-run_package_task
-trace_task count-entry--sequence -1
-#trace_task count-exit--sequence -1
-trace_task onexit--sequence -1
-#trace_task onexit--set -1
-trace_task on.exit--sequence -1
-trace_task on.exit--set 0
-generate_task
-run_task
-coverage_task
-
+for t in $(echo "$tasks"); do
+    case "$t" in
+        --run-package)
+            run_package_task
+            ;;
+        --trace)
+            trace_task
+            ;;
+        --generate)
+            generate_task
+            ;;
+        --run)
+            run_task
+            ;;
+        --coverage)
+            coverage_task
+            ;;
+        *)
+            echo "Unknown task $t"
+            exit 1
+            ;;
+    esac
+done
