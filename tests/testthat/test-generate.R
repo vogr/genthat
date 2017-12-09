@@ -44,7 +44,7 @@ test_that("generate_tests", {
     expect_equal(nrow(tests), 4)
     expect_equal(tests$fun, c("f1", "f2", "f3", "f4"))
     expect_equal(tests$pkg, rep("p", 4))
-    expect_equal(tests$error, c(NA, "Generate error: No return value", "Code error: An error", "Trace error: A failure"))
+    expect_equal(tests$gen_error, c(NA, "Generate error: No return value", "Code error: An error", "Trace error: A failure"))
     expect_false(is.na(tests$elapsed[1]))
     expect_true(all(is.na(tests$elapsed[2:4])))
 })
@@ -69,10 +69,10 @@ test_that("save_tests save each group", {
         file.path(
             output_dir,
             c(
+                "p1/f1/test-0.R",
                 "p1/f1/test-1.R",
-                "p1/f1/test-2.R",
-                "p1/f2/test-1.R",
-                "p2/g1/test-1.R"
+                "p1/f2/test-0.R",
+                "p2/g1/test-0.R"
             )
         ),
         NA)

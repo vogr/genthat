@@ -5,6 +5,9 @@ run_generated_test <- function(file, quiet=TRUE) {
 
     tryCatch({
         output <- testthat:::capture_output(res <- testthat::test_file(file), print=!quiet)
+        if (length(res) == 0) {
+            stop("testthat::test_file result was empty")
+        }
         res <- tibble::as_data_frame(res)
         res <- dplyr::mutate(res, file=file, run_error=NA, elapsed=real, output=output)
         res <- dplyr::select(res, -skipped, -user, -system, -real)
@@ -12,7 +15,14 @@ run_generated_test <- function(file, quiet=TRUE) {
     }, error=function(e) {
         tibble::data_frame(
             file=file,
-            run_error=e$message
+            test=NA,
+            nb=NA,
+            failed=NA,
+            error=NA,
+            warning=NA,
+            elapsed=NA,
+            run_error=e$message,
+            output=NA
         )
     })
 }

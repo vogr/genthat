@@ -1,6 +1,8 @@
 context("gen_from_package")
 
 test_that("gen_from_package works on sample pkg", {
+    testthat::skip("until the API is stable")
+
     output_dir <- tempfile()
     working_dir <- tempfile()
     info_file <- tempfile()
@@ -29,6 +31,8 @@ test_that("gen_from_package works on sample pkg", {
 })
 
 test_that("gen_from_package works on empty pkg", {
+    testthat::skip("until the API is stable")
+
     output_dir <- tempfile()
     working_dir <- tempfile()
     info_file <- tempfile()
