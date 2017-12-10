@@ -7,11 +7,12 @@ suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(genthat))
 suppressPackageStartupMessages(library(pbapply))
+suppressPackageStartupMessages(library(readr))
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
 generate_option_list <- list(
-    make_option("--traces", type="character", help="Path to RDS trace files", metavar="PATH"),
+    make_option("--traces", type="character", help="Path to genthat-traces.csv", metavar="PATH"),
     make_option("--output", type="character", help="Name of the output directory for tests", default=tempfile(file="genthat-tests"), metavar="PATH"),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -31,10 +32,9 @@ coverage_option_list <- list(
 trace_option_list <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
     make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
-    make_option("--batch-size", type="integer", help="Batch size", default=1000, metavar="NUM"),
     make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="genthat-traces"), metavar="PATH"),
     make_option("--config", type="character", help="decorator+tracer", metavar="CONFIG", default="onexit+set"),
-    make_option("--stats-file", type="character", help="Name of the CSV file with stats", metavar="FILE", default="genthat-traces.csv"),
+    make_option("--discard-traces", help="Do not save traces", action="store_true", default=FALSE),
     make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -45,67 +45,42 @@ log_debug <- function(...) {
 }
 
 generate_task <- function(traces, output, quiet) {
-    stopifnot(dir.exists(traces))
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
-    rdss <- list.files(path=traces, pattern="\\.RDS$", full.names=TRUE, recursive=FALSE)
+    traces <- readr::read_csv(traces, col_types=cols_only(trace="c", type="c"))
+    traces <- dplyr::filter(traces, type=="C")
+    tracefiles <- traces$trace
 
     if (!quiet) {
-        log_debug("Found ", length(rdss), " files")
+        log_debug("Found ", length(tracefiles), " files")
     }
 
-    if (length(rdss) == 0) {
-        # in order to generate the genthat-generate.csv file we fake empty traces
-        rdss <- tempfile()
-        saveRDS(list(), rdss)
-    }
-
-    generate <- function(rds) {
-        tryCatch({
-            traces <- genthat:::import_traces(rds)
-            genthat:::generate_and_save(traces, output_dir=output, quiet=quiet)
-        }, error=function(e) {
-            log_debug("Unable to generate tests for traces from ", rds)
-            print(e)
-            0
-        })
-    }
-
-    n_tests <- pblapply(rdss, generate)
+    tests <- genthat::generate_test_files(tracefiles, output, quiet)
+    readr::write_csv(tests, file.path(output, "genthat-tests.csv"))
 
     if (!quiet) {
-        log_debug("Generated in total ", sum(as.integer(n_tests), na.rm=TRUE), " tests")
+        log_debug("Generated ", nrow(tests), " tests")
     }
 }
 
-
 run_task <- function(tests, output, quiet) {
-    stopifnot(dir.exists(tests))
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
-    tests <- list.files(path=tests, pattern="test-[0-9]+\\.R$", full.names=TRUE, recursive=TRUE)
+    tests <- readr::read_csv(tests, col_types=cols_only(test="c"))
+    tests <- dplyr::filter(tests, !is.na(test))
+    testfiles <- tests$test
 
     if (!quiet) {
-        log_debug("Found ", length(tests), " files")
+        log_debug("Found ", length(testfiles), " files")
     }
 
-    run <- function(test) {
-        tryCatch({
-            genthat::run_generated_test(test, quiet=quiet)
-        }, error=function(e) {
-            data_frame(file=test, exception=e$message)
-        })
-    }
-
-    runs <- pblapply(tests, run)
-    runs <- dplyr::bind_rows(runs)
-
-    readr::write_csv(runs, file.path(output, "genthat-run-tests.csv"))
+    runs <- genthat::run_generated_tests(testfiles, quiet)
+    readr::write_csv(runs, file.path(output, "genthat-runs.csv"))
 
     if (!quiet) {
         n <- sum(runs$nb)
         f <- sum(runs$failed)
-        log_debug("Run ", n-f, "/", n, " tests")
+        log_debug("Run successfully ", n-f, "/", nrow(runs), " tests")
     }
 }
 
@@ -115,10 +90,13 @@ coverage_task <- function(package, output, quiet) {
     saveRDS(res, file.path(output, "covr.RDS"))
 }
 
-trace_task <- function(package, config, type, output, batch_size, stats_file, debug, quiet) {
-    stopifnot(is.integer(batch_size))
-    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
-    stopifnot(length(stats_file) == 1, nchar(stats_file) > 0)
+trace_task <- function(package, config, type, output, discard_traces, debug, quiet) {
+    if (!discard_traces) {
+        stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    } else {
+        output_dir <- NULL
+    }
+
     # TODO: sync type vs types
     type <- match.arg(type, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
 
@@ -138,20 +116,9 @@ trace_task <- function(package, config, type, output, batch_size, stats_file, de
         tracer <- "set"
     }
 
+    # TODO: move to the main
     options(genthat.debug=debug)
 
-    print(str_c(
-        "genthat::trace_package('",
-        package,
-        "', type='",type,
-        "', output='",output,
-        "', decorator='",decorator,
-        "', tracer='",tracer,
-        "', working_dir='",working_dir,
-        "', quiet=",quiet,
-        ", batch_size=",batch_size,
-        ")"
-    ))
     res <- genthat::trace_package(
         package,
         type=type,
@@ -159,11 +126,10 @@ trace_task <- function(package, config, type, output, batch_size, stats_file, de
         decorator=decorator,
         tracer=tracer,
         working_dir=working_dir,
-        quiet=quiet,
-        batch_size=batch_size
+        quiet=quiet
     )
 
-    readr::write_csv(res, file.path(output, stats_file))
+    readr::write_csv(res, file.path(output, "genthat-traces.csv"))
 }
 
 main <- function(args) {

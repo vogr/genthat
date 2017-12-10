@@ -5,6 +5,7 @@ FORCE=${FORCE:-}
 
 if [ $# -eq 1 ]; then
     tasks="--run-package --trace --generate --run --coverage"
+#    tasks="--run-package --trace --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
     tasks=""
@@ -64,7 +65,7 @@ function do_run_task {
 
 function do_trace_task {
     config="$1"
-    batch_size="$2"
+    shift
     name="trace-$config"
 
     do_run_task \
@@ -74,17 +75,17 @@ function do_trace_task {
         --config "$config" \
         --type "{1}" \
         --output "$output_base/$name/output/{1}" \
-        --batch-size "$batch_size" \
+        "$@" \
         ::: all
 }
 
 function trace_task {
-    do_trace_task count-entry--sequence -1
-    #do_trace_task count-exit--sequence -1
-    do_trace_task onexit--sequence -1
-    #do_trace_task onexit--set -1
-    do_trace_task on.exit--sequence -1
-    do_trace_task on.exit--set 0
+    #do_trace_task count-entry--sequence --discard-traces
+    #do_trace_task count-exit--sequence --discard-traces
+    #do_trace_task onexit--sequence --discard-traces
+    #do_trace_task onexit--set --discard-traces
+    #do_trace_task on.exit--sequence --discard-traces
+    do_trace_task on.exit--set
 }
 
 function run_package_task {
@@ -92,10 +93,9 @@ function run_package_task {
         "run-package" \
         ./tools/trace-package.R trace \
         --package "$package" \
-        --config "{1}" \
-        --type "{2}" \
-        --output "$output_base/run-package/output/{1}/{2}" \
-        ::: none \
+        --config none \
+        --type "{1}" \
+        --output "$output_base/run-package/output/{1}" \
         ::: all
 }
 
@@ -103,8 +103,8 @@ function generate_task {
     do_run_task \
         "generate" \
         ./tools/trace-package.R generate \
-        --traces "$output_base/trace-on.exit--set/output/{1}" \
-        --output "$output_base/generate/output" \
+        --traces "$output_base/trace-on.exit--set/output/{1}/genthat-traces.csv" \
+        --output "$output_base/generate/output/{1}" \
         ::: all
 }
 
@@ -112,9 +112,9 @@ function run_task {
     do_run_task \
         "run" \
         ./tools/trace-package.R run \
-        --tests "$output_base/generate/{1}" \
-        --output "$output_base/run/output" \
-        ::: output
+        --tests "$output_base/generate/output/{1}/genthat-tests.csv" \
+        --output "$output_base/run/output/{1}" \
+        ::: all
 }
 
 function coverage_task {

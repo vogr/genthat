@@ -364,8 +364,10 @@ is_base_env <- function(env) {
 }
 
 log_debug <- function(...) {
-    msg <- paste0(...)
-    cat(msg, "\n")
+    if (is_debug_enabled()) {
+        msg <- paste0(...)
+        cat(msg, "\n")
+    }
 }
 
 is_exception_returnValue <- function(retv) {
@@ -374,4 +376,8 @@ is_exception_returnValue <- function(retv) {
         (is.null(retv[[1]]) || is(retv[[1]], "condition")) &&
         is.language(retv[[2]]) &&
         is.function(retv[[3]])
+}
+
+is_chr_scalar <- function(s) {
+    is.character(s) && length(s) == 1 && nchar(s) > 0
 }

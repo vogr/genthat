@@ -31,7 +31,7 @@ test_that("generate_call supports infix functions for others", {
     expect_equal(generate_call(trace), "mypkg:::`%in%`(x=1, table=c(1, 2))")
 })
 
-test_that("generate_tests", {
+test_that("generate_test_file", {
     traces <- list(
         create_trace(fun="f1", pkg="p", args=list(x=1, y=2), retv=3),
         create_trace(fun="f2", pkg="p", args=list(x=1, y=2)),
@@ -39,52 +39,15 @@ test_that("generate_tests", {
         create_trace(fun="f4", pkg="p", args=list(x=1, y=2), failure=simpleError("A failure"))
     )
 
-    tests <- generate_tests(traces)
+    output_dir <- tempfile()
+    on.exit(unlink(output_dir, recursive=TRUE))
+
+    tests <- purrr::map_dfr(traces, generate_test_file, output_dir=output_dir)
 
     expect_equal(nrow(tests), 4)
-    expect_equal(tests$fun, c("f1", "f2", "f3", "f4"))
-    expect_equal(tests$pkg, rep("p", 4))
-    expect_equal(tests$gen_error, c(NA, "Generate error: No return value", "Code error: An error", "Trace error: A failure"))
-    expect_false(is.na(tests$elapsed[1]))
-    expect_true(all(is.na(tests$elapsed[2:4])))
-})
+    expect_equal(is.na(tests$test), c(FALSE, TRUE, TRUE, TRUE))
+    expect_equal(tests$error, c(NA, "Generate error: No return value", "Code error: An error", "Trace error: A failure"))
 
-test_that("save_tests save each group", {
-    output_dir <- tempfile()
-    on.exit(unlink(output_dir, recursive=T))
-
-    tests <- dplyr::tribble(
-        ~trace, ~fun, ~pkg, ~code, ~error, ~elapsed,
-        NA, "f1", "p1", "code_p1_f1_1", NA, 0,
-        NA, "f1", "p1", "code_p1_f1_2", NA, 0,
-        NA, "f2", "p1", "code_p1_f2_1", NA, 0,
-        NA, "g1", "p2", "code_p2_g1_1", NA, 0,
-        NA, "g2", "p2", NA, NA, 0
-    )
-
-    saves <- save_tests(tests, output_dir)
-    files <- saves$test_file
-
-    expect_equal(files, c(
-        file.path(
-            output_dir,
-            c(
-                "p1/f1/test-0.R",
-                "p1/f1/test-1.R",
-                "p1/f2/test-0.R",
-                "p2/g1/test-0.R"
-            )
-        ),
-        NA)
-    )
-
-    files <- saves %>% dplyr::filter(!is.na(test_file)) %>% .$test_file
-    expect_equal(sapply(files, readLines, USE.NAMES=FALSE), c(
-        "code_p1_f1_1",
-        "code_p1_f1_2",
-        "code_p1_f2_1",
-        "code_p2_g1_1"
-        ))
 })
 
 test_that("generate escapes global non-syntactic names", {

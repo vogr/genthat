@@ -5,9 +5,12 @@
 \title{Decorate all functions from given package and runs package code}
 \usage{
 trace_package(pkg, types = c("examples", "tests", "vignettes", "all"),
-  filter = NULL, output_dir = ".", working_dir = tempfile(pattern =
-  "genthat-trace-"), decorator = "onexit", tracer = "set", batch_size = 0,
-  quiet = TRUE, lib_paths = NULL)
+  output_dir = ".", filter = NULL, working_dir = tempfile(pattern =
+  "genthat-trace-"), decorator = "onexit", tracer = "set", quiet = TRUE,
+  lib_paths = NULL)
+}
+\arguments{
+\item{output_dir}{the name of the directory where to output traces or NULL if traces should not be saved}
 }
 \description{
 Decorates all functions in a package and then generates test cases based on

@@ -57,7 +57,6 @@ run_r_script <- function(script_file,
 
     Rbin <- file.path(R.home("bin"), "R")
 
-
     stdout <- FALSE
     stderr <- FALSE
     if (!quiet) {

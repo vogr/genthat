@@ -71,12 +71,12 @@ generate_globals <- function(globals) {
 #'
 #' @importFrom utils str
 #' @export
-generate_test_code <- function(trace, include_trace_dump=FALSE) {
-    UseMethod("generate_test_code")
+generate_test <- function(trace, ...) {
+    UseMethod("generate_test")
 }
 
 #' @export
-generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
+generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
     call <- generate_call(trace)
     globals <- generate_globals(trace$globals)
     retv <- serialize_value(trace$retv)
@@ -101,143 +101,36 @@ generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE, fo
 }
 
 #' @export
-generate_test_code.default <- function(trace, include_trace_dump) {
-    NULL
-}
-
-
-#' @title generate test from a trace
-#' @description given a trace, it generates a test
-#' @return a data frame or a tibble with the following
-#' fun        : chr
-#' pkg        : chr
-#' code       : chr (can be NA in which case gen_error must be a chr)
-#' error      : chr (can be NA in which case code must be NA)
-#' elapsed    : numeric (can be NA)
-#'
-#' @export
-#'
-generate_test <- function(trace, ...) {
-    UseMethod("generate_test")
-}
-
-generate_test_result <- function(trace, code=NA, error=NA, elapsed=NA) {
-    tibble::data_frame(
-        fun=if (is.null(trace$fun)) NA else trace$fun,
-        pkg=if (is.null(trace$pkg)) NA else trace$pkg,
-        code=code,
-        gen_error=error,
-        elapsed=elapsed
-    )
-}
-
 generate_test.genthat_trace_entry <- function(trace, ...) {
-    generate_test_result(trace, error="Generate error: No return value")
+    stop("Generate error: No return value")
 }
 
-generate_test.genthat_trace_error <- function(trace, ...) {
-    generate_test_result(trace, error=paste("Code error:", trace$error$message))
-}
-
-generate_test.genthat_trace_failure <- function(trace, ...) {
-    generate_test_result(trace, error=paste("Trace error:", trace$failure$message))
-}
-
-#' @importFrom utils capture.output
-#' @importFrom utils getTxtProgressBar
-#' @importFrom utils setTxtProgressBar
-#' @importFrom utils str
-generate_test.genthat_trace <- function(trace, ...) {
-    tryCatch({
-        time <- stopwatch(code <- generate_test_code(trace, ...))
-
-        if (is.null(code)) {
-            stop("generate_test_code returned NULL")
-        }
-
-        generate_test_result(trace, code=code, elapsed=time)
-    }, error=function(e) {
-        generate_test_result(trace, error=paste("Generate error:", e$message))
-    })
-}
-
-#' @title Generates test cases from traces
-#'
-#' @param traces from which to generate test cases
-#' @param ... additional arguments supplied to `generate_test_code` function.
-#'
-#' @return a data frame or a tibble with the following
-#' fun       : chr
-#' pkg       : chr
-#' code      : chr (can be NA in which case gen_error must be a chr)
-#' gen_error : chr (can be NA in which case code must be a NA)
-#' elapsed   : dbl
-#'
-#' @description Generates tests cases from the captured traces.
 #' @export
-#'
-generate_tests <- function(traces, quiet=TRUE, ...) {
-    stopifnot(is.list(traces) || is.environment(traces))
+generate_test.genthat_trace_error <- function(trace, ...) {
+    stop(paste("Code error:", trace$error$message))
+}
 
-    if (length(traces) == 0) {
-        return(
-            tibble::data_frame(
-                fun=character(),
-                pkg=character(),
-                code=character(),
-                gen_error=character(),
-                elapsed=double()
-            )
-        )
-    }
-
-    purrr::map_dfr(traces, function(x) generate_test(x, ...))
+#' @export
+generate_test.genthat_trace_failure <- function(trace, ...) {
+    stop(paste("Trace error:", trace$failure$message))
 }
 
 #' @param tests this should be a data.frame with class genthat_tests, a result
 #'     from calling `generate_tests`.
 #' @export
 #'
-save_tests <- function(tests, output_dir) {
-    stopifnot(is.character(output_dir) && length(output_dir) == 1)
-    stopifnot(dir.exists(output_dir) || dir.create(output_dir))
-    stopifnot(is.data.frame(tests))
+save_test <- function(pkg, fun, code, output_dir) {
+    stopifnot(is_chr_scalar(pkg))
+    stopifnot(is_chr_scalar(fun))
+    stopifnot(is_chr_scalar(code))
+    stopifnot(is_chr_scalar(output_dir))
 
-    if (nrow(tests) == 0) {
-        return(data_frame(test_file=character(), save_error=character()))
-    }
+    dname <- file.path(output_dir, pkg, fun)
+    stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
-    save_test <- function(fun, pkg, code) {
-        dname <- file.path(output_dir, pkg, fun)
-        stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
-
-        fname <- next_file_in_row(file.path(dname, "test.R"))
-        write(code, file=fname)
-        fname
-    }
-
-    save_test_checked <- function(fun, pkg, code) {
-        tryCatch({
-            if (is.na(code)) {
-                data_frame(test_file=NA, save_error=NA)
-            } else {
-                data_frame(test_file=save_test(fun, pkg, code), save_error=NA)
-            }
-        }, error=function(e) {
-            data_frame(test_file=NA, save_error=e$message)
-        })
-    }
-
-    # TODO; is there a better way to do this?
-    rows <- mapply(
-        save_test_checked,
-        tests$fun,
-        tests$pkg,
-        tests$code,
-        SIMPLIFY=FALSE,
-        USE.NAMES=FALSE
-    )
-    dplyr::bind_rows(rows)
+    fname <- next_file_in_row(file.path(dname, "test.R"))
+    write(code, file=fname)
+    fname
 }
 
 reformat_code <- function(code) {
@@ -260,4 +153,58 @@ reformat_code <- function(code) {
         warning("Unable to format code: ", code)
         code
     })
+}
+
+#' @title generate test from a trace
+#' @description given a trace, it generates a test and stores it in a file
+#' @return a data frame with the following
+#' pkg        : chr
+#' fun        : chr
+#' filename   : chr (can be NA in which case error must be a chr)
+#' error      : chr (can be NA in which case code must be NA)
+#' elapsed    : numeric (can be NA)
+#'
+#' @export
+#'
+generate_test_file <- function(trace, output_dir, ...) {
+    testfile <- NA
+    error <- NA
+
+    tryCatch({
+        code <- generate_test(trace, ...)
+        testfile <- save_test(trace$pkg, trace$fun, code, output_dir)
+    }, error=function(e) {
+        error <<- e$message
+    })
+
+    tibble::data_frame(
+        test=testfile,
+        error=error
+    )
+}
+
+#' @export
+generate_test_files <- function(tracefiles, output_dir, ...) {
+    generate <- function(tracefile) {
+        tryCatch({
+            trace <- readRDS(tracefile)
+            generate_test_file(trace, output_dir=output_dir)
+        }, error=function(e) {
+            tibble::data_frame(
+                test=NA,
+                error=str_c("Generate error: ", e$message)
+            )
+        })
+    }
+
+    ret <- if (length(tracefiles) == 0) {
+        tibble::data_frame(test=character(), error=character())
+    } else {
+        pbapply::pblapply(tracefiles, generate)
+    }
+
+    ret <- dplyr::bind_rows(ret)
+    ret <- dplyr::mutate(ret, trace=tracefiles)
+    ret <- dplyr::select(ret, trace, everything())
+    ret
 }

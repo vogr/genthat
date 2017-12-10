@@ -13,19 +13,23 @@ test_that("trace_package works on a sample package", {
         )
 
         output_dir <- tempfile()
-        files <- file.path(output_dir, paste0(tags, "-1.RDS"))
-        files[3] <- NA # this one does not have any traces
-        files[5] <- NA # this one does not have any traces
 
         ret <- trace_package("samplepkg", output_dir=output_dir, tracer="sequence", quiet=TRUE)
 
-        expect_equal(ret$tag, tags)
-        expect_equal(ret$filename, files)
-        expect_equal(ret$n_traces, c(2, 4, 0, 8, 0, 1, 1))
-        expect_equal(ret$status, rep(0, 7))
-        expect_equal(ret$running_time > 0, rep(TRUE, 7))
-        expect_equal(ret$package, rep("samplepkg", 7))
-        expect_equal(ret$type, c("examples", "examples", "examples", "tests", "vignettes", "vignettes", "vignettes"))
+        expect_equal(ret$package, rep("samplepkg", 16))
+        expect_equal(ret$type, rep("C", 16))
+        expect_equal(ret$error, rep(NA, 16))
+
+        # examples
+        examples <- dplyr::filter(ret, startsWith(tag, "examples"))
+        tests <- dplyr::filter(ret, startsWith(tag, "tests"))
+        vignettes <- dplyr::filter(ret, startsWith(tag, "vignettes"))
+
+        # my_public is not there
+        expect_equal(examples$tag, c(rep("examples/My-add.Rd.R", 2), rep("examples/My-call.Rd.R", 4)))
+        expect_equal(tests$tag, c(rep("tests/testthat.R", 8)))
+        expect_equal(vignettes$tag, c("vignettes/my-ext-vignette-trace.R", "vignettes/my-vignette.R"))
+
     })
 })
 

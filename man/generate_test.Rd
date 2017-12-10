@@ -2,18 +2,16 @@
 % Please edit documentation in R/generate.R
 \name{generate_test}
 \alias{generate_test}
-\title{generate test from a trace}
+\title{Generate test case code from a trace}
 \usage{
 generate_test(trace, ...)
 }
-\value{
-a data frame or a tibble with the following
-fun        : chr
-pkg        : chr
-code       : chr (can be NA in which case gen_error must be a chr)
-error      : chr (can be NA in which case code must be NA)
-elapsed    : numeric (can be NA)
+\arguments{
+\item{trace}{trace value}
+
+\item{include_trace_dump}{whether to include raw trace at the beginning of the test
+the trace is formatted using `str` function.}
 }
 \description{
-given a trace, it generates a test
+Given a genthat trace it generates a corresponding test case
 }
