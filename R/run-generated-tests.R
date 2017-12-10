@@ -11,6 +11,13 @@ run_generated_test <- function(testfile, quiet=TRUE) {
         }
 
         res <- tibble::as_data_frame(res)
+
+        output <- if (res$nb == 1 && res$failed == 0 && res$error == FALSE) {
+            NA
+        } else {
+            output
+        }
+
         res <- dplyr::mutate(res, file=testfile, run_error=NA, elapsed=real, output=output)
         res <- dplyr::select(res, -skipped, -user, -system, -real)
         res
