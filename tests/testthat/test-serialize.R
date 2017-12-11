@@ -244,6 +244,26 @@ test_that("can serialize unary functions", {
     expect_equal(serialize_value(quote(!x)), "!x")
 })
 
+test_that("RAWSXP serialization", {
+    expect_equal(serialize(as.raw(1)), as.raw(1))
+})
+
+test_that("EXPRSXP serialization", {
+    expect_equal(serialize(expression(1+1)), expression(1+1))
+})
+
+test_that("BUILTINSXP serialization", {
+    expect_equal(serialize_value(quote(`+`)), "`+`")
+})
+
+test_that("SPECIALSXP serialization", {
+    expect_equal(serialize_value(quote(on.exit)), "on.exit")
+})
+
+test_that("external function serialization", {
+    expect_true(is.closure(serialize(testthat::test_file)))
+})
+
 ## test_that("", {
 ##     f <- function(a, b, c) a * b * c
 ##     attr(f, "genthat_extracted_closure") <- TRUE
