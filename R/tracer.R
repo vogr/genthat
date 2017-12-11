@@ -60,7 +60,7 @@ set_tracer <- function(tracer) {
 
     options(genthat.tracer=tracer)
 
-    tracer
+    invisible(tracer)
 }
 
 #' @export

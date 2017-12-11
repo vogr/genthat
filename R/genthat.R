@@ -36,6 +36,57 @@ trace_from_source_package <- function(path, quiet=TRUE, ...) {
     })
 }
 
+gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
+                             types=c("examples", "tests", "vignettes", "all"),
+                             filter=NULL,
+                             ...) {
+
+    working_dir <- tempfile(pattern="genthat-gen_from_package")
+    files <- lapply(pkgs_to_run, extract_package_code, types=types, output_dir=working_dir, filter=filter)
+    files <- unlist(files)
+
+    if (length(files) == 0) {
+        return(data.frame(file=character(), trace=character(), type=character(), error=character()))
+    }
+
+    ret <- trace_package(
+        pkgs=pkgs_to_trace,
+        files_to_run=files,
+        ...
+    )
+
+    ret <- lapply(1:length(ret), function(i) {
+        x <- ret[[i]]
+
+        if (is.data.frame(x)) {
+            x
+        } else if (x == 0) {
+            # there were no traces
+            data.frame(file=files[i], trace=NA, type=NA, error=NA)
+        } else if (is.numeric(x) || is.character(x)) {
+            error <- if (is.character(x)) {
+                paste("Running R file failed:", x)
+            } else {
+                paste("Running R file exited with:", x)
+            }
+
+            data.frame(
+                file=files[i],
+                trace=NA,
+                type="F",
+                error=error,
+                stringsAsFactors=FALSE
+            )
+        } else {
+            stop("Unknown output from trace_package at index ", i, ": ", x)
+        }
+    })
+
+    ret <- do.call(rbind, ret)
+    row.names(ret) <- NULL
+    ret
+}
+
 #' @title Decorate all functions from given package and runs package code
 #'
 #' @description Decorates all functions in a package and then generates test cases based on
@@ -48,17 +99,25 @@ trace_from_source_package <- function(path, quiet=TRUE, ...) {
 # TODO: update the signature to make it more flexible
 # TODO: update the documentation
 # TODO: sync names usage pkg ~ package
-trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
-                          output_dir=".", filter=NULL, working_dir=tempfile(pattern="genthat-trace-"),
+trace_package <- function(pkgs, files_to_run,
+                          output_dir=".",
                           decorator="onexit", tracer="set",
+                          action=c("export", "generate"),
+                          working_dir=tempfile(pattern="genthat-trace-"),
                           quiet=TRUE, lib_paths=NULL) {
 
-    stopifnot(is.character(pkg) && length(pkg) == 1)
-
-    if ("all" %in% types) {
-        types <- c("examples", "tests", "vignettes")
+    stopifnot(is.character(files_to_run))
+    if (length(files_to_run) == 0) {
+        return(character())
     }
-    types <- match.arg(arg=types, choices=c("examples", "tests", "vignettes"), several.ok=TRUE)
+
+    if (is.null(names(files_to_run))) {
+        names(files_to_run) <- files_to_run
+    }
+
+    stopifnot(is.character(pkgs), length(pkgs) > 0)
+    # check if packages exists
+    find.package(pkgs, lib_paths)
 
     if (!is.null(output_dir)) {
         stopifnot(is_chr_scalar(output_dir))
@@ -70,110 +129,77 @@ trace_package <- function(pkg, types=c("examples", "tests", "vignettes", "all"),
     stopifnot(dir.exists(working_dir) || dir.create(working_dir))
     working_dir <- normalizePath(working_dir, mustWork=TRUE)
 
+    action <- match.arg(action, c("export", "generate"), several.ok=FALSE)
+
     # TODO: check tracer
     # TODO: check decorator
 
-    pkg_dir <- find.package(pkg, lib_paths)
-
     # used for export traces during run
-    stats_file <- tempfile("genthat-traces", tmpdir=working_dir, fileext=".csv")
+    stats_file <- tempfile("genthat-tracing", tmpdir=working_dir, fileext=".csv")
     set_tracer_session_file <- tempfile("set-tracer-session", tmpdir=working_dir, fileext=".RDS")
+    on.exit({
+        if (file.exists(stats_file)) file.remove(stats_file)
+        if (file.exists(set_tracer_session_file)) file.remove(set_tracer_session_file)
+    })
 
-    runner <- function(fname, quiet) {
-        # e.g. examples/my-fun.Rd
-        tag <- file.path(basename(dirname(fname)), basename(fname))
+    run_file <- function(fname) {
+        env <- c()
+        site_file <- NULL
 
-        site_file <- if (!is.null(decorator)) {
-            decorator_code <- paste0('genthat::create_decorator("', decorator, '")')
-            tracer_code <-
-                if (tracer == "set") {
-                    paste0('genthat::create_tracer("set", session_file="', set_tracer_session_file, '")')
-                } else {
-                    paste0('genthat::create_tracer("', tracer, '")')
-                }
+        # this is to support a simple run of the files without any genthat involved
+        if (!is.null(decorator)) {
+            vars <- list()
 
-            create_tracing_site_file(
-                packages=pkg,
-                output_dir=output_dir,
-                tag=tag,
-                decorator_code=decorator_code,
-                tracer_code=tracer_code,
-                discard_traces=discard_traces,
-                stats_file=stats_file
-            )
-        } else {
-            NULL
+            vars$debug <- is_debug_enabled()
+            if (!is.null(output_dir)) {
+                vars$log_file <-
+                    file.path(output_dir, paste0("genthat-", tools::file_path_sans_ext(basename(fname)), ".log"))
+            }
+            vars$decorator <- decorator
+            vars$tracer <- tracer
+            vars$session_file <- set_tracer_session_file
+            vars$action <- action
+            vars$current_file <- fname
+            vars$output_dir <- output_dir
+            vars$stats_file <- stats_file
+            vars$pkgs <- paste(pkgs, sep=",")
+
+            # convert the variables to the expected format GENTHAT_<VAR>=<value>
+            env <- sapply(names(vars), function(x) {
+                paste(toupper(paste0("genthat_", x)), as.character(vars[[x]]), sep="=")
+            }, USE.NAMES=FALSE)
+            site_file <- system.file("genthat-tracing-site-file.R", package="genthat")
         }
 
-        run_r_script(fname, site_file=site_file, quiet=quiet, lib_paths=lib_paths)
-    }
+        tryCatch({
+            run <- run_r_script(fname, site_file=site_file, env=env, quiet=quiet, lib_paths=lib_paths)
 
-    runs <- lapply(types, function(type) {
-        run <- run_package(
-            pkg,
-            pkg_dir=pkg_dir,
-            types=type,
-            filter=filter,
-            working_dir=working_dir,
-            quiet=quiet,
-            runner=runner
-        )
-        run <- run[[type]]
-
-        df <- if (is.null(run) || all(is.na(run))) {
-            # nothing has been run we need to return an empty frame
-            data.frame(
-                tag=NA,
-                trace=NA,
-                type=NA,
-                error=NA,
-                row.names=NULL,
-                stringsAsFactors=FALSE
-            )
-        } else {
-            traces <- if (file.exists(stats_file)) {
+            if (run == 0 && file.exists(stats_file)) {
                 st <- read_stats_file(stats_file)
-
-                # we do not need it anymore and it could create conflicts
-                # if examples / tests / vignettes shares the same tags
                 file.remove(stats_file)
-
                 st
             } else {
                 # Running either failed or there were no calls to the traced
                 # functions (e.g. a data file) so the finalizer exporting the
                 # traces did not kicked in. based on the status we can figure
                 # out what has happened.
-                data.frame(
-                    tag=tools::file_path_sans_ext(names(run)),
-                    trace=NA,
-                    type=NA,
-                    error=NA,
-                    row.names=NULL,
-                    stringsAsFactors=FALSE
-                )
+                run
             }
-
-            traces
-        }
-
-        cbind(data.frame(package=pkg, stringsAsFactors=FALSE, row.names=NULL), df)
-    })
-
-    if (file.exists(set_tracer_session_file)) {
-        file.remove(set_tracer_session_file)
+        }, error=function(e) {
+            e$message
+        })
     }
 
-    do.call(rbind, runs)
+    pbapply::pblapply(files_to_run, run_file)
 }
 
 #' @export
 #'
-export_traces <- function(traces, output_dir, stats_file, tag=NA) {
+export_traces <- function(traces, file, output_dir, stats_file) {
     stopifnot(is.list(traces))
+    stopifnot(is_chr_scalar(file))
     stopifnot(is.null(output_dir) || is_chr_scalar(output_dir))
     stopifnot(is_chr_scalar(stats_file))
-    stopifnot(is.na(tag) || is_chr_scalar(tag))
 
     n_traces <- length(traces)
     if (n_traces == 0) {
@@ -186,19 +212,16 @@ export_traces <- function(traces, output_dir, stats_file, tag=NA) {
         }
     }
 
-    sub <- as.character(10:99)
-
     save_trace <- function(trace) {
         fname <- if (!is.null(output_dir)) {
-            # ../00/00/...RDS
-            dname <- file.path(output_dir, sample(sub, 1), sample(sub, 1))
+            pkg <- if (is.null(trace$pkg)) "_NULL_" else trace$pkg
+            fun <- if (is.null(trace$fun)) "_NULL_" else trace$fun
+
+            dname <- file.path(output_dir, pkg, fun)
             stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
-            fname <- paste0(trace$fun, ".RDS")
-            fname <- next_file_in_row(file.path(dname, fname))
-
+            fname <- next_file_in_row(file.path(dname, "trace.RDS"))
             saveRDS(trace, fname)
-
             fname
         } else {
             NA
@@ -218,12 +241,12 @@ export_traces <- function(traces, output_dir, stats_file, tag=NA) {
             NA
         }
 
-        c(tag, fname, type, error)
+        c(file, fname, type, error)
     }
 
     stats <- lapply(traces, save_trace)
     stats <- matrix(unlist(stats, use.names=FALSE, recursive=FALSE), ncol=4, byrow=TRUE)
-    colnames(stats) <- c("tag", "trace", "type", "error")
+    colnames(stats) <- c("file", "trace", "type", "error")
 
     stats_file_exists <- file.exists(stats_file)
 
@@ -246,75 +269,6 @@ import_traces <- function(filenames) {
     stopifnot(all(file.exists(filenames)))
 
     lapply(filenames, readRDS)
-}
-
-create_tracing_site_file <- function(...) {
-    site_file_code <- create_tracing_preable(...)
-    site_file <- tempfile()
-
-    cat(site_file_code, file=site_file)
-
-    site_file
-}
-
-create_tracing_preable <- function(packages, output_dir, tag="",
-                                   decorator_code, tracer_code,
-                                   debug=getOption("genthat.debug", FALSE),
-                                   discard_traces=FALSE,
-                                   stats_file) {
-
-    stopifnot(is.character(packages) && length(packages) > 0)
-    stopifnot(is.null(output_dir) || is_chr_scalar(output_dir))
-    stopifnot(is_chr_scalar(decorator_code))
-    stopifnot(is_chr_scalar(tracer_code))
-    stopifnot(is_chr_scalar(stats_file))
-
-    log_file <- file.path(
-        output_dir,
-        paste0("genthat-", strftime(Sys.time(), "%Y-%m-%d-%H%M%S"), ".log")
-    )
-
-    paste(c(
-        '## genthat tracing preamble',
-        'options(error=function() { traceback(3); quit(status=1, save="no") })',
-        paste0('options(genthat.debug=', debug, ')'),
-        paste0('options(genthat.log_file="', log_file, '")'),
-        '',
-        # TODO: make invisible and only print details when debug is on
-        paste0('genthat::set_decorator(', decorator_code, ')'),
-        paste0('genthat::set_tracer(', tracer_code, ')'),
-
-        sapply(packages, function(x) paste0('genthat::decorate_environment("', x, '")')),
-        '',
-        # TODO: why is this needed?
-        'library(methods)',
-        '',
-        # the finalizer will trigger exporting traces
-        'reg.finalizer(loadNamespace("genthat"), onexit=TRUE, function(x) {',
-        paste0(
-            '  genthat::export_traces(',
-            '    traces=genthat::copy_traces(genthat::get_tracer()), ',
-            '    output_dir=', ifelse(is.null(output_dir), 'NULL', paste0('"', output_dir, '"')), ', ',
-            '    tag="', tag, '", ',
-            '    stats_file="', stats_file, '"',
-            ')'
-        ),
-        '})',
-        '',
-        ''
-    ), collapse="\n")
-}
-
-#' @export
-#'
-format.genthat_traces <- function(x, ...) {
-    format(as.data.frame(x))
-}
-
-#' @export
-#'
-print.genthat_traces <- function(x, ...) {
-    print(as.data.frame(x))
 }
 
 # TODO: we should have this state in C so it can be accessed in a unified way

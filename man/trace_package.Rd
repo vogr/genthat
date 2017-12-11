@@ -4,9 +4,9 @@
 \alias{trace_package}
 \title{Decorate all functions from given package and runs package code}
 \usage{
-trace_package(pkg, types = c("examples", "tests", "vignettes", "all"),
-  output_dir = ".", filter = NULL, working_dir = tempfile(pattern =
-  "genthat-trace-"), decorator = "onexit", tracer = "set", quiet = TRUE,
+trace_package(pkgs, files_to_run, output_dir = ".", decorator = "onexit",
+  tracer = "set", action = c("export", "generate"),
+  working_dir = tempfile(pattern = "genthat-trace-"), quiet = TRUE,
   lib_paths = NULL)
 }
 \arguments{

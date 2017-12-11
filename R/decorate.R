@@ -206,7 +206,7 @@ set_decorator <- function(decorator) {
 
     options(genthat.decorator=decorator)
 
-    decorator
+    invisible(decorator)
 }
 
 #' @export

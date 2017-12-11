@@ -90,6 +90,7 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         header,
         'test_that("', trace$fun, '", {\n',
         globals,
+        if (nchar(globals) > 0) '\n' else '',
         '\nexpect_equal(', call, ', ', retv, ')\n})'
     )
 
@@ -172,7 +173,11 @@ generate_test_file <- function(trace, output_dir, ...) {
 
     tryCatch({
         code <- generate_test(trace, ...)
-        testfile <- save_test(trace$pkg, trace$fun, code, output_dir)
+
+        pkg <- if (is.null(trace$pkg)) "_NULL_" else trace$pkg
+        fun <- if (is.null(trace$fun)) "_NULL_" else trace$fun
+
+        testfile <- save_test(pkg, fun, code, output_dir)
     }, error=function(e) {
         error <<- e$message
     })

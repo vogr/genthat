@@ -37,19 +37,19 @@ test_that("export_traces work", {
     trace_3 <- create_trace("fun3", error=simpleError("Bad call"))
     trace_4 <- create_trace("fun4", failure=simpleError("Something is wrong"))
 
-    export_traces(list(trace_1), output_dir=output_dir, stats_file=stats_file)
+    export_traces(list(trace_1), file="f", output_dir=output_dir, stats_file=stats_file)
 
     stats <- read_stats_file(stats_file)
     expect_equal(nrow(stats), 1)
-    expect_true(is.na(stats$tag))
-    expect_true(endsWith(stats$trace, "fun1-0.RDS"))
+    expect_equal(stats$file, "f")
+    expect_true(endsWith(stats$trace, file.path("_NULL_", "fun1", "trace-0.RDS")))
     expect_equal(stats$type, "I")
     expect_true(is.na(stats$error))
     rds <- readRDS(stats$trace)
     expect_equal(rds, trace_1)
 
     # this should append
-    export_traces(list(trace_2, trace_3, trace_4), output_dir=output_dir, stats_file=stats_file)
+    export_traces(list(trace_2, trace_3, trace_4), file="f", output_dir=output_dir, stats_file=stats_file)
 
     stats <- read_stats_file(stats_file)
     expect_equal(nrow(stats), 4)
@@ -63,7 +63,7 @@ test_that("export_traces work", {
     expect_equal(rdss[[4]], trace_4)
 
     ## the stats file should not be changed
-    export_traces(list(), output_dir=output_dir, stats_file=stats_file)
+    export_traces(list(), file="f", output_dir=output_dir, stats_file=stats_file)
 
     expect_true(file.exists(stats_file))
     expect_true(file.exists(output_dir))
@@ -73,7 +73,7 @@ test_that("export_traces work", {
     # this should not generate any traces, but it should update the stats_file
     file.remove(stats_file)
 
-    export_traces(list(trace_2, trace_3), output_dir=NULL, stats_file=stats_file)
+    export_traces(list(trace_2, trace_3), file="f", output_dir=NULL, stats_file=stats_file)
     expect_true(file.exists(stats_file))
     stats <- read_stats_file(stats_file)
     expect_equal(stats$trace, c(NA, NA))

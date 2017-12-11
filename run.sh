@@ -4,8 +4,8 @@ set -e
 FORCE=${FORCE:-}
 
 if [ $# -eq 1 ]; then
-    tasks="--run-package --trace --generate --run --coverage"
-#    tasks="--run-package --trace --coverage"
+    tasks="--trace --generate --run --coverage"
+#    tasks="--run-package --trace --generate --run --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
     tasks=""
@@ -80,7 +80,7 @@ function do_trace_task {
 }
 
 function trace_task {
-    #do_trace_task count-entry--sequence --discard-traces
+    do_trace_task count-entry--sequence --discard-traces
     #do_trace_task count-exit--sequence --discard-traces
     #do_trace_task onexit--sequence --discard-traces
     #do_trace_task onexit--set --discard-traces
