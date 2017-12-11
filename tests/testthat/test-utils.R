@@ -1,7 +1,7 @@
 test_that("environment_name_as_code works", {
     expect_equal(environment_name_as_code(globalenv()), ".GlobalEnv")
     expect_equal(environment_name_as_code(baseenv()), ".BaseNamespaceEnv")
-    expect_equal(environment_name_as_code(environment(unzip)), "as.environment(\"utils\")")
+    expect_equal(environment_name_as_code(environment(unzip)), "getNamespace(\"utils\")")
 
     e <- new.env()
     attr(e, "name") <- "x"

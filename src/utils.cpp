@@ -85,7 +85,7 @@ std::string environment_name_as_code(SEXP env) {
     } else {
         std::string name = environment_name(env);
         if (!name.empty()) {
-            return "as.environment(\"" + name + "\")";
+            return "getNamespace(\"" + name + "\")";
         } else {
             return "";
         }
