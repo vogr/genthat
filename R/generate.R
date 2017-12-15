@@ -77,33 +77,39 @@ generate_test <- function(trace, ...) {
 
 #' @export
 generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
-    call <- generate_call(trace)
-    globals <- generate_globals(trace$globals)
-    retv <- serialize_value(trace$retv)
+    tryCatch({
+        call <- generate_call(trace)
+        globals <- generate_globals(trace$globals)
+        retv <- serialize_value(trace$retv)
 
-    header <- "library(testthat)\n\n"
-    if (include_trace_dump) {
-        header <- paste(header, dump_raw_trace(trace), sep="\n")
-    }
+        header <- "library(testthat)\n\n"
+        if (include_trace_dump) {
+            header <- paste(header, dump_raw_trace(trace), sep="\n")
+        }
 
-    code <- paste0(
-        header,
-        'test_that("', trace$fun, '", {\n',
-        globals,
-        if (nchar(globals) > 0) '\n' else '',
-        '\nexpect_equal(', call, ', ', retv, ')\n})'
-    )
+        code <- paste0(
+            header,
+            'test_that("', trace$fun, '", {\n',
+            globals,
+            if (nchar(globals) > 0) '\n' else '',
+            '\nexpect_equal(', call, ', ', retv, ')\n})'
+        )
 
-    if (format_code) {
-        code <- reformat_code(code)
-    }
+        if (format_code) {
+            code <- reformat_code(code)
+        }
 
-    code
+        code
+    }, error=function(e) {
+        # this so we can have a systematic prefix for the error message
+        # which helps to filter problems by their class
+        stop(simpleError(paste("Generate error:", trimws(e$message, which="both")), e$call))
+    })
 }
 
 #' @export
 generate_test.genthat_trace_entry <- function(trace, ...) {
-    stop("Generate error: No return value")
+    stop("Trace error: No return value")
 }
 
 #' @export
@@ -123,7 +129,7 @@ generate_test.genthat_trace_failure <- function(trace, ...) {
 save_test <- function(pkg, fun, code, output_dir) {
     stopifnot(is_chr_scalar(pkg))
     stopifnot(is_chr_scalar(fun))
-    stopifnot(is_chr_scalar(code))
+    stopifnot(is.character(code), length(code) > 0)
     stopifnot(is_chr_scalar(output_dir))
 
     dname <- file.path(output_dir, pkg, fun)
@@ -150,8 +156,6 @@ reformat_code <- function(code) {
         code <- code$text.tidy
 
         paste(code, collapse="\n")
-    }, error=function(e) {
-        warning("Unable to format code: ", code)
         code
     })
 }
@@ -168,48 +172,10 @@ reformat_code <- function(code) {
 #' @export
 #'
 generate_test_file <- function(trace, output_dir, ...) {
-    testfile <- NA
-    error <- NA
+    code <- generate_test(trace, ...)
 
-    tryCatch({
-        code <- generate_test(trace, ...)
+    pkg <- if (is.null(trace$pkg)) "_NULL_" else trace$pkg
+    fun <- if (is.null(trace$fun)) "_NULL_" else trace$fun
 
-        pkg <- if (is.null(trace$pkg)) "_NULL_" else trace$pkg
-        fun <- if (is.null(trace$fun)) "_NULL_" else trace$fun
-
-        testfile <- save_test(pkg, fun, code, output_dir)
-    }, error=function(e) {
-        error <<- e$message
-    })
-
-    tibble::data_frame(
-        test=testfile,
-        error=error
-    )
-}
-
-#' @export
-generate_test_files <- function(tracefiles, output_dir, ...) {
-    generate <- function(tracefile) {
-        tryCatch({
-            trace <- readRDS(tracefile)
-            generate_test_file(trace, output_dir=output_dir)
-        }, error=function(e) {
-            tibble::data_frame(
-                test=NA,
-                error=str_c("Generate error: ", e$message)
-            )
-        })
-    }
-
-    ret <- if (length(tracefiles) == 0) {
-        tibble::data_frame(test=character(), error=character())
-    } else {
-        pbapply::pblapply(tracefiles, generate)
-    }
-
-    ret <- dplyr::bind_rows(ret)
-    ret <- dplyr::mutate(ret, trace=tracefiles)
-    ret <- dplyr::select(ret, trace, everything())
-    ret
+    save_test(pkg, fun, code, output_dir)
 }

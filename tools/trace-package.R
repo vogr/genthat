@@ -11,12 +11,6 @@ suppressPackageStartupMessages(library(readr))
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
-generate_option_list <- list(
-    make_option("--traces", type="character", help="Path to genthat-traces.csv", metavar="PATH"),
-    make_option("--output", type="character", help="Name of the output directory for tests", default=tempfile(file="genthat-tests"), metavar="PATH"),
-    make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
-)
-
 run_option_list <- list(
     make_option("--tests", type="character", help="Path to generated tests", metavar="PATH"),
     make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
@@ -31,10 +25,10 @@ coverage_option_list <- list(
 
 trace_option_list <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
-    make_option("--type", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
+    make_option("--types", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
     make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="genthat-traces"), metavar="PATH"),
     make_option("--config", type="character", help="decorator+tracer", metavar="CONFIG", default="onexit+set"),
-    make_option("--discard-traces", help="Do not save traces", action="store_true", default=FALSE),
+    make_option("--action", type="character", help="action", metavar="ACTION", default="generate"),
     make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -44,31 +38,12 @@ log_debug <- function(...) {
     cat(msg, "\n")
 }
 
-generate_task <- function(traces, output, quiet) {
-    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
-
-    traces <- readr::read_csv(traces, col_types=cols_only(trace="c", type="c"))
-    traces <- dplyr::filter(traces, type=="C")
-    tracefiles <- traces$trace
-
-    if (!quiet) {
-        log_debug("Found ", length(tracefiles), " files")
-    }
-
-    tests <- genthat::generate_test_files(tracefiles, output, quiet)
-    readr::write_csv(tests, file.path(output, "genthat-tests.csv"))
-
-    if (!quiet) {
-        log_debug("Generated ", nrow(tests), " tests")
-    }
-}
-
 run_task <- function(tests, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
-    tests <- readr::read_csv(tests, col_types=cols_only(test="c"))
-    tests <- dplyr::filter(tests, !is.na(test))
-    testfiles <- tests$test
+    tests <- readr::read_csv(tests, col_types=cols_only(output="c"))
+    tests <- dplyr::filter(tests, endsWith(output, ".R"))
+    testfiles <- tests$output
 
     if (!quiet) {
         log_debug("Found ", length(testfiles), " files")
@@ -90,15 +65,10 @@ coverage_task <- function(package, output, quiet) {
     saveRDS(res, file.path(output, "covr.RDS"))
 }
 
-trace_task <- function(package, config, type, output, discard_traces, debug, quiet) {
-    if (!discard_traces) {
-        stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
-    } else {
-        output_dir <- NULL
-    }
+trace_task <- function(package, config, types, output, action, debug, quiet) {
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
-    # TODO: sync type vs types
-    type <- match.arg(type, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
+    types <- match.arg(types, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
 
     config <- str_split_fixed(config, "--", n=2)
     stopifnot(nrow(config) == 1)
@@ -119,17 +89,18 @@ trace_task <- function(package, config, type, output, discard_traces, debug, qui
     # TODO: move to the main
     options(genthat.debug=debug)
 
-    res <- genthat::trace_package(
+    res <- genthat::gen_from_package(
         package,
-        type=type,
-        output=output,
+        types=types,
+        output_dir=output,
+        action=action,
         decorator=decorator,
         tracer=tracer,
         working_dir=working_dir,
         quiet=quiet
     )
 
-    readr::write_csv(res, file.path(output, "genthat-traces.csv"))
+    readr::write_csv(res, file.path(output, "genthat-tracing.csv"))
 }
 
 main <- function(args) {

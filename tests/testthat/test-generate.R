@@ -17,8 +17,17 @@ test_that("format_calling_args", {
 })
 
 test_that("generate_test", {
-    trace <- create_trace(fun="f", pkg=NULL, args=list("1"), retv="1")
-    ## expect_equal(generate_test_code(trace), "test_that(\"f\", {\n\texpect_equal(f(\"1\"), \"1\")\n})")
+    tmp <- tempfile()
+    on.exit(unlink(tmp, recursive=TRUE))
+
+    t1 <- create_trace(fun="c", pkg=NULL, args=list("1"), retv="1")
+    expect_equal(generate_test_file(t1, tmp), file.path(tmp, "_NULL_", "c", "test-0.R"))
+
+    t2 <- create_trace(fun="c", pkg=NULL, args=list("1"))
+    expect_error(generate_test_file(t2, tmp), "Trace error: No return value")
+
+    t3 <- create_trace(fun="c", pkg=NULL, failure=simpleError("Ups!"))
+    expect_error(generate_test_file(t3, tmp), "Trace error: Ups!")
 })
 
 test_that("generate_call supports infix functions for base package", {
@@ -29,25 +38,6 @@ test_that("generate_call supports infix functions for base package", {
 test_that("generate_call supports infix functions for others", {
     trace <- create_trace("%in%", pkg="mypkg", args=list(x=1, table=c(1, 2)), retv=TRUE)
     expect_equal(generate_call(trace), "mypkg:::`%in%`(x=1, table=c(1, 2))")
-})
-
-test_that("generate_test_file", {
-    traces <- list(
-        create_trace(fun="f1", pkg="p", args=list(x=1, y=2), retv=3),
-        create_trace(fun="f2", pkg="p", args=list(x=1, y=2)),
-        create_trace(fun="f3", pkg="p", args=list(x=1, y=2), error=simpleError("An error")),
-        create_trace(fun="f4", pkg="p", args=list(x=1, y=2), failure=simpleError("A failure"))
-    )
-
-    output_dir <- tempfile()
-    on.exit(unlink(output_dir, recursive=TRUE))
-
-    tests <- purrr::map_dfr(traces, generate_test_file, output_dir=output_dir)
-
-    expect_equal(nrow(tests), 4)
-    expect_equal(is.na(tests$test), c(FALSE, TRUE, TRUE, TRUE))
-    expect_equal(tests$error, c(NA, "Generate error: No return value", "Code error: An error", "Trace error: A failure"))
-
 })
 
 test_that("generate escapes global non-syntactic names", {

@@ -20,61 +20,74 @@ test_that("tracing control work", {
     expect_equal(capture$retv, 3L)
 })
 
-test_that("export_traces work", {
-    stats_file <- tempfile()
-    output_dir <- tempfile()
+test_that("process_traces with export action work", {
+    tmp <- tempfile()
 
     on.exit({
-        file.remove(stats_file)
-        unlink(output_dir, recursive=TRUE)
+        unlink(tmp, recursive=TRUE)
     })
 
-    expect_false(file.exists(stats_file))
-    expect_false(dir.exists(output_dir))
+    expect_false(dir.exists(tmp))
 
     trace_1 <- create_trace("fun1")
     trace_2 <- create_trace("fun2", retv=1)
     trace_3 <- create_trace("fun3", error=simpleError("Bad call"))
     trace_4 <- create_trace("fun4", failure=simpleError("Something is wrong"))
 
-    export_traces(list(trace_1), file="f", output_dir=output_dir, stats_file=stats_file)
+    ret <- process_traces(list(trace_1, trace_2, trace_3, trace_4), output_dir=tmp, action="export")
 
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 1)
-    expect_equal(stats$file, "f")
-    expect_true(endsWith(stats$trace, file.path("_NULL_", "fun1", "trace-0.RDS")))
-    expect_equal(stats$type, "I")
-    expect_true(is.na(stats$error))
-    rds <- readRDS(stats$trace)
-    expect_equal(rds, trace_1)
+    expect_equal(nrow(ret), 4)
 
-    # this should append
-    export_traces(list(trace_2, trace_3, trace_4), file="f", output_dir=output_dir, stats_file=stats_file)
+    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "trace-0.RDS"))
+    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "trace-0.RDS"))
+    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "trace-0.RDS"))
+    expect_equivalent(ret[4, 1], NA_character_)
 
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 4)
-    expect_equal(stats$type, c("I", "C", "E", "F"))
-    expect_equal(stats$error, c(NA, NA, NA, "Something is wrong"))
-    rdss <- lapply(stats$trace, readRDS)
-    expect_length(rdss, 4)
-    expect_equal(rdss[[1]], trace_1)
-    expect_equal(rdss[[2]], trace_2)
-    expect_equal(rdss[[3]], trace_3)
-    expect_equal(rdss[[4]], trace_4)
+    expect_equivalent(ret[, 2], c(NA, NA, NA, "Something is wrong"))
 
-    ## the stats file should not be changed
-    export_traces(list(), file="f", output_dir=output_dir, stats_file=stats_file)
+    rdss <- lapply(ret[1:3, 1], readRDS)
+    expect_equal(rdss, list(trace_1, trace_2, trace_3))
 
-    expect_true(file.exists(stats_file))
-    expect_true(file.exists(output_dir))
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 4)
+    # test with empty input
+    ret <- process_traces(list(), output_dir=tmp, action="export")
+    expect_equal(dim(ret), c(0, 2))
+})
 
-    # this should not generate any traces, but it should update the stats_file
-    file.remove(stats_file)
+test_that("process_traces with generate action work", {
 
-    export_traces(list(trace_2, trace_3), file="f", output_dir=NULL, stats_file=stats_file)
-    expect_true(file.exists(stats_file))
-    stats <- read_stats_file(stats_file)
-    expect_equal(stats$trace, c(NA, NA))
+    tmp <- tempfile()
+
+    on.exit({
+        unlink(tmp, recursive=TRUE)
+    })
+
+    expect_false(dir.exists(tmp))
+
+    trace_1 <- create_trace("fun1")
+    trace_2 <- create_trace("fun2", retv=1)
+    trace_3 <- create_trace("fun3", error=simpleError("Bad call"))
+    trace_4 <- create_trace("fun4", failure=simpleError("Something is wrong"))
+
+    ret <- process_traces(list(trace_1, trace_2, trace_3, trace_4), output_dir=tmp, action="generate")
+
+    expect_equal(nrow(ret), 4)
+
+    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "failed-trace-0.RDS"))
+    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "test-0.R"))
+    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "failed-trace-0.RDS"))
+    expect_equivalent(ret[4, 1], file.path(tmp, "_NULL_", "fun4", "failed-trace-0.RDS"))
+
+    expect_equivalent(ret[, 2], c(
+        "Trace error: No return value",
+        NA,
+        "Code error: Bad call",
+        "Trace error: Something is wrong"
+    ))
+
+    rdss <- lapply(ret[c(1,3,4), 1], readRDS)
+    expect_equal(rdss, list(trace_1, trace_3, trace_4))
+
+    # test with empty input
+    ret <- process_traces(list(), output_dir=tmp, action="generate")
+    expect_equal(dim(ret), c(0, 2))
 })

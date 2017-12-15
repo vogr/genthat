@@ -4,7 +4,6 @@ options(error = function() {
 })
 
 options(genthat.debug=as.logical(Sys.getenv("GENTHAT_DEBUG", "FALSE")))
-options(genthat.log_file=Sys.getenv("GENTHAT_LOG_FILE"))
 
 genthat::set_decorator(genthat::create_decorator(Sys.getenv("GENTHAT_DECORATOR")))
 
@@ -29,15 +28,26 @@ reg.finalizer(
     e=loadNamespace("genthat"),
     onexit=TRUE,
     f=function(x) {
-        if (Sys.getenv("GENTHAT_ACTION") == "export") {
-            genthat::export_traces(
-                traces=genthat::copy_traces(genthat::get_tracer()),
-                file=Sys.getenv("GENTHAT_CURRENT_FILE"),
-                output_dir=Sys.getenv("GENTHAT_OUTPUT_DIR"),
-                stats_file=Sys.getenv("GENTHAT_STATS_FILE")
-            )
-        } else {
-            stop("Unknown action: ", Sys.getenv("GENTHAT_ACTION"))
-        }
+        ret <- genthat::process_traces(
+            traces=genthat::copy_traces(genthat::get_tracer()),
+            output_dir=Sys.getenv("GENTHAT_OUTPUT_DIR"),
+            action=Sys.getenv("GENTHAT_ACTION")
+        )
+
+        stats_file <- Sys.getenv("GENTHAT_STATS_FILE")
+
+        # this is important since some tracing might spawn extra instances
+        # of R in which case we want to keep all the traces together
+        stats_file_exists <- file.exists(stats_file)
+
+        write.table(
+            ret,
+            file=stats_file,
+            row.names=FALSE,
+            col.names=!stats_file_exists,
+            append=stats_file_exists,
+            qmethod="double",
+            sep=","
+        )
     }
 )

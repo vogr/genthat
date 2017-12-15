@@ -4,8 +4,8 @@ set -e
 FORCE=${FORCE:-}
 
 if [ $# -eq 1 ]; then
-    tasks="--trace --generate --run --coverage"
-#    tasks="--run-package --trace --generate --run --coverage"
+    tasks="--trace --run"
+#    tasks="--run-package --trace --run --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
     tasks=""
@@ -80,12 +80,12 @@ function do_trace_task {
 }
 
 function trace_task {
-    do_trace_task count-entry--sequence --discard-traces
-    #do_trace_task count-exit--sequence --discard-traces
-    #do_trace_task onexit--sequence --discard-traces
-    #do_trace_task onexit--set --discard-traces
-    #do_trace_task on.exit--sequence --discard-traces
-    do_trace_task on.exit--set
+    #do_trace_task count-entry--sequence --action stats
+    #do_trace_task count-exit--sequence --action stats
+    #do_trace_task onexit--sequence --action stats
+    #do_trace_task onexit--set --action stats
+    #do_trace_task on.exit--sequence --action stats
+    do_trace_task on.exit--set --action generate
 }
 
 function run_package_task {
@@ -99,20 +99,11 @@ function run_package_task {
         ::: all
 }
 
-function generate_task {
-    do_run_task \
-        "generate" \
-        ./tools/trace-package.R generate \
-        --traces "$output_base/trace-on.exit--set/output/{1}/genthat-traces.csv" \
-        --output "$output_base/generate/output/{1}" \
-        ::: all
-}
-
 function run_task {
     do_run_task \
         "run" \
         ./tools/trace-package.R run \
-        --tests "$output_base/generate/output/{1}/genthat-tests.csv" \
+        --tests "$output_base/trace-on.exit--set/output/{1}/genthat-tracing.csv" \
         --output "$output_base/run/output/{1}" \
         ::: all
 }

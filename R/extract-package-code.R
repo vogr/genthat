@@ -57,7 +57,7 @@ extract_package_examples <- function(pkg, pkg_dir, output_dir) {
         tools::Rd2ex(db[[x]], f, defines=NULL)
 
         if (!file.exists(f)) {
-            if (!quiet) {
+            if (is_debug_enabled()) {
                 log_debug("Rd file `", x, "' does not contain any code to be run")
             }
             NA

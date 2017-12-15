@@ -264,6 +264,53 @@ test_that("external function serialization", {
     expect_true(is.closure(serialize(testthat::test_file)))
 })
 
+test_that("S4SXP serialization", {
+
+    setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
+    p1 <- new("Person", name="Joe", age=31)
+    p2 <- new("Person", name="Joe")
+
+    # new(getClass("Person", where="..."))
+})
+
+test_that("S4SXP serialization", {
+
+    # serialize classes
+    # serialize methods
+    # serialize objects
+
+    setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
+    p1 <- new("Person", name="Joe", age=31)
+    p2 <- new("Person", name="Joe")
+
+    sides <- function(object) 0
+    setGeneric("sides")
+
+    setGeneric("sides", function(object) {
+        standardGeneric("sides")
+    })
+
+    setClass("Shape")
+    setClass("Polygon", representation(sides = "integer"), contains = "Shape")
+    setClass("Triangle", contains = "Polygon")
+    setClass("Square", contains = "Polygon")
+    setClass("Circle", contains = "Shape")
+
+    setMethod("sides", signature(object = "Polygon"), function(object) {
+        object@sides
+    })
+
+    setMethod("sides", signature("Triangle"), function(object) 3)
+    setMethod("sides", signature("Square"),   function(object) 4)
+    setMethod("sides", signature("Circle"),   function(object) Inf)
+
+    setGeneric("sides", valueClass = "numeric", function(object) {
+        standardGeneric("sides")
+    })
+
+})
+
+
 ## test_that("", {
 ##     f <- function(a, b, c) a * b * c
 ##     attr(f, "genthat_extracted_closure") <- TRUE
