@@ -369,7 +369,17 @@ public:
         }
         case LANGSXP: {
             RObject protected_s(s);
-            string fun = string(CHAR(PRINTNAME(CAR(s))));
+            SEXP name = CAR(s);
+            string fun;
+
+            if (TYPEOF(name) == SYMSXP) {
+                fun = string(CHAR(PRINTNAME(name)));
+            } else if (TYPEOF(name) == LANGSXP) {
+                fun = serialize(name, false);
+            } else {
+                throw serialization_error("Unknown CAR(x: LANGSXP): " + TYPEOF(name));
+            }
+
             string res;
             s = CDR(s);
 
@@ -377,7 +387,6 @@ public:
                 SEXP rhs = CAR(s);
 
                 res = fun + serialize(rhs, false);
-
             } else if (is_infix_fun(fun)) {
                 SEXP lhs = CAR(s);
                 SEXP rhs = CADR(s);
@@ -416,7 +425,12 @@ public:
                 res = "(" + args + ")";
             } else {
                 string args = format_arguments(s);
-                res = escape_name(fun) + "(" + args + ")";
+
+                if (TYPEOF(name) == SYMSXP) {
+                    fun = escape_name(fun);
+                }
+
+                res = fun + "(" + args + ")";
             }
 
             return res;

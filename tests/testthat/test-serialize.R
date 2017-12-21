@@ -103,6 +103,11 @@ test_that("function serialization with a quote", {
     expect_equal(v, 'my_call("0", "1", a=quote(my_fun), b=my_fun(a="1", b=ref))')
 })
 
+test_that("LANGSXP serialization works with anonymous functions", {
+    v <- serialize_code((function(x)x+1)(1))
+    expect_equal(v, "(function(x) x + 1)(1)")
+})
+
 test_that("environment serialization", {
     e <- new.env(parent=emptyenv())
     e$a <- 1
