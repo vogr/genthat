@@ -1,6 +1,6 @@
 #' @export
 #'
-create_decorator <- function(method="onexit") {
+create_decorator <- function(method="on.exit") {
     fun <- if (is.character(method)) {
         method <- match.arg(arg=method, choices=c("onentry", "onexit", "on.exit", "onboth", "trycatch", "count-entry", "count-exit", "noop"), several.ok=FALSE)
 
