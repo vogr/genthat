@@ -19,6 +19,7 @@ run_r_script <- function(script_file,
                          site_file=NULL, env=c(), quiet=TRUE, lib_paths=NULL) {
 
     stopifnot(file.exists(script_file))
+    script_file <- normalizePath(script_file, mustWork=TRUE)
     stopifnot(is.null(lib_paths) || all(dir.exists(lib_paths)))
 
     if (is.null(lib_paths)) {

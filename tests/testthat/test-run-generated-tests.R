@@ -48,7 +48,8 @@ test_that("test no tests", {
     x <- run_generated_code("test_that('x', 1+1)")
 
     expect_equal(x$test, "x")
-    expect_equal(x$nb, 0)
+    # it sets skipped
+    expect_equal(x$nb, 1)
     expect_equal(x$failed, 0)
     expect_false(x$error)
     expect_equal(x$warning, 0)

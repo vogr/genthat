@@ -232,6 +232,7 @@ resolve_decorating_fun_args <- function(..., in_env=parent.frame()) {
         names <- dots[[1]]
         funs <- lapply(names, resolve_function, in_env=in_env)
     } else {
+        # TODO: allow fqn 
         xs <- substitute(list(...))[-1]
         xs <- sapply(xs, deparse)
         names <- lapply(zip(v=dots, s=xs), function(x) {

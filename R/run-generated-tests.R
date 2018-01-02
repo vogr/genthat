@@ -4,7 +4,11 @@ run_generated_test <- function(testfile, quiet=TRUE) {
     stopifnot(file.exists(testfile))
 
     tryCatch({
-        output <- testthat:::capture_output(res <- testthat::test_file(testfile), print=!quiet)
+        if (!quiet) {
+            cat("Running ", testfile, "\n")
+        }
+
+        output <- testthat:::capture_output(res <- testthat::test_file(testfile, reporter="summary"), print=!quiet)
 
         if (length(res) == 0) {
             stop("testthat::test_file result was empty")

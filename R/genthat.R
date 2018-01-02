@@ -105,7 +105,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
 # TODO: sync names usage pkg ~ package
 trace_package <- function(pkgs, files_to_run,
                           output_dir=".",
-                          decorator="onexit", tracer="set",
+                          decorator="on.exit", tracer="set",
                           action=c("stats", "export", "generate"),
                           working_dir=tempfile(pattern="genthat-trace-"),
                           quiet=TRUE, lib_paths=NULL) {

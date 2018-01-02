@@ -2,13 +2,11 @@ library(dplyr)
 library(testthat)
 library(genthat)
 
-package <- "doSNOW"
+package <- "BH"
 
-tracing <- trace_package(package, "all", decorator="on.exit", tracer="seq", output_dir="tmp")
-
-tracing2 <- trace_package(package, "all", decorator="count-exit", tracer="seq", output_dir="tmp")
-
-tracing3 <- trace_package(package, "all", decorator="count-entry", tracer="seq", output_dir="tmp")
+tracing <- gen_from_package(
+    package, types="examples", decorator="on.exit", tracer="set", output_dir="tmp", action="generate"
+)
 
 n_traces <- sum(tracing$n_complete)
 message("We have ", n_traces, " traces to work with")

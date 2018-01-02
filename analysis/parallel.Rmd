@@ -32,7 +32,7 @@ read_parallel_log <- function(package, fname) {
 }
 
 read_parallel_logs <- function(task_name) {
-  load_file_from_packages(file.path(task_name, "parallel.log"), read_parallel_log)
+  load_file_from_packages(file.path(task_name, "parallel.log"), read_parallel_log, from=all_packages)
 }
 ```
 
@@ -87,7 +87,7 @@ prod_run_package_log %>%
 ### Running a package with genthat
 
 ```{r load trace parallel log}
-trace_log <- read_parallel_logs("trace") %>%
+trace_log <- read_parallel_logs("trace-on.exit--set") %>%
   mutate(
     config=str_replace(command, ".* --config ([^ ]+) .*", "\\1"),
     decorator=str_replace(config, "(.*)--(.*)", "\\1"),
