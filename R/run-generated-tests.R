@@ -38,6 +38,20 @@ run_generated_test <- function(testfile, quiet=TRUE) {
 
 #' @export
 run_generated_tests <- function(testfiles, quiet=TRUE) {
+    if (is.null(testfiles) || length(testfiles) == 0) {
+        return(data_frame(
+            file=character(),
+            test=character(),
+            nb=integer(),
+            failed=integer(),
+            error=logical(),
+            warning=integer(),
+            elapsed=numeric(),
+            run_error=character(),
+            output=character()
+        ))
+    }
+
     runs <- pbapply::pblapply(testfiles, run_generated_test)
     dplyr::bind_rows(runs)
 }
