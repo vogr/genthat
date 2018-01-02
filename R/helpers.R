@@ -173,6 +173,11 @@ is.closure <- function(f) {
     typeof(f) == "closure"
 }
 
+#' @importFrom method is
+is.formula <- function(f) {
+    is.language(f) && is(f, "formula")
+}
+
 is.local_closure <- function(f) {
     is.closure(f) && is.null(get_package_name(environment(f)))
 }

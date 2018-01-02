@@ -217,11 +217,33 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
             # mark variables as visited so the consecutive serialization will not consider them
             .visited <- reduce(names(vars), function(b, x) b <- bag_add(b, x, env), init=.visited)
 
+            # resolve free variables from composed structures
+            # look for language objects in lists, pairlists and environments
+            nested_langs_candidates <- filter(vars, function(x) is.list(x) || is.pairlist(x) || is.environment(x))
+            nested_langs <- lapply(nested_langs_candidates, function(x) {
+                if (is.environment(x)) x <- as.list(x)
+
+                filter(x, function(y) is.language(y) && !is.formula(y))
+            })
+            nested_langs <- unlist(nested_langs, use.names=FALSE, recursive=FALSE)
+
+            if (length(nested_langs) > 0) {
+                nested_langs_globals <- lapply(nested_langs, function(x) {
+                    call <- as.function(c(alist(), as.call(x)), env=env)
+                    call_extracted <- extract_closure(call, .visited)
+                    as.list(environment(call_extracted))
+                })
+                nested_langs_globals <- unlist(nested_langs_globals, use.names=TRUE, recursive=FALSE)
+            } else {
+                nested_langs_globals <- c()
+            }
+
             # now we can process functions
             funs <- zip(name=names(funs), val=funs)
             funs <- lapply(funs, function(x) extract_closure(x$val, x$name, .visited))
 
-            globals <- c(vars, funs)
+            globals <- c(vars, nested_langs_globals, funs)
+
             new_env <-
                 if (length(globals) == 0) {
                     new.env(parent=baseenv())

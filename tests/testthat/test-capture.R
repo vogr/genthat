@@ -407,3 +407,48 @@ test_that("get_symbol_value can handle evaluated ..N", {
      expect_equal(traces[[1]]$args, list(100L))
      expect_length(traces[[1]]$globals, 0L)
 })
+
+test_that("captures nested language objects' global variable", {
+    tracer <- create_sequence_tracer()
+
+    a <- 0
+    b <- 1
+    arg1 <- list(n=quote(a + b + 1), m=1)
+
+    f <- function(x, y) list(x, y)
+
+    record_trace("f", args=list(x=quote(arg1), y=quote(b + 1)), tracer=tracer)
+    t <- get_trace(tracer, 1L)
+
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(x=quote(arg1), y=quote(b + 1)))
+    expect_equal(length(t$globals), 3)
+    expect_equal(t$globals$a, 0)
+    expect_equal(t$globals$b, 1)
+    expect_equal(t$globals$arg1, arg1)
+})
+
+test_that("captures nested language objects' global variables", {
+    tracer <- create_sequence_tracer()
+
+    a <- 1
+    b <- 2
+    c <- 3
+    arg1 <- list(n=quote(a + b), m=quote(b + a))
+    arg2 <- list(n=quote(list(a + c)), m=quote(1))
+
+    f <- function(x, y, z) list(x, y, z)
+
+    record_trace("f", args=list(x=quote(arg1), y=quote(arg2), z=quote(a)), tracer=tracer)
+
+    t <- get_trace(tracer, 1L)
+
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(x=quote(arg1), y=quote(arg2), z=quote(a)))
+    expect_equal(length(t$globals), 5)
+    expect_equal(t$globals$a, 1)
+    expect_equal(t$globals$b, 2)
+    expect_equal(t$globals$c, 3)
+    expect_equal(t$globals$arg1, arg1)
+    expect_equal(t$globals$arg2, arg2)
+})
