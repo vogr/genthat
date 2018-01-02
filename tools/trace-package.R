@@ -9,6 +9,8 @@ suppressPackageStartupMessages(library(genthat))
 suppressPackageStartupMessages(library(pbapply))
 suppressPackageStartupMessages(library(readr))
 
+pboptions(type="none")
+
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
 run_option_list <- list(
@@ -19,6 +21,7 @@ run_option_list <- list(
 
 coverage_option_list <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
+    make_option("--types", type="character", help="Type of code to run (exeamples, tests, vignettes)", metavar="TYPE"),
     make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -59,9 +62,9 @@ run_task <- function(tests, output, quiet) {
     }
 }
 
-coverage_task <- function(package, output, quiet) {
+coverage_task <- function(package, types, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
-    res <- covr::package_coverage(path=file.path("~/CRAN/extr", package), type="all", quiet=quiet)
+    res <- covr::package_coverage(path=file.path("~/CRAN", package), type=types, quiet=quiet)
     saveRDS(res, file.path(output, "covr.RDS"))
 }
 

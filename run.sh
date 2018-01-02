@@ -4,8 +4,8 @@ set -e
 FORCE=${FORCE:-}
 
 if [ $# -eq 1 ]; then
-    tasks="--trace --run"
-#    tasks="--run-package --trace --run --coverage"
+#    tasks="--coverage"
+    tasks="--trace --run --run-package --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
     tasks=""
@@ -80,11 +80,11 @@ function do_trace_task {
 }
 
 function trace_task {
-    #do_trace_task count-entry--sequence --action stats
+    do_trace_task count-entry--sequence --action stats
     #do_trace_task count-exit--sequence --action stats
     #do_trace_task onexit--sequence --action stats
     #do_trace_task onexit--set --action stats
-    #do_trace_task on.exit--sequence --action stats
+    do_trace_task on.exit--sequence --action stats
     do_trace_task on.exit--set --action generate
 }
 
@@ -113,8 +113,9 @@ function coverage_task {
         "coverage" \
         ./tools/trace-package.R coverage \
         --package "$package" \
+        --types "{1}" \
         --output "$output_base/coverage/output/{1}" \
-        ::: all
+        ::: all tests
 }
 
 for t in $(echo "$tasks"); do
