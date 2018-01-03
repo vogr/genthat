@@ -38,9 +38,9 @@ test_that("process_traces with export action work", {
 
     expect_equal(nrow(ret), 4)
 
-    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "trace-0.RDS"))
-    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "trace-0.RDS"))
-    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "trace-0.RDS"))
+    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "trace-1.RDS"))
+    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "trace-1.RDS"))
+    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "trace-1.RDS"))
     expect_equivalent(ret[4, 1], NA_character_)
 
     expect_equivalent(ret[, 2], c(NA, NA, NA, "Something is wrong"))
@@ -72,10 +72,10 @@ test_that("process_traces with generate action work", {
 
     expect_equal(nrow(ret), 4)
 
-    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "failed-trace-0.RDS"))
-    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "test-0.R"))
-    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "failed-trace-0.RDS"))
-    expect_equivalent(ret[4, 1], file.path(tmp, "_NULL_", "fun4", "failed-trace-0.RDS"))
+    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "failed-trace-1.RDS"))
+    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "test-1.R"))
+    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "failed-trace-1.RDS"))
+    expect_equivalent(ret[4, 1], file.path(tmp, "_NULL_", "fun4", "failed-trace-1.RDS"))
 
     expect_equivalent(ret[, 2], c(
         "Trace error: No return value",
@@ -90,4 +90,10 @@ test_that("process_traces with generate action work", {
     # test with empty input
     ret <- process_traces(list(), output_dir=tmp, action="generate")
     expect_equal(dim(ret), c(0, 2))
+})
+
+test_that("pruning works", {
+    with_mock(
+
+    )
 })

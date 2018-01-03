@@ -40,8 +40,33 @@ trace_from_source_package <- function(path, quiet=TRUE, ...) {
 #'
 gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
                              types=c("examples", "tests", "vignettes", "all"),
+                             action=c("stats", "export", "generate"),
                              filter=NULL,
+                             prune_tests=FALSE,
+                             quiet=TRUE,
                              ...) {
+
+    if (prune_tests) {
+        if (action != "generate") {
+            stop("Test pruning only works with generate action")
+        }
+
+        if (length(pkgs_to_trace) != 1) {
+            stop("Test pruning only works for single packages")
+        }
+
+        pkg_src <- file.path(getOption("genthat.source_paths"), pkgs_to_trace)
+        log_debug("Looking for package sources in ", paste(pkg_src, split=", "))
+
+        pkg_src <- pkg_src[file.exists(pkg_src)]
+
+        if (length(pkg_src) == 0) {
+            stop("Unable to find package source in ", paste(getOption("genthat.source_paths"), split=", "))
+        }
+
+        pkg_src <- pkg_src[1]
+        log_debug("Found package sources in ", pkg_src)
+    }
 
     working_dir <- tempfile(pattern="genthat-gen_from_package")
     files <- lapply(pkgs_to_run, extract_package_code, types=types, output_dir=working_dir, filter=filter)
@@ -51,14 +76,16 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
         return(data.frame(file=character(), output=character(),  error=character()))
     }
 
-    ret <- trace_package(
+    tracing <- trace_package(
         pkgs=pkgs_to_trace,
         files_to_run=files,
+        action=action,
+        quiet=quiet,
         ...
     )
 
-    ret <- lapply(1:length(ret), function(i) {
-        x <- ret[[i]]
+    tracing <- lapply(1:length(tracing), function(i) {
+        x <- tracing[[i]]
 
         if (length(x) == 1 && (is.numeric(x) || is.character(x))) {
             error <- if (is.character(x)) {
@@ -86,9 +113,98 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
         x
     })
 
-    ret <- do.call(rbind, ret)
-    row.names(ret) <- NULL
-    ret
+    # DF(test, output, error)
+    tracing <- do.call(rbind, tracing)
+    row.names(tracing) <- NULL
+
+    if (action == "generate") {
+        output <- tracing$output[is.na(tracing$error)]
+        log_debug("Generated ", length(output), "/", nrow(tracing), " tests")
+
+        if (length(output) == 0) {
+            return(data.frame(output=character(), file=character(), coverage=double(), error=character()))
+        }
+
+        if (prune_tests) {
+            output_size <- file.size(output)
+            output <- output[order(output_size)]
+            runs <- compute_tests_coverage(pkg_src, output, quiet=quiet)
+            coverage <- runs
+            attr(coverage, "errors") <- NULL
+            attr(coverage, "elapsed") <- NULL
+            elapsed <- attr(runs, "elapsed")
+
+            log_debug("Ran ", sum(!is.na(runs)), "/", length(runs)," tests ", max(coverage, na.rm=TRUE), "% coverage")
+        } else {
+            runs <- run_generated_tests(output, quiet=quiet)
+            elapsed <- runs
+            attr(elapsed, "errors") <- NULL
+            coverage <- NA
+
+            log_debug("Ran ", sum(!is.na(runs)), "/", length(runs), " tests")
+        }
+
+        result <- data.frame(
+            order=1:length(output),
+            output=output,
+            coverage=coverage,
+            elapsed=elapsed,
+            error=attr(runs, "errors"),
+            row.names=NULL,
+            stringsAsFactors=FALSE
+        )
+
+        result <- merge(tracing, result, by="output", all=TRUE)
+        result$error <- ifelse(is.na(result$error.x), result$error.y, result$error.x)
+        result$error.x <- NULL
+        result$error.y <- NULL
+
+        if (prune_tests) {
+            # select unique tests based on their size
+            # TODO: try to rewrite using base package
+            result <-
+                dplyr::arrange(result, coverage) %>%
+                dplyr::group_by(result, coverage) %>%
+                dplyr::top_n(1, -order) %>%
+                dplyr::ungroup()
+        }
+
+        # TODO: try to rewrite using base package
+        errors <-
+            dplyr::filter(result, !is.na(error)) %>%
+            dplyr::select(file, output, error)
+        result <-
+            dplyr::filter(result, is.na(error)) %>%
+            dplyr::select(file, output, elapsed, coverage)
+
+        if (!getOption("genthat.keep_failed_tests", FALSE)) {
+            # remove the duplicated tests and empty test directories
+            to_remove <- output[!(output %in% result$output)]
+            to_check_dirs <- unique(dirname(to_remove))
+
+            # remove from errors
+            errors <- mutate(errors, output=ifelse(output %in% to_remove, NA, output))
+
+            if (length(to_remove) > 0) {
+                log_debug("Removing ", length(to_remove), " tests")
+            }
+
+            file.remove(to_remove)
+            to_remove <- filter(to_check_dirs, function(x) {
+                length(list.files(x)) == 0
+            })
+
+            if (length(to_remove) > 0) {
+                log_debug("Removing ", length(to_remove), " empty test directories")
+            }
+            file.remove(to_remove)
+        }
+
+        attr(result, "errors") <- errors
+        result
+    } else {
+        tracing
+    }
 }
 
 #' @title Decorate all functions from given package and runs package code
@@ -208,6 +324,7 @@ save_trace_file <- function(trace, output_dir, name) {
 generate_action <- function(trace, output_dir, save_failed_trace=TRUE) {
     tryCatch({
         testfile <- generate_test_file(trace, output_dir)
+        log_debug("Saving trace into ", testfile)
         error <- NA
 
         c("testfile"=testfile, "error"=error)

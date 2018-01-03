@@ -1,61 +1,45 @@
-#' @export
-#'
-run_generated_test <- function(testfile, quiet=TRUE) {
-    stopifnot(file.exists(testfile))
+run_generated_test <- function(test, quiet=TRUE) {
+    stopifnot(file.exists(test))
 
     tryCatch({
         if (!quiet) {
-            cat("Running ", testfile, "\n")
+            cat("Running ", test, "... ")
         }
 
-        output <- testthat:::capture_output(res <- testthat::test_file(testfile, reporter="summary"), print=!quiet)
+        time <- stopwatch(res <- testthat::test_file(test, reporter="stop", wrap=FALSE))
 
         if (length(res) == 0) {
             stop("testthat::test_file result was empty")
         }
 
-        res <- tibble::as_data_frame(res)
+        time <- as.numeric(time, units="secs")
 
-        output <- if (res$nb == 1 && res$failed == 0 && res$error == FALSE) {
-            NA
-        } else {
-            output
+        if (!quiet) {
+            cat("OK (", time, " sec)")
         }
 
-        res <- dplyr::mutate(res, file=testfile, run_error=NA, elapsed=real, output=output)
-        res <- dplyr::select(res, -skipped, -user, -system, -real)
-        res
+        time
     }, error=function(e) {
-        tibble::data_frame(
-            file=testfile,
-            test=NA,
-            nb=NA,
-            failed=NA,
-            error=NA,
-            warning=NA,
-            elapsed=NA,
-            run_error=e$message,
-            output=NA
-        )
+        if (!quiet) {
+            cat("FAILED")
+        }
+
+        as_chr_scalar(e$message)
     })
 }
 
 #' @export
-run_generated_tests <- function(testfiles, quiet=TRUE) {
-    if (is.null(testfiles) || length(testfiles) == 0) {
-        return(data_frame(
-            file=character(),
-            test=character(),
-            nb=integer(),
-            failed=integer(),
-            error=logical(),
-            warning=integer(),
-            elapsed=numeric(),
-            run_error=character(),
-            output=character()
-        ))
+run_generated_tests <- function(tests, quiet=TRUE) {
+    if (length(tests) == 0) {
+        return(numeric())
     }
 
-    runs <- pbapply::pblapply(testfiles, run_generated_test)
-    dplyr::bind_rows(runs)
+    result <- pbapply::pblapply(tests, run_generated_test, quiet=quiet)
+    names(result) <- tests
+
+    elapsed <- sapply(result, function(x) if (is.numeric(x)) x else NA)
+    errors <- sapply(result, function(x) if (is.character(x)) x else NA)
+
+    attr(elapsed, "errors") <- errors
+    elapsed
 }

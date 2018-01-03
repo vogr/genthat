@@ -18,7 +18,7 @@ test_that("trace_package works on a single file from sample package", {
         expect_equal(length(ret), 1)
         expect_equal(names(ret), f1)
 
-        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-0.RDS"))
+        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-1.RDS"))
         expect_equal(ret[[f1]]$error, NA)
     })
 })
@@ -55,7 +55,7 @@ test_that("trace_package works on a sample package", {
 
         expect_equal(length(ret), 4)
 
-        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-0.RDS"))
+        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-1.RDS"))
         expect_equal(ret[[f1]]$error, NA)
         expect_equal(nrow(ret[[f2]]), 0)
         expect_equal(ret[[f3]], 1)
@@ -74,7 +74,7 @@ test_that("trace_package works on a sample package", {
 
         expect_equal(length(ret), 4)
 
-        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "test-0.R"))
+        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "test-1.R"))
         expect_equal(ret[[f1]]$error, NA)
         expect_equal(nrow(ret[[f2]]), 0)
         expect_equal(ret[[f3]], 1)

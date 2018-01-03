@@ -21,7 +21,7 @@ test_that("generate_test", {
     on.exit(unlink(tmp, recursive=TRUE))
 
     t1 <- create_trace(fun="c", pkg=NULL, args=list("1"), retv="1")
-    expect_equal(generate_test_file(t1, tmp), file.path(tmp, "_NULL_", "c", "test-0.R"))
+    expect_equal(generate_test_file(t1, tmp), file.path(tmp, "_NULL_", "c", "test-1.R"))
 
     t2 <- create_trace(fun="c", pkg=NULL, args=list("1"))
     expect_error(generate_test_file(t2, tmp), "Trace error: No return value")

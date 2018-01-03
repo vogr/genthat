@@ -4,6 +4,7 @@
 .onLoad <- function(libname, pkgname) {
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
+    options(genthat.keep_failed_tests=FALSE)
 
     enable_tracing()
 
