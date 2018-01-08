@@ -45,7 +45,7 @@ do_compute_tests_coverage <- function(tests) {
             time <- genthat:::stopwatch(testthat::test_file(test, reporter="stop", wrap=FALSE))
             coverage <- structure(as.list(covr:::.counters), class="coverage")
 
-            c(covr::percent_coverage(coverage), time)
+            c(covr::percent_coverage(coverage), as.numeric(time, units="secs"))
         }, error=function(e) {
             # we do not want to capture coverage of failed tests
             # TODO: again not the nicest, we should ask for API to manipulate coverage

@@ -32,6 +32,8 @@ trace_option_list <- list(
     make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="genthat-traces"), metavar="PATH"),
     make_option("--config", type="character", help="decorator+tracer", metavar="CONFIG", default="onexit+set"),
     make_option("--action", type="character", help="action", metavar="ACTION", default="generate"),
+    make_option("--max-trace-size", type="integer", help="max trace size", metavar="SIZE", default=128*1024),
+    make_option("--prune-tests", help="Prune tests", action="store_true", default=FALSE),
     make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -68,7 +70,7 @@ coverage_task <- function(package, types, output, quiet) {
     saveRDS(res, file.path(output, "covr.RDS"))
 }
 
-trace_task <- function(package, config, types, output, action, debug, quiet) {
+trace_task <- function(package, config, types, output, action, prune_tests, max_trace_size, debug, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
     types <- match.arg(types, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
@@ -91,6 +93,7 @@ trace_task <- function(package, config, types, output, action, debug, quiet) {
 
     # TODO: move to the main
     options(genthat.debug=debug)
+    options(genthat.max_trace_size=as.integer(max_trace_size))
 
     res <- genthat::gen_from_package(
         package,
@@ -100,10 +103,13 @@ trace_task <- function(package, config, types, output, action, debug, quiet) {
         decorator=decorator,
         tracer=tracer,
         working_dir=working_dir,
+        prune_tests=prune_tests,
         quiet=quiet
     )
 
     readr::write_csv(res, file.path(output, "genthat-tracing.csv"))
+    readr::write_csv(attr(res, "errors"), file.path(output, "genthat-tracing-errors.csv"))
+    readr::write_lines(attr(res, "stats"), file.path(output, "genthat-tracing-stats.txt"))
 }
 
 main <- function(args) {

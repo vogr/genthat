@@ -121,61 +121,67 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
         output <- tracing$output[is.na(tracing$error)]
         log_debug("Generated ", length(output), "/", nrow(tracing), " tests")
 
-        if (length(output) == 0) {
-            return(data.frame(output=character(), file=character(), coverage=double(), error=character()))
-        }
+        if (length(output) > 0) {
+            if (prune_tests) {
+                output_size <- file.size(output)
+                output <- output[order(output_size)]
+                runs <- compute_tests_coverage(pkg_src, output, quiet=quiet)
+                coverage <- runs
+                attr(coverage, "errors") <- NULL
+                attr(coverage, "elapsed") <- NULL
+                elapsed <- attr(runs, "elapsed")
 
-        if (prune_tests) {
-            output_size <- file.size(output)
-            output <- output[order(output_size)]
-            runs <- compute_tests_coverage(pkg_src, output, quiet=quiet)
-            coverage <- runs
-            attr(coverage, "errors") <- NULL
-            attr(coverage, "elapsed") <- NULL
-            elapsed <- attr(runs, "elapsed")
+                log_debug("Ran ", sum(!is.na(runs)), "/", length(runs)," tests ", max(coverage, na.rm=TRUE), "% coverage")
+            } else {
+                runs <- run_generated_tests(output, quiet=quiet)
+                elapsed <- runs
+                attr(elapsed, "errors") <- NULL
+                coverage <- NA
 
-            log_debug("Ran ", sum(!is.na(runs)), "/", length(runs)," tests ", max(coverage, na.rm=TRUE), "% coverage")
+                log_debug("Ran ", sum(!is.na(runs)), "/", length(runs), " tests")
+            }
+
+            result <- data.frame(
+                order=1:length(output),
+                output=output,
+                coverage=coverage,
+                elapsed=elapsed,
+                error=attr(runs, "errors"),
+                row.names=NULL,
+                stringsAsFactors=FALSE
+            )
+
+            result <- merge(tracing, result, by="output", all=TRUE)
+            result$error <- ifelse(is.na(result$error.x), result$error.y, result$error.x)
+            result$error.x <- NULL
+            result$error.y <- NULL
         } else {
-            runs <- run_generated_tests(output, quiet=quiet)
-            elapsed <- runs
-            attr(elapsed, "errors") <- NULL
-            coverage <- NA
-
-            log_debug("Ran ", sum(!is.na(runs)), "/", length(runs), " tests")
-        }
-
-        result <- data.frame(
-            order=1:length(output),
-            output=output,
-            coverage=coverage,
-            elapsed=elapsed,
-            error=attr(runs, "errors"),
-            row.names=NULL,
-            stringsAsFactors=FALSE
-        )
-
-        result <- merge(tracing, result, by="output", all=TRUE)
-        result$error <- ifelse(is.na(result$error.x), result$error.y, result$error.x)
-        result$error.x <- NULL
-        result$error.y <- NULL
-
-        if (prune_tests) {
-            # select unique tests based on their size
-            # TODO: try to rewrite using base package
-            result <-
-                dplyr::arrange(result, coverage) %>%
-                dplyr::group_by(result, coverage) %>%
-                dplyr::top_n(1, -order) %>%
-                dplyr::ungroup()
+            result <- tracing
+            result$coverage <- NA
+            result$elapsed <- NA
         }
 
         # TODO: try to rewrite using base package
         errors <-
             dplyr::filter(result, !is.na(error)) %>%
             dplyr::select(file, output, error)
+
+        if (prune_tests) {
+            # select unique tests based on their size
+            # TODO: try to rewrite using base package
+            result <-
+                dplyr::arrange(result, coverage) %>%
+                dplyr::group_by(coverage) %>%
+                dplyr::top_n(1, -order) %>%
+                dplyr::ungroup()
+        }
+
+        # TODO: try to rewrite using base package
         result <-
             dplyr::filter(result, is.na(error)) %>%
             dplyr::select(file, output, elapsed, coverage)
+
+
 
         if (!getOption("genthat.keep_failed_tests", FALSE)) {
             # remove the duplicated tests and empty test directories
@@ -187,20 +193,28 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
 
             if (length(to_remove) > 0) {
                 log_debug("Removing ", length(to_remove), " tests")
-            }
 
-            file.remove(to_remove)
-            to_remove <- filter(to_check_dirs, function(x) {
-                length(list.files(x)) == 0
-            })
+                file.remove(to_remove)
+                to_remove <- filter(to_check_dirs, function(x) length(list.files(x)) == 0)
 
-            if (length(to_remove) > 0) {
-                log_debug("Removing ", length(to_remove), " empty test directories")
+                if (length(to_remove) > 0) {
+                    log_debug("Removing ", length(to_remove), " empty test directories")
+
+                    file.remove(to_remove)
+                }
             }
-            file.remove(to_remove)
         }
 
         attr(result, "errors") <- errors
+        attr(result, "stats") <- c(
+            "all"=nrow(tracing),
+            "generated"=length(output),
+            "ran"=sum(!is.na(runs)),
+            "kept"=nrow(result),
+            "coverage"=max(result$coverage),
+            "elapsed"=sum(result$elapsed)
+        )
+
         result
     } else {
         tracing
@@ -278,6 +292,7 @@ trace_package <- function(pkgs, files_to_run,
             vars$current_file <- fname
             vars$output_dir <- output_dir
             vars$stats_file <- stats_file
+            vars$max_trace_size <- getOption("genthat.max_trace_size", .Machine$integer.max)
             vars$pkgs <- paste(pkgs, sep=",")
 
             # convert the variables to the expected format GENTHAT_<VAR>=<value>
@@ -338,7 +353,6 @@ generate_action <- function(trace, output_dir, save_failed_trace=TRUE) {
 
         c("testfile"=testfile, "error"=error)
     })
-
 }
 
 export_action <- function(trace, output_dir, save_trace=TRUE) {

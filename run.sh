@@ -3,9 +3,15 @@ set -e
 
 FORCE=${FORCE:-}
 
+if [ -z $GENTHAT_SOURCE_PATHS ]; then
+   echo "Missing GENTHAT_SOURCE_PATHS"
+   exit 1
+fi
+
 if [ $# -eq 1 ]; then
 #    tasks="--coverage"
-    tasks="--trace --run --run-package --coverage"
+#    tasks="--trace"
+    tasks="--trace --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
     tasks=""
@@ -80,12 +86,13 @@ function do_trace_task {
 }
 
 function trace_task {
-    do_trace_task count-entry--sequence --action stats
+#    do_trace_task count-entry--sequence --action stats
     #do_trace_task count-exit--sequence --action stats
     #do_trace_task onexit--sequence --action stats
     #do_trace_task onexit--set --action stats
-    do_trace_task on.exit--sequence --action stats
-    do_trace_task on.exit--set --action generate
+#    do_trace_task on.exit--sequence --action stats
+    #do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 131072
+    do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 622
 }
 
 function run_package_task {

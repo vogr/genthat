@@ -173,7 +173,7 @@ is.closure <- function(f) {
     typeof(f) == "closure"
 }
 
-#' @importFrom method is
+#' @importFrom methods is
 is.formula <- function(f) {
     is.language(f) && is(f, "formula")
 }
@@ -331,11 +331,22 @@ next_file_in_row <- function(path) {
     fname <- basename(path)
 
     ext <- tools::file_ext(fname)
+    ext <- if (nchar(ext) > 0) paste0(".", ext) else ext
+    ext_ptn <- if (nchar(ext) > 0) paste0("\\", ext, "$") else ext
+
     name <- tools::file_path_sans_ext(fname)
 
-    n <- length(Sys.glob(path=file.path(dname, paste0(name, "*", ".", ext))))
+    existing <- list.files(dname, pattern=paste0(name, "[-]?.*", ext_ptn))
 
-    file.path(dname, paste0(name, "-", n, ifelse(nchar(ext) > 0, paste0(".", ext), "")))
+    if (length(existing) == 0) {
+        last <- 0
+    } else {
+        nums <- sub(pattern=paste0(name, "-(\\d+)", ext_ptn), replacement="\\1", existing)
+        nums <- tryCatch(as.numeric(nums), warning=function(e) 0)
+        last <- max(nums)
+    }
+
+    file.path(dname, paste0(name, "-", last + 1, ext))
 }
 
 is_interesting_namespace <- function(env, prefix) {
@@ -385,4 +396,8 @@ is_exception_returnValue <- function(retv) {
 
 is_chr_scalar <- function(s) {
     is.character(s) && length(s) == 1 && nchar(s) > 0
+}
+
+as_chr_scalar <- function(s, collapse="\n", trim="both") {
+    paste(trimws(s, which=trim), collapse=collapse)
 }

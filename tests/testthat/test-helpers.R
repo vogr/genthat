@@ -94,9 +94,41 @@ test_that("is_package_namespace works", {
 
 test_that("next_file_in_row works with/without extensions", {
     expect_error(next_file_in_row(""))
-    expect_equal(next_file_in_row("does-not-exist"), "./does-not-exist-0")
-    expect_equal(next_file_in_row("does-not-exist.R"), "./does-not-exist-0.R")
+    expect_equal(next_file_in_row("does-not-exist"), "./does-not-exist-1")
+    expect_equal(next_file_in_row("does-not-exist.R"), "./does-not-exist-1.R")
 })
+
+test_that("next_file_in_row works with existing files", {
+    f <- tempfile()
+    on.exit(file.remove(f))
+    writeLines("1", f)
+
+    f1 <- next_file_in_row(f)
+    expect_equal(f1, paste0(f, "-1"))
+})
+
+test_that("next_file_in_row works", {
+    f <- tempfile()
+
+    f1 <- next_file_in_row(f)
+    on.exit(file.remove(f1))
+    expect_equal(f1, paste0(f, "-1"))
+    writeLines("1", f1)
+
+    f2 <- next_file_in_row(f)
+    on.exit(file.remove(f2), add=TRUE)
+    expect_equal(f2, paste0(f, "-2"))
+    writeLines("1", f2)
+
+    f100 <- paste0(f, "-100")
+    writeLines("1", f100)
+    on.exit(file.remove(f100), add=TRUE)
+
+    f3 <- next_file_in_row(f)
+    expect_equal(f3, paste0(f, "-101"))
+})
+
+
 
 
 # TODO: update for link_environments()
