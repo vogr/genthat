@@ -4,6 +4,7 @@ options(error = function() {
 })
 
 options(genthat.debug=as.logical(Sys.getenv("GENTHAT_DEBUG", "FALSE")))
+options(genthat.max_trace_size=as.integer(Sys.getenv("GENTHAT_MAX_TRACE_SIZE")))
 
 genthat::set_decorator(genthat::create_decorator(Sys.getenv("GENTHAT_DECORATOR")))
 

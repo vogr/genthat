@@ -78,3 +78,25 @@ test_that("set tracer works with session files", {
 
     expect_equal(copy_traces(tracer), list(trace3))
 })
+
+test_that("set tracer respects max trace size", {
+    trace1 <- create_trace("a", args=list(), retv=0)
+    trace2 <- create_trace("abc", args=list(), retv=0)
+
+    size1 <- length(serialize(trace1, connection=NULL, ascii=FALSE))
+    size2 <- length(serialize(trace2, connection=NULL, ascii=FALSE))
+    expect_true(size1 < size2)
+
+    trace2_skipped <- create_trace("abc", skipped=size2)
+
+    tracer <- create_set_tracer()
+
+    withr::with_options(list(genthat.max_trace_size=size1), {
+        expect_equal(store_trace(tracer, trace1), trace1)
+        expect_equal(store_trace(tracer, trace2), trace2_skipped)
+    })
+
+    traces <- copy_traces(tracer)
+    expect_equal(length(traces), 2)
+})
+

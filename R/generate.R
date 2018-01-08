@@ -113,6 +113,11 @@ generate_test.genthat_trace_entry <- function(trace, ...) {
 }
 
 #' @export
+generate_test.genthat_trace_skipped <- function(trace, ...) {
+    stop("Trace error: Trace too big (", trace$skipped, ")")
+}
+
+#' @export
 generate_test.genthat_trace_error <- function(trace, ...) {
     stop(paste("Code error:", trace$error$message))
 }

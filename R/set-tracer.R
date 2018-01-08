@@ -25,7 +25,14 @@ create_set_tracer <- function(session_file=NULL) {
 #' @export
 #'
 store_trace.set_tracer <- function(tracer, trace) {
-    key <- digest::digest(trace, algo="sha1")
+    ser <- serialize(trace, connection=NULL, ascii=FALSE)
+
+    if (length(ser) > getOption("genthat.max_trace_size", .Machine$integer.max)) {
+        trace <- create_trace(trace$fun, trace$pkg, skipped=length(ser))
+        ser <- serialize(trace, connection=NULL, ascii=FALSE)
+    }
+
+    key <- digest::digest(ser, algo="sha1", serialize=FALSE)
 
     if (is.null(tracer$known_traces[[key]])) {
         tracer$known_traces[[key]] <- TRUE

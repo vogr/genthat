@@ -5,6 +5,7 @@
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
     options(genthat.keep_failed_tests=FALSE)
+    options(genthat.max_trace_size=getOption("genthat.max_trace_size", 128*1024))
 
     enable_tracing()
 
