@@ -1,6 +1,6 @@
 # Default function entry decorator.
 # Creates the trace record and stores it into the trace vector.
-record_trace <- function(name, pkg=NULL, args, retv, error,
+record_trace <- function(name, pkg=NULL, args, retv, error, seed,
                         env=parent.frame(), tracer=get_tracer()) {
 
     # TODO: (performance) all this makes sense only if there are symbols anywhere in args
@@ -29,7 +29,7 @@ record_trace <- function(name, pkg=NULL, args, retv, error,
         globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
         globals <- lapply(globals, duplicate_global_var)
 
-        create_trace(name, pkg, args=args, globals=globals, retv=retv, error=error)
+        create_trace(name, pkg, args=args, globals=globals, retv=retv, seed=seed, error=error)
     }, error=function(e) {
         create_trace(name, pkg, args=args, failure=e)
     }, warning=function(e) {

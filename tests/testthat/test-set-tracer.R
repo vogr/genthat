@@ -100,3 +100,22 @@ test_that("set tracer respects max trace size", {
     expect_equal(length(traces), 2)
 })
 
+test_that("set tracer does not consider seed", {
+    set.seed(42)
+    seed1 <- .Random.seed
+    trace1 <- create_trace("a", args=list(), retv=0, seed=seed1)
+
+    set.seed(84)
+    seed2 <- .Random.seed
+    trace2 <- create_trace("a", args=list(), retv=0, seed=seed2)
+
+    expect_false(identical(seed1, seed2))
+
+    tracer <- create_set_tracer()
+
+    store_trace(tracer, trace1)
+    store_trace(tracer, trace2)
+
+    traces <- copy_traces(tracer)
+    expect_equal(length(traces), 1)
+})

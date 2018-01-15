@@ -18,7 +18,7 @@ test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)",
     tracer <- create_set_tracer()
     set_tracer(tracer)
 
-    d <- decorate_with_onexit(dplyr:::arrange.data.frame, "arrange.data.frame", "dplyr", record_fun=quote(genthat:::record_trace))
+    d <- decorate_with_on.exit(dplyr:::arrange.data.frame, "arrange.data.frame", "dplyr", record_fun=quote(genthat:::record_trace))
 
     expect_true(na_last(d(df2, a)$a))
 
@@ -31,3 +31,25 @@ test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)",
     expect_equal(trace[[1]]$globals$df2, df2)
     expect_null(trace[[1]]$globals$a)
 })
+
+test_that("full tracing scenario with a seed", {
+    tmp <- tempfile()
+    on.exit(unlink(tmp, recursive=TRUE))
+
+    tracer <- create_set_tracer()
+    set_tracer(tracer)
+
+    fun <- function(x) x*2
+    decorate_functions(fun)
+
+    set.seed(42)
+    fun(runif(10))
+
+    traces <- copy_traces()
+    expect_equal(length(traces), 1)
+    expect_equal(length(traces[[1]]$retv), 10)
+
+    test <- generate_test_file(traces[[1]], tmp)
+    testthat::test_file(test, reporter="stop", wrap=FALSE)
+})
+

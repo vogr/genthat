@@ -2,6 +2,8 @@
 `__genthat_default_retv` <- new.env(parent=emptyenv())
 
 .onLoad <- function(libname, pkgname) {
+    # this is just initialize the random generator so the .Random.seed is available
+    set.seed(42)
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
     options(genthat.keep_failed_tests=getOption("genthat.keep_failed_tests", FALSE))

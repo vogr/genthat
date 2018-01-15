@@ -47,30 +47,31 @@ test_that("generate escapes global non-syntactic names", {
     )
 })
 
-## test_that("gen_tests with no traces", {
-##     traces <- list(create_trace_error("f", list(), "error"))
-##     tmp_dir <- tempfile()
-##     files <- generate_tests(traces, tmp_dir)
+test_that("generate adds seed", {
+    runif(1) # initialize RNG
 
-##     expect_equal(length(files), 0)
-##     expect_false(dir.exists(tmp_dir))
-## })
+    seed <- .Random.seed
+    trace <- create_trace("f", "p", args=NULL, retv=1, seed=seed)
+    test <- generate_test(trace)
 
-## test_that("generate_tests", {
-##     tmp_dir <- tempfile()
-##     on.exit(unlink(tmp_dir, recursive=TRUE))
+    expect_equal(test[2], ".Random.seed <<- `__seed__`")
+    expect_equal(attr(test, "externals"), list(seed=seed))
+})
 
-##     traces <- list(create_trace(fun="f", args=list("1"), retv="2"), create_trace(fun="g", args=list("3"), retv="4"))
+test_that("save_test saves also externals", {
+    tmp <- tempfile()
+    on.exit(unlink(tmp, recursive=TRUE))
 
-##     files <- generate_tests(traces, tmp_dir)
+    test <- "x <- `__x__`; y <- `__1__`"
+    attr(test, "externals") <- list(x=1, `1`=2)
+    test_file <- save_test("p", "f", test, tmp)
 
-##     expect_equal(files, file.path(tmp_dir, c("test-1.R", "test-2.R")))
-##     expect_equal(file.exists(files), c(TRUE, TRUE))
-##     ## expect_equal(
-##     ##     paste(readLines(files[1]), collapse="\n"),
-##     ##     "test_that(\"f\", {\n\texpect_equal(f(\"1\"), \"2\")\n})")
-##     ## expect_equal(
-##     ##     paste(readLines(files[2]), collapse="\n"),
-##     ##     "test_that(\"g\", {\n\texpect_equal(g(\"3\"), \"4\")\n})")
-## })
+    ext_x <- 'test-1.ext-x.RDS'
+    ext_1 <- 'test-1.ext-1.RDS'
+
+    expect_equal(readRDS(file.path(tmp, 'p', 'f', ext_x)), 1)
+    expect_equal(readRDS(file.path(tmp, 'p', 'f', ext_1)), 2)
+    expect_equal(readLines(test_file), paste0('x <- readRDS("', ext_x, '"); y <- readRDS("', ext_1, '")'))
+    expect_equal(attr(test_file, 'externals'), c(x=ext_x, `1`=ext_1))
+})
 

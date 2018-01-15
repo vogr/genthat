@@ -25,7 +25,11 @@ create_set_tracer <- function(session_file=NULL) {
 #' @export
 #'
 store_trace.set_tracer <- function(tracer, trace) {
-    ser <- serialize(trace, connection=NULL, ascii=FALSE)
+    # we need to compute the digest without the seed
+    trace_without_seed <- trace
+    trace_without_seed$seed <- NULL
+
+    ser <- serialize(trace_without_seed, connection=NULL, ascii=FALSE)
 
     if (length(ser) > getOption("genthat.max_trace_size", .Machine$integer.max)) {
         trace <- create_trace(trace$fun, trace$pkg, skipped=length(ser))

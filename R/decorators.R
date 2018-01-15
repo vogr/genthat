@@ -189,6 +189,7 @@ decorate_with_on.exit <- function(fun, name, pkg, record_fun) {
     create_function(
         params=formals(fun),
         body=substitute({
+            `__genthat_captured_seed` <- .Random.seed
             on.exit({
                 if (.Internal(getOption("genthat.tracing"))) {
                     .Internal(options(genthat.tracing=FALSE))
@@ -200,6 +201,7 @@ decorate_with_on.exit <- function(fun, name, pkg, record_fun) {
                             pkg=PKG,
                             args=as.list(match.call())[-1],
                             retv=retv,
+                            seed=`__genthat_captured_seed`,
                             env=parent.frame()
                         )
                     }

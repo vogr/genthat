@@ -66,7 +66,7 @@ run_task <- function(tests, output, quiet) {
 
 coverage_task <- function(package, types, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
-    res <- covr::package_coverage(path=file.path("~/CRAN", package), type=types, quiet=quiet)
+    res <- covr::package_coverage(path=file.path("~/R/CRAN", package), type=types, quiet=quiet)
     saveRDS(res, file.path(output, "covr.RDS"))
 }
 

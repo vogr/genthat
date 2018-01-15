@@ -16,7 +16,7 @@ test_that("tracing control work", {
     f(1L, 2L)
 
     expect_equal(is_tracing_enabled(), TRUE)
-    expect_equal(length(capture), 5L)
+    expect_equal(length(capture), 6L)
     expect_equal(capture$retv, 3L)
 })
 

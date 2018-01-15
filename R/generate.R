@@ -78,6 +78,7 @@ generate_test <- function(trace, ...) {
 #' @export
 generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
     tryCatch({
+        externals <- list()
         call <- generate_call(trace)
         globals <- generate_globals(trace$globals)
         retv <- serialize_value(trace$retv)
@@ -85,6 +86,12 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         header <- "library(testthat)\n\n"
         if (include_trace_dump) {
             header <- paste(header, dump_raw_trace(trace), sep="\n")
+        }
+
+        if (!is.null(trace$seed)) {
+            # .Random.seed is only looked in user environment
+            header <- paste0(header, ".Random.seed <<- `__seed__`\n\n")
+            externals$seed=trace$seed
         }
 
         code <- paste0(
@@ -97,6 +104,10 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
 
         if (format_code) {
             code <- reformat_code(code)
+        }
+
+        if (length(externals) > 0) {
+            attr(code, "externals") <- externals
         }
 
         code
@@ -141,7 +152,24 @@ save_test <- function(pkg, fun, code, output_dir) {
     stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
     fname <- next_file_in_row(file.path(dname, "test.R"))
-    write(code, file=fname)
+    fname_base <- sub(pattern="^(.*)\\.R$", replacement="\\1", basename(fname))
+
+    externals <- attr(code, "externals")
+    externals_fnames <- sapply(names(externals), function(x) {
+        f <- paste0(fname_base, ".ext-", x, ".RDS")
+        saveRDS(externals[[x]], file.path(dname, f))
+
+        r <- paste0('readRDS("', f, '")')
+        code <<- sub(pattern=paste0('`__', x, '__`'), replacement=r, code, fixed=TRUE)
+
+        f
+    })
+
+    write(paste(code, collapse="\n\n"), file=fname)
+    if (length(externals_fnames) > 0) {
+        attr(fname, "externals") <- externals_fnames
+    }
+
     fname
 }
 

@@ -194,6 +194,13 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
             if (length(to_remove) > 0) {
                 log_debug("Removing ", length(to_remove), " tests")
 
+                to_remove <- lapply(to_remove, function(x) {
+                    p <- sub(pattern="\\.R$", replacement=".*", x)
+                    Sys.glob(p)
+                })
+
+                to_remove <- unlist(to_remove, use.names=FALSE, recursive=FALSE)
+
                 file.remove(to_remove)
                 to_remove <- filter(to_check_dirs, function(x) length(list.files(x)) == 0)
 
