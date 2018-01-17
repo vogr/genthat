@@ -3,7 +3,7 @@
 #' @docType package
 #' @name genthat
 #' @useDynLib genthat
-#' @importFrom Rcpp evalCpp
+#' @import Rcpp
 NULL
 
 # TODO: sync API with covr?
@@ -36,6 +36,7 @@ trace_from_source_package <- function(path, quiet=TRUE, ...) {
     })
 }
 
+#' @importFrom magrittr %>%
 #' @export
 #'
 gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
@@ -166,7 +167,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
             dplyr::filter(result, !is.na(error)) %>%
             dplyr::select(file, output, error)
 
-        if (prune_tests) {
+        if (prune_tests && length(output) > 0) {
             # select unique tests based on their size
             # TODO: try to rewrite using base package
             result <-
@@ -181,15 +182,13 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
             dplyr::filter(result, is.na(error)) %>%
             dplyr::select(file, output, elapsed, coverage)
 
-
-
         if (!getOption("genthat.keep_failed_tests", FALSE)) {
             # remove the duplicated tests and empty test directories
             to_remove <- output[!(output %in% result$output)]
             to_check_dirs <- unique(dirname(to_remove))
 
             # remove from errors
-            errors <- mutate(errors, output=ifelse(output %in% to_remove, NA, output))
+            errors <- dplyr::mutate(errors, output=ifelse(output %in% to_remove, NA, output))
 
             if (length(to_remove) > 0) {
                 log_debug("Removing ", length(to_remove), " tests")
@@ -201,7 +200,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
 
                 to_remove <- unlist(to_remove, use.names=FALSE, recursive=FALSE)
 
-                file.remove(to_remove)
+                x<-file.remove(to_remove)
                 to_remove <- filter(to_check_dirs, function(x) length(list.files(x)) == 0)
 
                 if (length(to_remove) > 0) {
@@ -309,23 +308,31 @@ trace_package <- function(pkgs, files_to_run,
             site_file <- system.file("genthat-tracing-site-file.R", package="genthat")
         }
 
-        tryCatch({
-            run <- run_r_script(fname, site_file=site_file, env=env, quiet=quiet, lib_paths=lib_paths)
+        if (!file.exists(fname)) {
+            paste(fname, "does not exist")
+        } else {
+            tryCatch({
+                run <- run_r_script(fname, site_file=site_file, env=env, quiet=quiet, lib_paths=lib_paths)
 
-            if (run == 0 && file.exists(stats_file)) {
-                st <- read.csv(stats_file, stringsAsFactors=FALSE)
-                file.remove(stats_file)
-                st
-            } else {
-                # Running either failed or there were no calls to the traced
-                # functions (e.g. a data file) so the finalizer exporting the
-                # traces did not kicked in. based on the status we can figure
-                # out what has happened.
-                run
-            }
-        }, error=function(e) {
-            e$message
-        })
+                if (file.exists(stats_file)) {
+                    # running of the file might have failed, but still some traces
+                    # might have been generated
+
+                    # TODO: do we want to indicate somewhere that the running has failed?
+                    st <- read.csv(stats_file, stringsAsFactors=FALSE)
+                    file.remove(stats_file)
+                    st
+                } else {
+                    # Running either failed or there were no calls to the traced
+                    # functions (e.g. a data file) so the finalizer exporting the
+                    # traces did not kicked in. based on the status we can figure
+                    # out what has happened.
+                    run
+                }
+            }, error=function(e) {
+                e$message
+            })
+        }
     }
 
     pbapply::pblapply(files_to_run, run_file)

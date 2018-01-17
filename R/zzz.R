@@ -1,3 +1,5 @@
+Rcpp::loadModule("SerializerModule", TRUE)
+
 # private genthat space
 `__genthat_default_retv` <- new.env(parent=emptyenv())
 

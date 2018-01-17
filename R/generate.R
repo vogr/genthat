@@ -1,5 +1,5 @@
-format_calling_args <- function(args, include_names=TRUE) {
-    args <- lapply(args, serialize_value)
+format_calling_args <- function(args, include_names=TRUE, serializer) {
+    args <- lapply(args, serializer$serialize_value)
 
     if (include_names && !is.null(names(args))) {
         pairs <- zip(name=names(args), value=args)
@@ -23,7 +23,7 @@ dump_raw_trace <- function(trace) {
     s
 }
 
-generate_call <- function(trace) {
+generate_call <- function(trace, serializer) {
     stopifnot(is.character(trace$fun))
     stopifnot(is.list(trace$args))
 
@@ -34,7 +34,7 @@ generate_call <- function(trace) {
     }
 
     if (is_infix_fun(fun) && pkg == "base") {
-        args <- format_calling_args(trace$args, include_names=FALSE)
+        args <- format_calling_args(trace$args, include_names=FALSE, serializer)
 
         if (length(args) != 2) {
             stop("Call to infix function: `", fun,
@@ -46,7 +46,7 @@ generate_call <- function(trace) {
 
         paste(args[[1]], fun, args[[2]], collapse=sep)
     } else {
-        args <- format_calling_args(trace$args, include_names=TRUE)
+        args <- format_calling_args(trace$args, include_names=TRUE, serializer)
         args_str <- paste(args, collapse=", ")
         fun <- escape_name(fun)
         pkg <- trace$pkg
@@ -56,10 +56,11 @@ generate_call <- function(trace) {
     }
 }
 
-generate_globals <- function(globals) {
+generate_globals <- function(globals, serializer) {
     names <- sapply(names(globals), escape_name, USE.NAMES=FALSE)
+    values <- lapply(globals, serializer$serialize_value)
 
-    paste(names, lapply(globals, serialize_value), sep=" <- ", collapse="\n")
+    paste(names, values, sep=" <- ", collapse="\n")
 }
 
 #' @title Generate test case code from a trace
@@ -79,9 +80,10 @@ generate_test <- function(trace, ...) {
 generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
     tryCatch({
         externals <- list()
-        call <- generate_call(trace)
-        globals <- generate_globals(trace$globals)
-        retv <- serialize_value(trace$retv)
+        serializer <- new(Serializer)
+        call <- generate_call(trace, serializer)
+        globals <- generate_globals(trace$globals, serializer)
+        retv <- serializer$serialize_value(trace$retv)
 
         header <- "library(testthat)\n\n"
         if (include_trace_dump) {
@@ -106,6 +108,7 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
             code <- reformat_code(code)
         }
 
+        externals <- c(externals, serializer$externals())
         if (length(externals) > 0) {
             attr(code, "externals") <- externals
         }

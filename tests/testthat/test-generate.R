@@ -1,11 +1,9 @@
 context("test generation")
 
 test_that("format_calling_args", {
-    on.exit(options(genthat.use_deparse=FALSE))
+    serializer <- new(Serializer)
 
-    options(genthat.use_deparse=TRUE)
-
-    format_args <- function(x) paste(format_calling_args(x), collapse=", ")
+    format_args <- function(x) paste(format_calling_args(x, serializer=serializer), collapse=", ")
 
     expect_equal(format_args(NULL), "")
     expect_equal(format_args(list(1)), "1")
@@ -31,18 +29,21 @@ test_that("generate_test", {
 })
 
 test_that("generate_call supports infix functions for base package", {
+    serializer <- new(Serializer)
     trace <- create_trace("%in%", pkg="base", args=list(x=1, table=c(1, 2)), retv=TRUE)
-    expect_equal(generate_call(trace), "1 %in% c(1, 2)")
+    expect_equal(generate_call(trace, serializer=serializer), "1 %in% c(1, 2)")
 })
 
 test_that("generate_call supports infix functions for others", {
+    serializer <- new(Serializer)
     trace <- create_trace("%in%", pkg="mypkg", args=list(x=1, table=c(1, 2)), retv=TRUE)
-    expect_equal(generate_call(trace), "mypkg:::`%in%`(x=1, table=c(1, 2))")
+    expect_equal(generate_call(trace, serializer=serializer), "mypkg:::`%in%`(x=1, table=c(1, 2))")
 })
 
 test_that("generate escapes global non-syntactic names", {
+    serializer <- new(Serializer)
     expect_equal(
-        generate_globals(list(`%>%`="A", `__b`="B", c="C")),
+        generate_globals(list(`%>%`="A", `__b`="B", c="C"), serializer=serializer),
         paste(c('`%>%` <- "A"', '`__b` <- "B"', 'c <- "C"'), collapse="\n")
     )
 })

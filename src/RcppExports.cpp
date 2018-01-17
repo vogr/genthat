@@ -50,7 +50,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // serialize_value
-std::string serialize_value(SEXP s);
+StringVector serialize_value(SEXP s);
 RcppExport SEXP _genthat_serialize_value(SEXP sSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -154,6 +154,8 @@ BEGIN_RCPP
 END_RCPP
 }
 
+RcppExport SEXP _rcpp_module_boot_SerializerModule();
+
 static const R_CallMethodDef CallEntries[] = {
     {"_genthat_sequence_tracer_create", (DL_FUNC) &_genthat_sequence_tracer_create, 0},
     {"_genthat_sequence_tracer_reset_traces", (DL_FUNC) &_genthat_sequence_tracer_reset_traces, 1},
@@ -168,6 +170,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genthat_create_duplicate", (DL_FUNC) &_genthat_create_duplicate, 1},
     {"_genthat_environment_name", (DL_FUNC) &_genthat_environment_name, 1},
     {"_genthat_environment_name_as_code", (DL_FUNC) &_genthat_environment_name_as_code, 1},
+    {"_rcpp_module_boot_SerializerModule", (DL_FUNC) &_rcpp_module_boot_SerializerModule, 0},
     {NULL, NULL, 0}
 };
 

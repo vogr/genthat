@@ -210,6 +210,9 @@ private:
     // it is used for the ENVSXP serialization
     set<SEXP> visited_environments;
 
+    // seen externals
+    vector<SEXP> externals_;
+
 public:
     static bool is_unary_fun(string const &fun) {
         return UNARY_FUNS.find(fun) != UNARY_FUNS.end();
@@ -273,9 +276,11 @@ public:
         case SPECIALSXP:
         case BUILTINSXP: {
             // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
-            StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
+            StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | KEEPNA | DIGITS16);
             string res = concatenate(deparsed, "\n");
-            return res;
+            string res_with_attributes = wrap_in_attributes(s, res);
+
+            return res_with_attributes;
         }
         case SYMSXP: {
             RObject protected_s(s);
@@ -435,9 +440,21 @@ public:
 
             return res;
         }
-            // the following is annoying, but the sexptype2char from memory.c is not public
-        case EXTPTRSXP:
-            throw sexp_not_supported_error("EXTPTRSXP");
+        case EXTPTRSXP: {
+            const vector<SEXP>::const_iterator pos =
+                find_if(externals_.begin(), externals_.end(), [s](SEXP x)->bool { return x == s; });
+
+            int idx;
+
+            if (pos != externals_.end()) {
+                idx = pos - externals_.begin() + 1;
+            } else {
+                externals_.push_back(RObject(s));
+                idx = externals_.size();
+            }
+
+            return ".ext." + to_string(idx);
+        }
         case BCODESXP:
             throw sexp_not_supported_error("BCODESXP");
         case WEAKREFSXP:
@@ -500,13 +517,36 @@ public:
             throw sexp_not_supported_error("unknown");
         }
     }
+
+    StringVector serialize_value(SEXP s) {
+        return StringVector::create(serialize(s, false));
+    }
+
+    Environment externals(Environment target=Environment::empty_env().new_child(true)) {
+        for (int i=0; i<externals_.size(); i++) {
+            target[".ext." + to_string(i + 1)] = externals_[i];
+        }
+
+        return target;
+    }
+
+    int externals_size() {
+        return externals_.size();
+    }
 };
 
 // [[Rcpp::export]]
-std::string serialize_value(SEXP s) {
+StringVector serialize_value(SEXP s) {
     Serializer serializer;
 
-    return serializer.serialize(s, false);
+    auto result = serializer.serialize_value(s);
+
+    if (serializer.externals_size() > 0) {
+        auto externals = serializer.externals();
+        result.attr("externals") = externals;
+    }
+
+    return result;
 }
 
 // [[Rcpp::export]]
@@ -522,4 +562,12 @@ bool is_infix_fun(std::string const &fun) {
 // [[Rcpp::export]]
 std::string escape_name(std::string const &name) {
     return Serializer::escape_name(name);
+}
+
+RCPP_MODULE(SerializerModule) {
+  class_<Serializer>("Serializer")
+      .default_constructor()
+      .method("serialize_value", &Serializer::serialize_value)
+      .method("externals", &Serializer::externals)
+  ;
 }

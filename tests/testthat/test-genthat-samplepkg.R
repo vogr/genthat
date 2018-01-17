@@ -58,10 +58,8 @@ test_that("trace_package works on a sample package", {
         expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-1.RDS"))
         expect_equal(ret[[f1]]$error, NA)
         expect_equal(nrow(ret[[f2]]), 0)
-        expect_equal(ret[[f3]], 1)
-
-        # this will be an error message from the exception from run_r_script
-        expect_true(is.character(ret[[f4]]))
+        expect_equal(nrow(ret[[f3]]), 0)
+        expect_equal(ret[[f4]], paste(f4, "does not exist"))
 
         # test generate
         ret <- trace_package(
@@ -77,10 +75,8 @@ test_that("trace_package works on a sample package", {
         expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "test-1.R"))
         expect_equal(ret[[f1]]$error, NA)
         expect_equal(nrow(ret[[f2]]), 0)
-        expect_equal(ret[[f3]], 1)
-
-        # this will be an error message from the exception from run_r_script
-        expect_true(is.character(ret[[f4]]))
+        expect_equal(nrow(ret[[f3]]), 0)
+        expect_equal(ret[[f4]], paste(f4, "does not exist"))
     })
 })
 

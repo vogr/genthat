@@ -269,51 +269,95 @@ test_that("external function serialization", {
     expect_true(is.closure(serialize(testthat::test_file)))
 })
 
-test_that("S4SXP serialization", {
+test_that("EXTPTRSXP serializatin works", {
+     Rcpp::cppFunction("Rcpp::XPtr<int> ext_ptr() { int *x = new int[1]; return Rcpp::XPtr<int>(x); }")
 
-    setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
-    p1 <- new("Person", name="Joe", age=31)
-    p2 <- new("Person", name="Joe")
+     p1 <- ext_ptr()
+     p2 <- ext_ptr()
 
-    # new(getClass("Person", where="..."))
+     # some basic assumptions
+     expect_equal(p1, p1)
+     expect_true(identical(p1, p1))
+     expect_false(identical(p1, p2))
+
+     s <- serialize_value(p1)
+
+     expect_equivalent(s, ".ext.1")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+
+     s <- serialize_value(list(p1, p1))
+     expect_equivalent(s, "list(.ext.1, .ext.1)")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+
+     s <- serialize_value(list(p1, p2))
+     expect_equivalent(s, "list(.ext.1, .ext.2)")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+     expect_equal(attr(s, "externals")$.ext.2, p2)
+
+     # try with attributes
+     x <- list(1, 2, p1)
+     attr(x, "a1") <- p2
+     attr(x, "a2") <- list(p1, p2)
+     s <- serialize_value(x)
+     expect_equivalent(s, "structure(list(1, 2, .ext.1), a1=.ext.2, a2=list(.ext.1, .ext.2))")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+     expect_equal(attr(s, "externals")$.ext.2, p2)
+
+     # try with attributes on primitive vectors
+     x <- c(1, 2, 3)
+     attr(x, "a1") <- p1
+     attr(x, "a2") <- list(p1, p2)
+     s <- serialize_value(x)
+     expect_equivalent(s, "structure(c(1, 2, 3), a1=.ext.1, a2=list(.ext.1, .ext.2))")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+     expect_equal(attr(s, "externals")$.ext.2, p2)
 })
 
-test_that("S4SXP serialization", {
+## test_that("S4SXP serialization", {
 
-    # serialize classes
-    # serialize methods
-    # serialize objects
+##     setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
+##     p1 <- new("Person", name="Joe", age=31)
+##     p2 <- new("Person", name="Joe")
 
-    setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
-    p1 <- new("Person", name="Joe", age=31)
-    p2 <- new("Person", name="Joe")
+##     # new(getClass("Person", where="..."))
+## })
 
-    sides <- function(object) 0
-    setGeneric("sides")
+## test_that("S4SXP serialization", {
 
-    setGeneric("sides", function(object) {
-        standardGeneric("sides")
-    })
+##     # serialize classes
+##     # serialize methods
+##     # serialize objects
 
-    setClass("Shape")
-    setClass("Polygon", representation(sides = "integer"), contains = "Shape")
-    setClass("Triangle", contains = "Polygon")
-    setClass("Square", contains = "Polygon")
-    setClass("Circle", contains = "Shape")
+##     setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
+##     p1 <- new("Person", name="Joe", age=31)
+##     p2 <- new("Person", name="Joe")
 
-    setMethod("sides", signature(object = "Polygon"), function(object) {
-        object@sides
-    })
+##     sides <- function(object) 0
+##     setGeneric("sides")
 
-    setMethod("sides", signature("Triangle"), function(object) 3)
-    setMethod("sides", signature("Square"),   function(object) 4)
-    setMethod("sides", signature("Circle"),   function(object) Inf)
+##     setGeneric("sides", function(object) {
+##         standardGeneric("sides")
+##     })
 
-    setGeneric("sides", valueClass = "numeric", function(object) {
-        standardGeneric("sides")
-    })
+##     setClass("Shape")
+##     setClass("Polygon", representation(sides = "integer"), contains = "Shape")
+##     setClass("Triangle", contains = "Polygon")
+##     setClass("Square", contains = "Polygon")
+##     setClass("Circle", contains = "Shape")
 
-})
+##     setMethod("sides", signature(object = "Polygon"), function(object) {
+##         object@sides
+##     })
+
+##     setMethod("sides", signature("Triangle"), function(object) 3)
+##     setMethod("sides", signature("Square"),   function(object) 4)
+##     setMethod("sides", signature("Circle"),   function(object) Inf)
+
+##     setGeneric("sides", valueClass = "numeric", function(object) {
+##         standardGeneric("sides")
+##     })
+
+## })
 
 
 ## test_that("", {
