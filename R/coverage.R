@@ -42,7 +42,7 @@ do_compute_tests_coverage <- function(tests) {
         old_coverage <- list2env(as.list(covr:::.counters), env=new.env(parent=emptyenv()))
 
         tryCatch({
-            time <- genthat:::stopwatch(testthat::test_file(test, reporter="stop", wrap=FALSE))
+            time <- genthat:::stopwatch(genthat::test_generated_file(test))
             coverage <- structure(as.list(covr:::.counters), class="coverage")
 
             c(covr::percent_coverage(coverage), as.numeric(time, units="secs"))

@@ -36,7 +36,7 @@ message("Saved ", n_saved_tests, " tests")
 saved_tests %>% count(save_error) %>% print()
 
 # run tests
-ran_tests <- run_generated_tests(saved_tests$test_file)
+ran_tests <- run_generated_test(saved_tests$test_file)
 n_ran_tests <- ran_tests %>% filter(!is.na(nb)) %>% nrow()
 expect_equal(n_ran_tests, n_tests)
 

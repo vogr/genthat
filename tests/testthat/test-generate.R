@@ -55,24 +55,23 @@ test_that("generate adds seed", {
     trace <- create_trace("f", "p", args=NULL, retv=1, seed=seed)
     test <- generate_test(trace)
 
-    expect_equal(test[2], ".Random.seed <<- `__seed__`")
-    expect_equal(attr(test, "externals"), list(seed=seed))
+    expect_equal(test[2], ".Random.seed <<- .ext.seed")
+    expect_equal(attr(test, "externals"), list2env(list(.ext.seed=seed), parent=emptyenv()))
 })
 
 test_that("save_test saves also externals", {
     tmp <- tempfile()
     on.exit(unlink(tmp, recursive=TRUE))
 
-    test <- "x <- `__x__`; y <- `__1__`"
-    attr(test, "externals") <- list(x=1, `1`=2)
+    test <- "x <- .ext.x; y <- .ext.1"
+    attr(test, "externals") <- list2env(list(.ext.x=1, .ext.1=2), parent=emptyenv())
     test_file <- save_test("p", "f", test, tmp)
 
-    ext_x <- 'test-1.ext-x.RDS'
-    ext_1 <- 'test-1.ext-1.RDS'
+    ext_file <- 'test-1.ext'
+    ext <- readRDS(file.path(tmp, 'p', 'f', ext_file))
 
-    expect_equal(readRDS(file.path(tmp, 'p', 'f', ext_x)), 1)
-    expect_equal(readRDS(file.path(tmp, 'p', 'f', ext_1)), 2)
-    expect_equal(readLines(test_file), paste0('x <- readRDS("', ext_x, '"); y <- readRDS("', ext_1, '")'))
-    expect_equal(attr(test_file, 'externals'), c(x=ext_x, `1`=ext_1))
+    expect_equal(length(ext), 2)
+    expect_equal(ext$.ext.x, 1)
+    expect_equal(ext$.ext.1, 2)
 })
 

@@ -1,40 +1,54 @@
-run_generated_test <- function(test, quiet=TRUE) {
-    stopifnot(file.exists(test))
+#' @export
+#
+test_generated_file <- function(test) {
+    ext_file <- file.path(dirname(test), paste0(tools::file_path_sans_ext(basename(test)), ".ext"))
+    env <- if (file.exists(ext_file)) {
+        ext <- readRDS(ext_file)
+        parent.env(ext) <- testthat::test_env()
+        ext
+    } else {
+        testthat::test_env()
+    }
 
-    tryCatch({
-        if (!quiet) {
-            cat("Running ", test, "... ")
-        }
-
-        time <- stopwatch(res <- testthat::test_file(test, reporter="stop", wrap=FALSE))
-
-        if (length(res) == 0) {
-            stop("testthat::test_file result was empty")
-        }
-
-        time <- as.numeric(time, units="secs")
-
-        if (!quiet) {
-            cat("OK (", time, " sec)")
-        }
-
-        time
-    }, error=function(e) {
-        if (!quiet) {
-            cat("FAILED")
-        }
-
-        as_chr_scalar(e$message)
-    })
+    testthat::test_file(test, reporter="stop", wrap=FALSE, env=env)
 }
 
 #' @export
-run_generated_tests <- function(tests, quiet=TRUE) {
+#
+run_generated_test <- function(tests, quiet=TRUE) {
     if (length(tests) == 0) {
         return(numeric())
     }
 
-    result <- pbapply::pblapply(tests, run_generated_test, quiet=quiet)
+    result <- lapply(tests, function(test) {
+        stopifnot(file.exists(test))
+
+        tryCatch({
+            if (!quiet) {
+                cat("Running ", test, "... ")
+            }
+
+            time <- stopwatch(res <- test_generated_file(test))
+
+            if (length(res) == 0) {
+                stop("testthat::test_file result was empty")
+            }
+
+            time <- as.numeric(time, units="secs")
+
+            if (!quiet) {
+                cat("OK (", time, " sec)")
+            }
+
+            time
+        }, error=function(e) {
+            if (!quiet) {
+                cat("FAILED")
+            }
+
+            as_chr_scalar(e$message)
+        })
+    })
     names(result) <- tests
 
     elapsed <- sapply(result, function(x) if (is.numeric(x)) x else NA)

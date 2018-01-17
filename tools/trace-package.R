@@ -54,7 +54,7 @@ run_task <- function(tests, output, quiet) {
         log_debug("Found ", length(testfiles), " files")
     }
 
-    runs <- genthat::run_generated_tests(testfiles, quiet)
+    runs <- genthat::run_generated_test(testfiles, quiet)
     readr::write_csv(runs, file.path(output, "genthat-runs.csv"))
 
     if (!quiet) {

@@ -134,7 +134,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
 
                 log_debug("Ran ", sum(!is.na(runs)), "/", length(runs)," tests ", max(coverage, na.rm=TRUE), "% coverage")
             } else {
-                runs <- run_generated_tests(output, quiet=quiet)
+                runs <- run_generated_test(output, quiet=quiet)
                 elapsed <- runs
                 attr(elapsed, "errors") <- NULL
                 coverage <- NA

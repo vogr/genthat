@@ -15,6 +15,10 @@ na_last <- function(x) {
 }
 
 test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)", {
+    # if this does not fail it means that in globalenv there is a variable `a`
+    # in this case this test will fail
+    expect_error(get("a", envir=globalenv()))
+
     tracer <- create_set_tracer()
     set_tracer(tracer)
 
@@ -33,23 +37,29 @@ test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)",
 })
 
 test_that("full tracing scenario with a seed", {
-    tmp <- tempfile()
-    on.exit(unlink(tmp, recursive=TRUE))
-
-    tracer <- create_set_tracer()
-    set_tracer(tracer)
-
-    fun <- function(x) x*2
-    decorate_functions(fun)
-
     set.seed(42)
-    fun(runif(10))
 
-    traces <- copy_traces()
-    expect_equal(length(traces), 1)
-    expect_equal(length(traces[[1]]$retv), 10)
+    with_test_pkgs({
+        tmp <- tempfile()
+        on.exit(unlink(tmp, recursive=TRUE))
 
-    test <- generate_test_file(traces[[1]], tmp)
-    testthat::test_file(test, reporter="stop", wrap=FALSE)
+        tracer <- create_set_tracer()
+        set_tracer(tracer)
+
+        # TODO: fix decorating functions from packages (cf. #114)
+        my_add <- samplepkg::my_add
+        environment(my_add) <- environment(samplepkg::my_add)
+        decorate_functions(my_add)
+
+        my_add(runif(10), 1)
+
+        traces <- copy_traces()
+        expect_equal(length(traces), 1)
+        expect_equal(length(traces[[1]]$retv), 10)
+
+        test <- generate_test_file(traces[[1]], tmp)
+        res <- run_generated_test(test, quiet=F)
+        expect_true(res > 0)
+    })
 })
 

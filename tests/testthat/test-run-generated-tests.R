@@ -5,7 +5,7 @@ run_generated_code <- function(code) {
     on.exit(file.remove(tmp))
 
     writeLines(code, tmp)
-    run_generated_tests(tmp)
+    run_generated_test(tmp)
 }
 
 test_that("empty test does not run", {
