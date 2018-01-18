@@ -440,6 +440,7 @@ public:
 
             return res;
         }
+        case S4SXP:
         case EXTPTRSXP: {
             const vector<SEXP>::const_iterator pos =
                 find_if(externals_.begin(), externals_.end(), [s](SEXP x)->bool { return x == s; });
@@ -510,8 +511,6 @@ public:
             SEXP forced = Rf_eval(s, Environment::global_env());
             return serialize(forced, quote);
         }
-        case S4SXP:
-            throw sexp_not_supported_error("S4SXP");
         default:
             throw sexp_not_supported_error("unknown");
         }

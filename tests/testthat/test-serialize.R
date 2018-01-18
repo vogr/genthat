@@ -313,23 +313,15 @@ test_that("EXTPTRSXP serializatin works", {
      expect_equal(attr(s, "externals")$.ext.2, p2)
 })
 
-## test_that("S4SXP serialization", {
+test_that("S4SXP serialization", {
+    setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
+    p1 <- new("Person", name="Joe", age=31)
 
-##     setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
-##     p1 <- new("Person", name="Joe", age=31)
-##     p2 <- new("Person", name="Joe")
+    s <- serialize_value(p1)
+    expect_equivalent(s, ".ext.1")
+    expect_equal(attr(s, "externals")$.ext.1, p1)
+})
 
-##     # new(getClass("Person", where="..."))
-## })
-
-## test_that("S4SXP serialization", {
-
-##     # serialize classes
-##     # serialize methods
-##     # serialize objects
-
-##     setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
-##     p1 <- new("Person", name="Joe", age=31)
 ##     p2 <- new("Person", name="Joe")
 
 ##     sides <- function(object) 0
