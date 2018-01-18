@@ -507,9 +507,8 @@ public:
         case CHARSXP:
             throw sexp_not_supported_error("CHARSXP");
         case PROMSXP: {
-            // s = Rf_eval(s, R_BaseEnv);
-            // return serialize(s, quote);
-            throw sexp_not_supported_error("PROMSXP");
+            SEXP forced = Rf_eval(s, Environment::global_env());
+            return serialize(forced, quote);
         }
         case S4SXP:
             throw sexp_not_supported_error("S4SXP");
