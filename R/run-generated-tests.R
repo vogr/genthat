@@ -37,13 +37,13 @@ run_generated_test <- function(tests, quiet=TRUE) {
             time <- as.numeric(time, units="secs")
 
             if (!quiet) {
-                cat("OK (", time, " sec)")
+                cat("OK (", time, " sec)\n")
             }
 
             time
         }, error=function(e) {
             if (!quiet) {
-                cat("FAILED")
+                cat("FAILED\n")
             }
 
             as_chr_scalar(e$message)
