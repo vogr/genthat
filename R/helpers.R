@@ -300,8 +300,9 @@ get_function_package_name <- function(fun, name) {
     # higher-order function, it will have a new environment whose parent will be
     # named environment. This can obviously nest. A concrete example is `%>%`
     # from magrittr (cf.
-    # https://github.com/tidyverse/magrittr/blob/master/R/pipe.R#L175 ).
-    if (is.null(pkg_name) && length(env) == 0 && !is.null(name)) {
+    # https://github.com/tidyverse/magrittr/blob/master/R/pipe.R#L175 ) or
+    # curl:::multi_default.
+    if (is.null(pkg_name) && !is.null(name)) {
         env <- find_symbol_env(name, env)
         pkg_name <- get_package_name(env)
     }
@@ -309,7 +310,6 @@ get_function_package_name <- function(fun, name) {
     if (identical(env, .BaseNamespaceEnv)) {
         return("base")
     }
-
 
     if (is_empty_str(pkg_name) || identical(env, globalenv())) {
         NULL
