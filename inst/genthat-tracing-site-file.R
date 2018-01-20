@@ -19,11 +19,11 @@ if (Sys.getenv("GENTHAT_TRACER") == "set") {
     genthat::set_tracer(genthat::create_tracer(Sys.getenv("GENTHAT_TRACER")))
 }
 
-for (pkg in  strsplit(Sys.getenv("GENTHAT_PKGS"), ",", fixed=TRUE)[[1]]) {
+library(methods)
+
+for (pkg in strsplit(Sys.getenv("GENTHAT_PKGS"), ",", fixed=TRUE)[[1]]) {
     genthat::decorate_environment(pkg)
 }
-
-library(methods)
 
 reg.finalizer(
     e=loadNamespace("genthat"),

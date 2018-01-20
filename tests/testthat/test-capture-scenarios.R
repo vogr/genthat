@@ -43,15 +43,14 @@ test_that("full tracing scenario with a seed", {
         tmp <- tempfile()
         on.exit(unlink(tmp, recursive=TRUE))
 
+        d <- create_decorator()
         tracer <- create_set_tracer()
         set_tracer(tracer)
+        on.exit(reset_traces())
 
-        # TODO: fix decorating functions from packages (cf. #114)
-        my_add <- samplepkg::my_add
-        environment(my_add) <- environment(samplepkg::my_add)
-        decorate_functions(my_add)
+        decorate_function(samplepkg::my_add, decorator=d)
 
-        my_add(runif(10), 1)
+        samplepkg::my_add(runif(10), 1)
 
         traces <- copy_traces()
         expect_equal(length(traces), 1)

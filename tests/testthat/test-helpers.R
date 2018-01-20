@@ -128,7 +128,40 @@ test_that("next_file_in_row works", {
     expect_equal(f3, paste0(f, "-101"))
 })
 
+test_that("resolve_package_name returns the package name", {
+    expect_equal(resolve_package_name(ls, "ls"), "base")
+    expect_equal(resolve_package_name(`%in%`, "%in%"), "base")
+    expect_equal(resolve_package_name(tools::Rcmd, "Rcmd"), "tools")
+    expect_equal(resolve_package_name(dplyr::`%>%`, "%>%"), "magrittr")
 
+    my_f <- function() {}
+
+    expect_equal(resolve_package_name(my_f, "my_f"), NULL)
+})
+
+
+test_that("resolve_function", {
+    expect_equal(resolve_function("ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function("base::ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function("base:::ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+
+    expect_equal(resolve_function("ls", ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function(quote(ls), ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function(quote(base::ls), ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function(quote(base:::ls), ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+
+    expect_error(resolve_function("utils::this_one_does_not_exist_here_123"), "")
+    expect_error(resolve_function("this_one_does_not_exist_here_123", ls), "")
+    expect_error(resolve_function(quote(this_one_does_not_exists), ls), "")
+
+    my_fun <- function() {}
+    expect_equal(resolve_function("my_fun"), list(fqn="my_fun", name="my_fun", package=NULL, fun=my_fun))
+    expect_equal(resolve_function(quote(my_fun), my_fun), list(fqn="my_fun", name="my_fun", package=NULL, fun=my_fun))
+
+    env <- new.env(parent=emptyenv())
+    env$f <- function() {}
+    expect_equal(resolve_function("f", env=env), list(fqn="f", name="f", package=NULL, fun=env$f))
+})
 
 
 # TODO: update for link_environments()

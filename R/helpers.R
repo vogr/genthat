@@ -257,42 +257,73 @@ capture <- function(expr, split=FALSE) {
     )
 }
 
-resolve_package_name <- function(package) {
-    # TODO: no a very good heuristics (read manually description using read.dcf)
-    if (file.exists(package) && endsWith(package, ".tar.gz")) {
-        basename(untar(package, list=TRUE)[1])
-    } else if (dir.exists(package)) {
-        basename(package)
+# resolve_function(f, name="f")
+# resolve_function(name="f")
+#
+resolve_function <- function(name, fun=NULL, env=parent.frame()) {
+    stopifnot(is.environment(env))
+
+    if (is_chr_scalar(name)) {
+        names <- split_function_name(name)
+        name <- names$name
+        package <- names$package
+
+        if (!is.null(package)) {
+            env <- getNamespace(package)
+        }
+
+        if (is.null(fun)) {
+            if (!exists(name, envir=env)) {
+                stop("Function: ", name, " does not exist in environment: ", env);
+            } else {
+                fun <- get(name, envir=env)
+            }
+        }
+
+        if (is.null(package)) {
+            package <- resolve_package_name(fun, name)
+        }
+    } else if (is.name(name) || is.language(name)) {
+        if (is.null(fun)) {
+            stop("resolve_function: symbol/language name object needs additionally fun parameter")
+        }
+
+        if (is.name(name)) {
+            name <- as.character(name)
+            package <- resolve_package_name(fun, name)
+        } else {
+            f_name <- as.character(name[[1]])
+            if (f_name == "::" || f_name == ":::") {
+                package <- as.character(name[[2]])
+                name <- as.character(name[[3]])
+            } else {
+                stop("resolve_function: cannot parse function name from: ", name)
+            }
+        }
     } else {
-        tryCatch({
-            # this throws an exception if it does not exist
-            find.package(package)
-            package
-        }, error=function(e) {
-            stop("Unsupported / non-existing package: ", package)
-        })
+        stop("resolve_function: unsupported parameter combination")
     }
+
+    if (!is.null(package)) {
+        env <- getNamespace(package)
+    }
+
+    if (!exists(name, envir=env)) {
+        stop("Function: ", name, " does not exist in environment: ", format(env));
+    }
+
+    fqn <- get_function_fqn(package, name)
+    return(list(fqn=fqn, name=name, package=package, fun=fun))
 }
 
-resolve_function <- function(name, in_env=parent.frame()) {
-    fun <- if (is.function(name)) {
-        fun
-    } else if (is.name(name) || is.character(name)){
-        get(name, envir=in_env)
-    }
-
-    if (!is.function(fun)) {
-        stop("Not a function: ", name)
-    }
-
-    fun
-}
-
-get_function_package_name <- function(fun, name) {
+resolve_package_name <- function(fun, name) {
     stopifnot(is.null(name) ||(is.character(name) && length(name) == 1))
     stopifnot(is.function(fun))
 
     env <- environment(fun)
+    if (is.null(env)) {
+        return(NULL)
+    }
     pkg_name <- get_package_name(env)
 
     # A function's environment does not need to be a named environment. For
@@ -304,7 +335,9 @@ get_function_package_name <- function(fun, name) {
     # curl:::multi_default.
     if (is.null(pkg_name) && !is.null(name)) {
         env <- find_symbol_env(name, env)
-        pkg_name <- get_package_name(env)
+        if (!is.null(env)) {
+            pkg_name <- get_package_name(env)
+        }
     }
 
     if (identical(env, .BaseNamespaceEnv)) {
@@ -315,6 +348,17 @@ get_function_package_name <- function(fun, name) {
         NULL
     } else {
         pkg_name
+    }
+}
+
+get_function_fqn <- function(package, name) {
+    stopifnot(is.null(package) || is_chr_scalar(package))
+    stopifnot(is_chr_scalar(name))
+
+    if (is.null(package)) {
+        name
+    } else {
+        paste0(package, ":::", name)
     }
 }
 

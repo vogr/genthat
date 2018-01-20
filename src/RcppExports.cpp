@@ -108,15 +108,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // reassign_function
-SEXP reassign_function(SEXP target_fun, SEXP new_fun, bool keep_only_new_attributes);
-RcppExport SEXP _genthat_reassign_function(SEXP target_funSEXP, SEXP new_funSEXP, SEXP keep_only_new_attributesSEXP) {
+SEXP reassign_function(SEXP target_fun, SEXP new_fun);
+RcppExport SEXP _genthat_reassign_function(SEXP target_funSEXP, SEXP new_funSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type target_fun(target_funSEXP);
     Rcpp::traits::input_parameter< SEXP >::type new_fun(new_funSEXP);
-    Rcpp::traits::input_parameter< bool >::type keep_only_new_attributes(keep_only_new_attributesSEXP);
-    rcpp_result_gen = Rcpp::wrap(reassign_function(target_fun, new_fun, keep_only_new_attributes));
+    rcpp_result_gen = Rcpp::wrap(reassign_function(target_fun, new_fun));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -166,7 +165,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genthat_is_infix_fun", (DL_FUNC) &_genthat_is_infix_fun, 1},
     {"_genthat_escape_name", (DL_FUNC) &_genthat_escape_name, 1},
     {"_genthat_get_dd_val", (DL_FUNC) &_genthat_get_dd_val, 4},
-    {"_genthat_reassign_function", (DL_FUNC) &_genthat_reassign_function, 3},
+    {"_genthat_reassign_function", (DL_FUNC) &_genthat_reassign_function, 2},
     {"_genthat_create_duplicate", (DL_FUNC) &_genthat_create_duplicate, 1},
     {"_genthat_environment_name", (DL_FUNC) &_genthat_environment_name, 1},
     {"_genthat_environment_name_as_code", (DL_FUNC) &_genthat_environment_name_as_code, 1},

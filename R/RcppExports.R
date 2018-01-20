@@ -37,8 +37,8 @@ get_dd_val <- function(i, rho, default_value, force = FALSE) {
     .Call('_genthat_get_dd_val', PACKAGE = 'genthat', i, rho, default_value, force)
 }
 
-reassign_function <- function(target_fun, new_fun, keep_only_new_attributes = FALSE) {
-    .Call('_genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun, keep_only_new_attributes)
+reassign_function <- function(target_fun, new_fun) {
+    .Call('_genthat_reassign_function', PACKAGE = 'genthat', target_fun, new_fun)
 }
 
 create_duplicate <- function(target) {

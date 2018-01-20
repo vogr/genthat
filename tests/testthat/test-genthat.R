@@ -4,7 +4,7 @@ test_that("tracing control work", {
     capture <- list()
 
     f <- function(x,y) x + y
-    decorate_functions(f, record_fun=function(...) capture <<- list(...))
+    decorate_function(f, record_fun=function(...) capture <<- list(...))
 
     disable_tracing()
     f(1L, 2L)
