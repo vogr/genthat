@@ -4,17 +4,25 @@ options(error = function() {
 })
 
 options(genthat.debug=as.logical(Sys.getenv("GENTHAT_DEBUG", "FALSE")))
+options(genthat.keep_all_traces=as.logical(Sys.getenv("GENTHAT_KEEP_ALL_TRACES", "FALSE")))
 options(genthat.max_trace_size=as.integer(Sys.getenv("GENTHAT_MAX_TRACE_SIZE")))
 
 genthat::set_decorator(genthat::create_decorator(Sys.getenv("GENTHAT_DECORATOR")))
 
 if (Sys.getenv("GENTHAT_TRACER") == "set") {
-    genthat::set_tracer(
-        genthat::create_tracer(
-            "set",
-            session_file=Sys.getenv("GENTHAT_SESSION_FILE")
+    local({
+        session_file <- Sys.getenv("GENTHAT_SESSION_FILE")
+        if (nchar(session_file) == 0) {
+            session_file <- NULL
+        }
+
+        genthat::set_tracer(
+            genthat::create_tracer(
+                "set",
+                session_file=session_file
+            )
         )
-    )
+    })
 } else {
     genthat::set_tracer(genthat::create_tracer(Sys.getenv("GENTHAT_TRACER")))
 }

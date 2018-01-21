@@ -1,6 +1,8 @@
 #' @export
 #'
 create_set_tracer <- function(session_file=NULL) {
+    stopifnot(is.null(session_file) || is_chr_scalar(session_file))
+
     known_traces <-
         if (!is.null(session_file) && file.exists(session_file)) {
             if (is_debug_enabled()) {
