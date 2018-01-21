@@ -108,14 +108,24 @@ private:
     string wrap_in_attributes(SEXP const s, string const &s_str) {
         RObject protected_s(s);
 
-        string elems = "";
+        vector<string> elems;
+
         for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a)) {
             SEXP tag = TAG(a);
 
             if (tag == Rf_install("srcref")) {
                 continue;
             } else if (tag == R_NamesSymbol) {
-                continue;
+                if (XLENGTH(CAR(a)) == 0) {
+                    // naming for lists is taken care of in serialize VECSXP, but
+                    // there is a special case of empty names attribute (cf. #116).
+                    elems.push_back("names=character()");
+                } else if (TYPEOF(s) != VECSXP) {
+                    // for lists we handle it directly while creating the list
+                    // call (eg. list(a=1, b=2)), but for vectors we do not
+                    // since they are handled by deparse call
+                    elems.push_back("names=" + serialize(CAR(a), true));
+                }
             } else {
                 string name = attribute_name(tag);
 
@@ -123,12 +133,20 @@ private:
                     continue;
                 }
 
-                elems += name + "=" + serialize(CAR(a), true);
-                elems += !Rf_isNull(CDR(a)) ? ", " : "";
+                elems.push_back(name + "=" + serialize(CAR(a), true));
             }
         }
 
-        return !elems.empty() ?  "structure(" + s_str + ", " + elems + ")" : s_str;
+        string a_str;
+        if (elems.size() > 0) {
+            a_str += elems[0];
+
+            for (auto i = next(begin(elems)); i != end(elems); ++i) {
+                a_str += ", " + *i;
+            }
+        }
+
+        return a_str.empty() ? s_str : "structure(" + s_str + ", " + a_str + ")";
     }
 
     string format_argument(SEXP const arg) {

@@ -322,6 +322,17 @@ test_that("S4SXP serialization", {
     expect_equal(attr(s, "externals")$.ext.1, p1)
 })
 
+test_that("Serialization works with empty named elemenst (#116)", {
+    l <- structure(list(), names=character())
+    expect_equal(serialize_value(l), "structure(list(), names=character())")
+    expect_equal(serialize(l), l)
+})
+
+test_that("Serialization works with named vectors", {
+    v <- c("1"=1, "2"=2, 3, 4)
+    expect_equal(serialize(v), v)
+})
+
 ##     p2 <- new("Person", name="Joe")
 
 ##     sides <- function(object) 0
