@@ -29,6 +29,22 @@ record_trace <- function(name, pkg=NULL, args, retv, error, seed,
         globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
         globals <- lapply(globals, duplicate_global_var)
 
+        if (endsWith(name, "<-") && args[[1]] == `__genthat_tmp_arg`) {
+            # replacement function needs to be handle extra
+            # cf. https://cran.r-project.org/doc/manuals/R-lang.html#Subset-assignment
+
+            if (exists("*tmp*", envir=env)) {
+                tmp <- get("*tmp*", envir=env)
+                globals$`*tmp*` <- duplicate_global_var(tmp)
+
+                # this will be a symbol to promise, we need to force otherwise
+                # its value will change before we run serialize_value on it
+                args$value <- eval(duplicate_global_var(args$value))
+            } else {
+                stop("Unable to find *tmp* for replacement function ", name)
+            }
+        }
+
         create_trace(name, pkg, args=args, globals=globals, retv=retv, seed=seed, error=error)
     }, error=function(e) {
         create_trace(name, pkg, args=args, failure=e)

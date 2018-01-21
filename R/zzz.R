@@ -2,6 +2,7 @@ Rcpp::loadModule("SerializerModule", TRUE)
 
 # private genthat space
 `__genthat_default_retv` <- new.env(parent=emptyenv())
+`__genthat_tmp_arg` <- as.name("*tmp*")
 
 .onLoad <- function(libname, pkgname) {
     # this is just initialize the random generator so the .Random.seed is available

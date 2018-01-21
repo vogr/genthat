@@ -36,6 +36,33 @@ test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)",
     expect_null(trace[[1]]$globals$a)
 })
 
+test_that("replacement function", {
+    with_test_pkgs({
+        x <- 1:5
+        samplepkg::gg(x, 4) <- 0
+        expect_equal(x, c(0, 0, 0, 4, 5))
+
+        d <- create_decorator()
+        tracer <- create_set_tracer()
+        set_tracer(tracer)
+        on.exit(reset_traces())
+
+        y <- 1:5
+        decorate_function(samplepkg::`gg<-`, decorator=d)
+        samplepkg::gg(y, 4) <- 0
+        expect_equal(y, c(0, 0, 0, 4, 5))
+
+        t <- copy_traces(tracer)[[1]]
+
+        tmp <- tempfile()
+        on.exit(unlink(tmp, recursive=TRUE))
+
+        test <- generate_test_file(t, tmp)
+        res <- run_generated_test(test, quiet=F)
+        expect_true(res > 0)
+    })
+})
+
 test_that("full tracing scenario with a seed", {
     set.seed(42)
 

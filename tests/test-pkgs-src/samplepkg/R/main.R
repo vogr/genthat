@@ -39,3 +39,10 @@ my_warning <- function() {
 my_error <- function() {
     stop("my error")
 }
+
+#' @export
+"gg<-" <- function(v, a, value) {
+    v[v < a] <- value
+    v
+}
+

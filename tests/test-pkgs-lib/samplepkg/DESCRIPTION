@@ -9,5 +9,5 @@ LazyData: TRUE
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2017-08-24 11:49:15 UTC; krikafil
-Built: R 3.4.1; ; 2017-08-24 11:49:15 UTC; unix
+Packaged: 2018-01-21 22:01:29 UTC; krikava
+Built: R 3.4.3; ; 2018-01-21 22:01:29 UTC; unix

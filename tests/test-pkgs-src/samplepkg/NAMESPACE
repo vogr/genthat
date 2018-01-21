@@ -3,3 +3,4 @@
 export(my_add)
 export(my_call)
 export(my_public)
+export("gg<-")

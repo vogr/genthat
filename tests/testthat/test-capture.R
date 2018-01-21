@@ -452,3 +452,19 @@ test_that("captures nested language objects' global variables", {
     expect_equal(t$globals$arg1, arg1)
     expect_equal(t$globals$arg2, arg2)
 })
+
+test_that("capture works with replacement functions", {
+
+    tracer <- create_sequence_tracer()
+
+    x <- 1
+    env <- new.env(parent=emptyenv())
+    assign("*tmp*", x, envir=env)
+    record_trace("gg<-", args=list(v=as.name("*tmp*"), a=4, value=5), env=env, tracer=tracer)
+
+    t <- get_trace(tracer, 1L)
+    expect_equal(t$fun, "gg<-")
+    expect_equal(t$args, list(v=quote(`*tmp*`), a=4, value=5))
+    expect_equal(length(t$globals), 1)
+    expect_equal(t$globals$`*tmp*`, x)
+})
