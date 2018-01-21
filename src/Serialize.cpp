@@ -57,6 +57,10 @@ static const set<string> KEYWORDS = {
     "NA_complex_", "NA_character_", "..."
 };
 
+static const set<string> UNSUPPORTED_EXTPTR_CLASSES = {
+    "RegisteredNativeSymbol", "DLLHandle", "DLLInfoReference"
+};
+
 bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
@@ -460,6 +464,14 @@ public:
         }
         case S4SXP:
         case EXTPTRSXP: {
+            if (TYPEOF(s) == EXTPTRSXP) {
+                for (const auto &x : UNSUPPORTED_EXTPTR_CLASSES) {
+                    if (Rf_inherits(s, x.c_str())) {
+                        throw serialization_error("EXTPTR with class " +  x + " is not supported");
+                    }
+                }
+            }
+
             const vector<SEXP>::const_iterator pos =
                 find_if(externals_.begin(), externals_.end(), [s](SEXP x)->bool { return x == s; });
 

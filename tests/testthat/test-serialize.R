@@ -311,6 +311,12 @@ test_that("EXTPTRSXP serializatin works", {
      expect_equivalent(s, "structure(c(1, 2, 3), a1=.ext.1, a2=list(.ext.1, .ext.2))")
      expect_equal(attr(s, "externals")$.ext.1, p1)
      expect_equal(attr(s, "externals")$.ext.2, p2)
+
+     # unsupported external pointers
+     p3 <- p1
+     class(p3) <- "DLLHandle"
+
+     expect_error(serialize_value(p3), "EXTPTR with class DLLHandle is not supported")
 })
 
 test_that("S4SXP serialization", {
