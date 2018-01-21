@@ -288,6 +288,27 @@ public:
 
             return wrap_in_attributes(s, "list(" + args + ")");
         }
+        case LISTSXP: { /* pairlists */
+            RObject protected_s(s);
+
+            SEXP names = Rf_getAttrib(s, R_NamesSymbol);
+            string args;
+            int i = 0;
+
+            for (SEXP con = s; con != R_NilValue; con = CDR(con)) {
+                string value = serialize(CAR(con), false);
+
+                if (!Rf_isNull(names)) {
+                    string name = escape_name(CHAR(STRING_ELT(names, i++)));
+                    args += name.empty() ? "" : name + "=";
+                }
+
+                args += value;
+                args += CDR(con) != R_NilValue ? ", " : "";
+            }
+
+            return wrap_in_attributes(s, "alist(" + args + ")");
+        }
         case LGLSXP:
         case INTSXP:
         case REALSXP:
@@ -373,26 +394,6 @@ public:
             visited_environments.erase(s);
 
             return "list2env(list(" + elems + ")" + parent_env_arg + ")";
-        }
-        // TODO: do we need this one?
-        case LISTSXP: {/* pairlists */
-            RObject protected_s(s);
-            stringstream outStr;
-            outStr << "\"alist(";
-            SEXP names = Rf_getAttrib(s, R_NamesSymbol);
-            int i = 0;
-
-            for (SEXP con = s; con != R_NilValue; con = CDR(con))
-            {
-                if (i != 0) outStr << ", ";
-
-                outStr << escape_name(CHAR(STRING_ELT(names, i++))) << " = ";
-                auto val = serialize(CAR(con), false);
-                if (val != "")
-                    outStr << val;
-            }
-            outStr << ")\"";
-            return outStr.str();
         }
         case LANGSXP: {
             RObject protected_s(s);
