@@ -463,6 +463,7 @@ public:
             return res;
         }
         case S4SXP:
+        case DOTSXP:
         case EXTPTRSXP: {
             if (TYPEOF(s) == EXTPTRSXP) {
                 for (const auto &x : UNSUPPORTED_EXTPTR_CLASSES) {
@@ -533,8 +534,6 @@ public:
 
             return res;
         }
-        case DOTSXP:
-            throw sexp_not_supported_error("DOTSXP");
         case CHARSXP:
             throw sexp_not_supported_error("CHARSXP");
         case PROMSXP: {
