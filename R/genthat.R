@@ -284,6 +284,8 @@ trace_package <- function(pkgs, files_to_run,
     })
 
     run_file <- function(fname) {
+        log_debug("Running ", fname, " ...")
+
         env <- c()
         site_file <- NULL
 
@@ -337,7 +339,8 @@ trace_package <- function(pkgs, files_to_run,
         }
     }
 
-    pbapply::pblapply(files_to_run, run_file)
+    log_debug("Running ", length(files_to_run), " files")
+    lapply(files_to_run, run_file)
 }
 
 save_trace_file <- function(trace, output_dir, name) {
@@ -357,7 +360,7 @@ generate_action <- function(trace, output_dir, save_failed_trace=TRUE) {
         testfile <- generate_test_file(trace, output_dir)
         log_debug("Saving test into: ", testfile)
         error <- NA
-        
+
         if (getOption("genthat.keep_all_traces", FALSE)) {
             tracefile <- save_trace_file(trace, output_dir, basename(testfile))
             log_debug("Saving trace into: ", tracefile)
@@ -415,7 +418,8 @@ process_traces <- function(traces, output_dir, action) {
             action_fun <- function(trace) generate_action(trace, output_dir, save_failed_traces)
         }
 
-        ret <- pbapply::pblapply(traces, action_fun)
+        log_debug("Processing ", length(traces), " traces")
+        ret <- lapply(traces, action_fun)
         ret <- matrix(unlist(ret, use.names=FALSE, recursive=FALSE), ncol=2, byrow=TRUE)
     }
 
