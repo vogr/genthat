@@ -43,7 +43,7 @@ function _parallel {
         --result "$output" \
         --joblog "$output/parallel.log" \
         --shuf \
-        --timeout 5h \
+        --timeout 6h \
         "$@"
 }
 
@@ -92,7 +92,7 @@ function trace_task {
     #do_trace_task onexit--set --action stats
 #    do_trace_task on.exit--sequence --action stats
     #do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 131072
-    do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 622
+    do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 524288
 }
 
 function revdep_task {

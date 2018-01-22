@@ -27,14 +27,15 @@ RUN_DIR=file.path("..", "runs/packages")
 package_stat <- function(path) {
   data.frame(
     on.exit_set_log=file.exists(file.path(path, "trace-on.exit--set", "parallel.log")),
-    on.exit_set=file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-tracing.csv")),
-    on.exit_seq=file.exists(file.path(path, "trace-on.exit--sequence", "output", "all", "genthat-tracing.csv")),
-    onexit_set=file.exists(file.path(path, "trace-onexit--set", "output", "all", "genthat-tracing.csv")),
-    onexit_seq=file.exists(file.path(path, "trace-onexit--sequence", "output", "all", "genthat-tracing.csv")),
-    count_entry_seq=file.exists(file.path(path, "trace-count-entry--sequence", "output", "all", "genthat-tracing.csv")),
-    count_exit_seq=file.exists(file.path(path, "trace-count-exit--sequence", "output", "all", "genthat-tracing.csv")),
-    run_log=file.exists(file.path(path, "run", "parallel.log")),
-    run=file.exists(file.path(path, "run", "output", "all", "genthat-runs.csv")),
+    on.exit_set=
+      file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-tracing.csv")) &&
+      file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-tracing-errors.csv")) &&
+      file.exists(file.path(path, "trace-on.exit--set", "output", "all", "genthat-tracing-stats.csv")),
+#    on.exit_seq=file.exists(file.path(path, "trace-on.exit--sequence", "output", "all", "genthat-tracing.csv")),
+#    onexit_set=file.exists(file.path(path, "trace-onexit--set", "output", "all", "genthat-tracing.csv")),
+#    onexit_seq=file.exists(file.path(path, "trace-onexit--sequence", "output", "all", "genthat-tracing.csv")),
+#    count_entry_seq=file.exists(file.path(path, "trace-count-entry--sequence", "output", "all", "genthat-tracing.csv")),
+#    count_exit_seq=file.exists(file.path(path, "trace-count-exit--sequence", "output", "all", "genthat-tracing.csv")),
     run_package=file.exists(file.path(path, "run-package", "output", "all", "genthat-tracing.csv")),
     coverage=file.exists(file.path(path, "coverage", "output", "all", "covr.RDS"))
   )
@@ -69,8 +70,9 @@ format_size <- function(x) {
   sapply(x, fmt, USE.NAMES=FALSE)
 }
 
-load_file_from_packages <- function(filepath, from, fun) {
-  transmute(from, package, fname=file.path(path, filepath)) %>% 
+load_file_from_packages <- function(filepath, from=all_packages, fun) {
+  transmute(from, package, fname=file.path(path, filepath)) %>%
+    filter(file.exists(fname)) %>%
     pmap_dfr(fun)
 }
 
@@ -85,12 +87,41 @@ read_csv_checked <- function(...) {
 load_csvs <- function(path, from, ...) {
   load_file_from_packages(path, from, function(package, fname) {
     df <- read_csv_checked(fname, ...)
-    mutate(df, package=package) %>% select(package, everything())
+    if (is.data.frame(df)) {
+      mutate(df, package=package) %>% 
+      select(package, everything())
+    } else {
+      data_frame()
+    }
   })
+}
+
+load_trace_stats <- function(config) {
+  load_csvs(file.path(str_c("trace-", config), "output", "all", "genthat-tracing-stats.csv"), from=packages, 
+    col_types=cols_only(
+      all="d",
+      generated="d",
+      ran="d",
+      kept="d",
+      coverage="d",
+      elapsed="d"
+    )
+  )
 }
 
 load_traces <- function(config) {
   load_csvs(file.path(str_c("trace-", config), "output", "all", "genthat-tracing.csv"), from=packages, 
+    col_types=cols_only(
+      file="c",
+      output="c",
+      elapsed="d",
+      coverage="d"
+    )
+  )
+}
+
+load_trace_errors <- function(config) {
+  load_csvs(file.path(str_c("trace-", config), "output", "all", "genthat-tracing-errors.csv"), from=packages, 
     col_types=cols_only(
       file="c",
       output="c",
@@ -155,25 +186,62 @@ all_packages_obs <-
   gather(
     key="task", 
     value="success", 
-    count_entry_seq, on.exit_set, run, run_package, coverage
+    on.exit_set, run_package, coverage
   )
 
 # the subset of packages that made it till the end
 packages <- filter(
   all_packages, 
-  on.exit_set==TRUE, 
-#  on.exit_seq==TRUE, 
-#  onexit_seq==TRUE, 
-#  count_entry_seq==TRUE, 
-  run==TRUE
+  on.exit_set==TRUE
 )
 ```
 
+```{r coverage aux functions}
+library(covr)
+
+percent_coverage_checked <- function(covr_df) {
+  try(percent_coverage(covr_df), silent=TRUE)
+}
+
+load_coverage <- function() {
+  packages_with_covr <- filter(all_packages, coverage) %>% select(package, path)
+
+  load_type_coverage <- function(type, from) {
+    coverage <- pblapply(file.path(from, "coverage", "output", type, "covr.RDS"), readRDS, cl=4)
+    p_coverage <- pblapply(coverage, percent_coverage_checked, cl=4)
+    lapply(p_coverage, function(x) if (is.numeric(x)) x else NA)
+  }
+  
+  all_coverage <- load_type_coverage("all")
+  tests_coverage <- load_type_coverage("tests")
+
+  s_coverage <- mutate(
+    packages_with_covr, 
+    all_coverage=unlist(all_coverage), 
+    tests_coverage=unlist(tests_coverage),
+    diff_coverage=all_coverage-tests_covrage
+  )
+
+  s_coverage[complete.cases(s_coverage), ]
+}
+```
+
 ```{r load data}
-on_entry_seq <- load_traces("count-entry--sequence")
-on_exit_seq <- load_traces("on.exit--sequence")
+#on_entry_seq <- load_traces("count-entry--sequence")
+#on_exit_seq <- load_traces("on.exit--sequence")
 
 traces <- load_traces("on.exit--set")
+traces_errors <- load_trace_errors("on.exit--set")
+traces_stats <- load_trace_stats("on.exit--set")
+
+coverage <- load_coverage()
+
+dependencies <- local({
+  d <- tools::package_dependencies(packages$package, which = c("Depends", "Imports"), reverse = TRUE)
+  d <- sapply(d, length)
+  data_frame(package=packages$package, dependencies=d)
+})
+
 runs <- load_csvs(file.path("run", "output", "all", "genthat-runs.csv"), from=packages, col_types=cols_only(
     file="c",
     test="c",
@@ -191,6 +259,44 @@ trace_log <- load_trace_log("on.exit--set", from=filter(all_packages, on.exit_se
 run_log <- read_parallel_logs("run", filter(all_packages, run_log))
 ```
 
+
+### Dependencies and Code coverage
+
+```{r}
+rev_deps_time <- function(d) {
+  if (!is.character(d) && length(d) != 1) {
+    return(NA)
+  }
+  
+  all <- tools::package_dependencies(d, recursive=F, reverse=T)[[1]]
+  left_join(
+    data_frame(package=all),
+    select(trace_log, package, duration),
+    by="package"
+  )
+}
+
+cd <- left_join(coverage, dependencies, by="package")
+cd <- left_join(cd, trace_log, by="package")
+cd <- select(cd, package, dependencies, all_coverage, tests_coverage, duration)
+
+rev_deps <- tools::package_dependencies(cd$package, recursive=F, reverse=T)
+rev_deps_duration <- data_frame(package=unique(unlist(rev_deps)))
+rev_deps_duration <- left_join(rev_deps_duration, select(trace_log, package, duration), by="package")
+
+rev_known <- lapply(rev_deps, function(deps) {
+  filter(trace_log, package %in% deps)$duration
+})
+
+cd <- mutate(
+  cd, 
+  rev_duration=sapply(rev_known, sum), 
+  rev_present=sapply(rev_known, length),
+  missing=dependencies-rev_present
+)
+```
+
+
 ```{r process data}
 sum_traces <- function(traces) {
   df <- 
@@ -207,6 +313,33 @@ sum_traces <- function(traces) {
   df
 }
 
+=======
+  on.exit_set==TRUE
+#  on.exit_seq==TRUE, 
+#  onexit_seq==TRUE, 
+#  count_entry_seq==TRUE, 
+#  run==TRUE
+)
+```
+
+
+```{r process data}
+sum_traces <- function(traces) {
+  df <- 
+    group_by(traces, package) %>% 
+    summarise(traces=n(), tests=sum(is.na(error)), failures=sum(!is.na(error)))
+  
+  # a sanity check (the verbose code is for debugging the bad ones)
+  stopifnot(
+    mutate(df, d = traces - tests - failures) %>% 
+      filter(d != 0) %>% 
+      nrow() == 0
+  )
+  
+  df
+}
+
+>>>>>>> Stashed changes
 s_traces <- 
   sum_traces(traces) %>%
   filter(traces > 0) %>%
@@ -399,6 +532,7 @@ generr_ratio("S4SXP") %>% filter(r > 0.1) %>% datatable()
 
 ```{r}
 generr_ratio("Serialized data structure contains cycle") %>% filter(r > 0.1) %>% datatable()
+<<<<<<< Updated upstream
 ```
 
 - `Generate error: Serialization error: SEXP type PROMSXP not supported!`
@@ -447,6 +581,56 @@ p_runs %>% rowwise() %>% mutate(x=sum(passed, failed, error, exception)) %>% fil
 
 #### Errors
 
+=======
+```
+
+- `Generate error: Serialization error: SEXP type PROMSXP not supported!`
+
+```{r}
+generr_ratio("PROMSXP") %>% filter(r > 0.1) %>% datatable()
+```
+
+- `Generate error: Serialization error: SEXP type EXTPTRSXP not supported!`
+
+```{r}
+generr_ratio("EXTPTRSXP") %>% filter(r > 0.1) %>% datatable()
+```
+
+- `Generate error: STRING_ELT() can only be applied to a 'character vector', not a 'NULL'`
+
+```{r}
+generr_ratio("STRING_ELT\\(\\) can only be applied to") %>% filter(r > 0.1) %>% datatable()
+```
+
+## Running
+
+### Inconsitent data
+
+Likely packages using testthat themselves
+
+```{r}
+runs %>% filter((nb - warning) > 1) %>% count(package) %>% datatable()
+```
+
+```{r run errors}
+runs %>%
+  transmute(run_error=ifelse(is.na(run_error), "No run_error", run_error)) %>%
+  count(run_error) %>%
+  arrange(desc(n)) %>%
+  datatable()
+```
+
+### Test numbers
+
+- Check inconsitencies
+
+```{r}
+p_runs %>% rowwise() %>% mutate(x=sum(passed, failed, error, exception)) %>% filter(x>1)
+```
+
+#### Errors
+
+>>>>>>> Stashed changes
 ```{r run tests results, fig.height=13}
 s_runs %>%
   mutate(
@@ -466,6 +650,7 @@ s_runs %>%
     title="Test running results",
     x="Package",
     y="Ratio of different results"
+<<<<<<< Updated upstream
   )
 ```
 
@@ -481,6 +666,23 @@ success_rate <- select(s_traces, package, n_traces, n_success) %>%
   )
 ```
 
+=======
+  )
+```
+
+## Summary
+
+```{r success rate}
+success_rate <- select(s_traces, package, n_traces, n_success) %>%
+  left_join(select(s_runs, package, passed), by="package") %>%
+  mutate(
+    generated_traced=ifelse(n_traces > 0, n_success/n_traces, 0),
+    passed_generated=ifelse(n_traces > 0, passed/n_success, 0),
+    passed_traced=ifelse(n_success > 0, passed/n_traces, 0)
+  )
+```
+
+>>>>>>> Stashed changes
 ```{r success rate overview}
 success_rate %>%
   gather(key="key", value="value", generated_traced, passed_generated, passed_traced) %>%
@@ -654,6 +856,7 @@ p0 + coord_cartesian(ylim = ylim1*1.05) +   labs(
 ### Test size
 
 ```{r load test size}
+<<<<<<< Updated upstream
 test_sizes <- load_file_from_packages(
   file.path("trace-on.exit--set", "output", "all"), 
   from=left_join(filter(s_traces, tests > 0), all_packages, by="package"), 
@@ -661,6 +864,13 @@ test_sizes <- load_file_from_packages(
     files <- list.files(fname, pattern="test-.*\\.R$", full.names=TRUE, recursive=TRUE)
     data_frame(package=package, file=files, size=file.size(files))
   }
+=======
+test_sizes <- transmute(
+  runs, 
+  package, 
+  file=str_replace(file, "/home/krikafil/Research/Projects/genthat", ".."), 
+  size=file.size(file) / 1024
+>>>>>>> Stashed changes
 )
 ```
 
@@ -699,6 +909,7 @@ If it is not, there is a problem.
 ```{r}
 run_tests %>% filter((nb - warning) > 1) %>% count(package) %>% datatable()
 ```
+<<<<<<< Updated upstream
 
 
 # Coverage
@@ -744,6 +955,23 @@ ggplot(s_coverage, aes(x=dependencies, y=all_coverage, label=package)) +
 filter(all_packages, !coverage, run_package) %>% datatable()
 ```
 
+=======
+
+
+# Coverage
+
+```{r coverage result}
+ggplot(s_coverage, aes(x=dependencies, y=all_coverage, label=package)) + 
+  geom_point() + 
+  geom_text(size=2, vjust = 0, nudge_y = 0.5) + 
+  scale_x_log10()
+```
+
+```{r}
+filter(all_packages, !coverage, run_package) %>% datatable()
+```
+
+>>>>>>> Stashed changes
 ```{r}
 read_file_checked <- function(path) {
   if (file.exists(path)) {
