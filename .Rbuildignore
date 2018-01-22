@@ -16,7 +16,9 @@
 ^TAGS$
 ^genthat\.Rproj$
 ^genthat_.*.tar.gz$
+^analysis$
 ^tools$
+^runs$
 ^.*\.RDS$
 ^\.dockerignore$
 ^\.gdb_history$
