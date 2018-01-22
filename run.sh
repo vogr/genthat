@@ -10,8 +10,8 @@ fi
 
 if [ $# -eq 1 ]; then
 #    tasks="--coverage"
-#    tasks="--trace"
-    tasks="--trace --coverage"
+    tasks="--revdep"
+#    tasks="--trace --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
     tasks=""
@@ -95,6 +95,18 @@ function trace_task {
     do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 622
 }
 
+function revdep_task {
+    deps=$(mktemp)
+    Rscript -e "options(repos='https://mirrors.nic.cz/R'); cat(paste(intersect(installed.packages()[,1], tools::package_dependencies('$package', reverse=T, recursive=F)[[1]]), collapse='\n'),'\n')" > $deps
+    do_run_task \
+        "revdep" \
+        -a "$deps" \
+        ./tools/trace-package.R revdep \
+        --package "$package" \
+        --dep "{1}" \
+        --output "$output_base/revdep/output/all/{1}"
+}
+
 function run_package_task {
     do_run_task \
         "run-package" \
@@ -132,6 +144,9 @@ for t in $(echo "$tasks"); do
             ;;
         --trace)
             trace_task
+            ;;
+        --revdep)
+            revdep_task
             ;;
         --generate)
             generate_task

@@ -18,7 +18,7 @@ rev_deps <- rev_deps[[1]]
 
 pkgs_installed <- installed.packages()[, 1]
 pkgs_to_install <- setdiff(rev_deps, pkgs_installed)
-install.packages(pkgs_to_install)
+install.packages(pkgs_to_install, INSTALL_opts = c("--example", "--install-tests", "--with-keep.source", "--no-multiarch"))
 pkgs_installed <- installed.packages()[, 1]
 rev_deps <- intersect(rev_deps, pkgs_installed)
 rev_deps <- sample(rev_deps, length(rev_deps))

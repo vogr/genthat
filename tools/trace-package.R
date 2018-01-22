@@ -13,8 +13,9 @@ pboptions(type="none")
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
-run_option_list <- list(
-    make_option("--tests", type="character", help="Path to generated tests", metavar="PATH"),
+revdep_option_list <- list(
+    make_option("--package", type="character", help="Package to trace", metavar="PATH"),
+    make_option("--dep", type="character", help="Package to run", metavar="PATH"),
     make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
 )
@@ -32,7 +33,6 @@ trace_option_list <- list(
     make_option("--output", type="character", help="Name of the output directory for traces", default=tempfile(file="genthat-traces"), metavar="PATH"),
     make_option("--config", type="character", help="decorator+tracer", metavar="CONFIG", default="onexit+set"),
     make_option("--action", type="character", help="action", metavar="ACTION", default="generate"),
-    make_option("--max-trace-size", type="integer", help="max trace size", metavar="SIZE", default=128*1024),
     make_option("--prune-tests", help="Prune tests", action="store_true", default=FALSE),
     make_option(c("-d", "--debug"), help="Debug output", action="store_true", default=FALSE),
     make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
@@ -43,25 +43,29 @@ log_debug <- function(...) {
     cat(msg, "\n")
 }
 
-run_task <- function(tests, output, quiet) {
+revdep_task <- function(package, dep, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
-    tests <- readr::read_csv(tests, col_types=cols_only(output="c"))
-    tests <- dplyr::filter(tests, endsWith(output, ".R"))
-    testfiles <- tests$output
+    working_dir <- file.path(output, "tmp")
+    stopifnot(dir.exists(working_dir) || dir.create(working_dir, recursive=TRUE))
 
-    if (!quiet) {
-        log_debug("Found ", length(testfiles), " files")
-    }
+    options(genthat.debug=T)
 
-    runs <- genthat::run_generated_test(testfiles, quiet)
-    readr::write_csv(runs, file.path(output, "genthat-runs.csv"))
+    res <- genthat::gen_from_package(
+        package,
+        dep,
+        types="all",
+        action="generate",
+        output_dir=output,
+        decorator="on.exit",
+        tracer="set",
+        working_dir=working_dir,
+        prune_tests=T,
+        quiet=quiet
+    )
 
-    if (!quiet) {
-        n <- sum(runs$nb)
-        f <- sum(runs$failed)
-        log_debug("Run successfully ", n-f, "/", nrow(runs), " tests")
-    }
+    saveRDS(res, file.path(output, paste0(package, "-", dep, ".RDS")))
+    print(attr(res, "stats"))
 }
 
 coverage_task <- function(package, types, output, quiet) {
@@ -116,7 +120,7 @@ main <- function(args) {
     # TODO handle help option
     # TODO handle debug option
 
-    task_name <- match.arg(args[1], c("coverage", "generate", "run", "trace"), several.ok=FALSE)
+    task_name <- match.arg(args[1], c("coverage", "generate", "revdep", "trace"), several.ok=FALSE)
 
     task_fun <- get(str_c(task_name, "_task"))
     option_list <- get(str_c(task_name, "_option_list"))
