@@ -4,7 +4,7 @@ test_that("tracing control work", {
     capture <- list()
 
     f <- function(x,y) x + y
-    decorate_functions(f, record_fun=function(...) capture <<- list(...))
+    decorate_function(f, record_fun=function(...) capture <<- list(...))
 
     disable_tracing()
     f(1L, 2L)
@@ -16,84 +16,84 @@ test_that("tracing control work", {
     f(1L, 2L)
 
     expect_equal(is_tracing_enabled(), TRUE)
-    expect_equal(length(capture), 5L)
+    expect_equal(length(capture), 6L)
     expect_equal(capture$retv, 3L)
 })
 
-test_that("export_traces work", {
-    stats_file <- tempfile()
-    output_dir <- tempfile()
+test_that("process_traces with export action work", {
+    tmp <- tempfile()
 
-    expect_false(file.exists(stats_file))
-    expect_false(dir.exists(output_dir))
+    on.exit({
+        unlink(tmp, recursive=TRUE)
+    })
+
+    expect_false(dir.exists(tmp))
 
     trace_1 <- create_trace("fun1")
-    trace_2 <- create_trace("fun2")
-    trace_3 <- create_trace("fun3")
+    trace_2 <- create_trace("fun2", retv=1)
+    trace_3 <- create_trace("fun3", error=simpleError("Bad call"))
+    trace_4 <- create_trace("fun4", failure=simpleError("Something is wrong"))
 
-    export_traces(list(trace_1), output_dir=output_dir, stats_file=stats_file)
+    ret <- process_traces(list(trace_1, trace_2, trace_3, trace_4), output_dir=tmp, action="export")
 
-    expect_true(file.exists(stats_file))
-    expect_true(file.exists(output_dir))
+    expect_equal(nrow(ret), 4)
 
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 1)
-    expect_equal(stats$filename, file.path(output_dir, "1.RDS"))
-    expect_equal(stats$n_traces, 1)
-    expect_equal(stats$n_complete, 0)
-    expect_equal(stats$n_error, 0)
-    expect_equal(stats$n_entry, 1)
-    expect_equal(stats$tag, NA)
+    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "trace-1.RDS"))
+    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "trace-1.RDS"))
+    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "trace-1.RDS"))
+    expect_equivalent(ret[4, 1], NA_character_)
 
-    rds <- readRDS(file.path(output_dir, "1.RDS"))
-    expect_length(rds, 1)
-    expect_equal(rds[[1]], trace_1)
+    expect_equivalent(ret[, 2], c(NA, NA, NA, "Something is wrong"))
 
-    ## this should append
-    export_traces(list(trace_2, trace_3), output_dir=output_dir, stats_file=stats_file)
+    rdss <- lapply(ret[1:3, 1], readRDS)
+    expect_equal(rdss, list(trace_1, trace_2, trace_3))
 
-    expect_true(file.exists(stats_file))
-    expect_true(file.exists(output_dir))
-
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 2)
-    expect_equal(stats$filename, file.path(output_dir, c("1.RDS", "2.RDS")))
-    expect_equal(stats$n_traces, c(1, 2))
-    expect_equal(stats$tag, c(NA, NA))
-
-    rds <- readRDS(file.path(output_dir, "2.RDS"))
-    expect_length(rds, 2)
-    expect_true(list_contains(rds, trace_2))
-    expect_true(list_contains(rds, trace_3))
-
-    ## this should not append
-    export_traces(list(), output_dir=output_dir, stats_file=stats_file)
-
-    expect_true(file.exists(stats_file))
-    expect_true(file.exists(output_dir))
-
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 2)
-    expect_equal(stats$filename, file.path(output_dir, c("1.RDS", "2.RDS")))
-    expect_equal(stats$n_traces, c(1, 2))
-    expect_equal(stats$tag, c(NA, NA))
+    # test with empty input
+    ret <- process_traces(list(), output_dir=tmp, action="export")
+    expect_equal(dim(ret), c(0, 2))
 })
 
-test_that("export traces merges file names", {
-    stats_file <- tempfile()
-    output_dir <- tempfile()
+test_that("process_traces with generate action work", {
+
+    tmp <- tempfile()
+
+    on.exit({
+        unlink(tmp, recursive=TRUE)
+    })
+
+    expect_false(dir.exists(tmp))
 
     trace_1 <- create_trace("fun1")
-    trace_2 <- create_trace("fun2")
+    trace_2 <- create_trace("fun2", retv=1)
+    trace_3 <- create_trace("fun3", error=simpleError("Bad call"))
+    trace_4 <- create_trace("fun4", failure=simpleError("Something is wrong"))
 
-    export_traces(list(trace_1, trace_2), output_dir=output_dir, stats_file=stats_file, batch_size=1)
+    ret <- process_traces(list(trace_1, trace_2, trace_3, trace_4), output_dir=tmp, action="generate")
 
-    stats <- read_stats_file(stats_file)
-    expect_equal(nrow(stats), 1)
-    expect_equal(stats$filename, paste(file.path(output_dir, c("1.RDS", "2.RDS")), collapse="\n"))
+    expect_equal(nrow(ret), 4)
 
-    traces <- unlist(lapply(file.path(output_dir, c("1.RDS", "2.RDS")), readRDS), recursive=FALSE)
-    expect_length(traces, 2)
-    expect_true(list_contains(traces, trace_1))
-    expect_true(list_contains(traces, trace_2))
+    expect_equivalent(ret[1, 1], file.path(tmp, "_NULL_", "fun1", "failed-trace-1.RDS"))
+    expect_equivalent(ret[2, 1], file.path(tmp, "_NULL_", "fun2", "test-1.R"))
+    expect_equivalent(ret[3, 1], file.path(tmp, "_NULL_", "fun3", "failed-trace-1.RDS"))
+    expect_equivalent(ret[4, 1], file.path(tmp, "_NULL_", "fun4", "failed-trace-1.RDS"))
+
+    expect_equivalent(ret[, 2], c(
+        "Trace error: No return value",
+        NA,
+        "Code error: Bad call",
+        "Trace error: Something is wrong"
+    ))
+
+    rdss <- lapply(ret[c(1,3,4), 1], readRDS)
+    expect_equal(rdss, list(trace_1, trace_3, trace_4))
+
+    # test with empty input
+    ret <- process_traces(list(), output_dir=tmp, action="generate")
+    expect_equal(dim(ret), c(0, 2))
+})
+
+test_that("pruning works", {
+    with_mock(
+
+    )
 })

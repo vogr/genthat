@@ -15,17 +15,17 @@ run_r_fun <- function(fun, ...) {
 }
 
 run_r_script <- function(script_file,
-                        args=c("--silent", "--no-environ", "--no-init-file", "--no-restore", "--no-save"),
-                        site_file=NULL, quiet=TRUE, lib_paths=NULL) {
+                         args=c("--silent", "--no-environ", "--no-init-file", "--no-restore", "--no-save"),
+                         site_file=NULL, env=c(), quiet=TRUE, lib_paths=NULL) {
 
     stopifnot(file.exists(script_file))
+    script_file <- normalizePath(script_file, mustWork=TRUE)
     stopifnot(is.null(lib_paths) || all(dir.exists(lib_paths)))
-
-    env <- c()
 
     if (is.null(lib_paths)) {
         lib_paths <- .libPaths()
     }
+
     # This is fairly counter intuitive, but the problem is that in some cases
     # some R code (e.g. tools::testInstalledPackage) sets R_LIBS to "" and
     # therefore the .lib_paths won't work. Therefore reset the variables to
@@ -33,6 +33,8 @@ run_r_script <- function(script_file,
     paths <- paste(shQuote(lib_paths), collapse=.Platform$path.sep)
     env <- c(env,
         paste("R_LIBS", paths, sep="=")
+
+        # TODO: not sure if we need this as well - probably on windows?
         ## paste("R_LIBS_USER", paths, sep="="),
         ## paste("R_LIBS_SITE", paths, sep="=")
     )
@@ -54,14 +56,13 @@ run_r_script <- function(script_file,
 
     Rbin <- file.path(R.home("bin"), "R")
 
-
     stdout <- FALSE
     stderr <- FALSE
     if (!quiet) {
         stdout <- ""
         stderr <- ""
 
-        message(
+        log_debug(
             "Running: ",
             paste(env, collapse=" "), " ",
             Rbin, " ",

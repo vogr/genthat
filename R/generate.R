@@ -1,5 +1,5 @@
-format_calling_args <- function(args, include_names=TRUE) {
-    args <- lapply(args, serialize_value)
+format_calling_args <- function(args, include_names=TRUE, serializer) {
+    args <- lapply(args, serializer$serialize_value)
 
     if (include_names && !is.null(names(args))) {
         pairs <- zip(name=names(args), value=args)
@@ -23,14 +23,18 @@ dump_raw_trace <- function(trace) {
     s
 }
 
-generate_call <- function(trace) {
+generate_call <- function(trace, serializer) {
     stopifnot(is.character(trace$fun))
     stopifnot(is.list(trace$args))
 
     fun <- trace$fun
+    pkg <- trace$pkg
+    if (is.null(pkg)) {
+        pkg <- ""
+    }
 
-    if (is_infix_fun(fun) && trace$pkg == "base") {
-        args <- format_calling_args(trace$args, include_names=FALSE)
+    if (is_infix_fun(fun) && pkg == "base") {
+        args <- format_calling_args(trace$args, include_names=FALSE, serializer)
 
         if (length(args) != 2) {
             stop("Call to infix function: `", fun,
@@ -42,7 +46,7 @@ generate_call <- function(trace) {
 
         paste(args[[1]], fun, args[[2]], collapse=sep)
     } else {
-        args <- format_calling_args(trace$args, include_names=TRUE)
+        args <- format_calling_args(trace$args, include_names=TRUE, serializer)
         args_str <- paste(args, collapse=", ")
         fun <- escape_name(fun)
         pkg <- trace$pkg
@@ -50,6 +54,13 @@ generate_call <- function(trace) {
 
         paste0(pkg, fun, '(', args_str, ')')
     }
+}
+
+generate_globals <- function(globals, serializer) {
+    names <- sapply(names(globals), escape_name, USE.NAMES=FALSE)
+    values <- lapply(globals, serializer$serialize_value)
+
+    paste(names, values, sep=" <- ", collapse="\n")
 }
 
 #' @title Generate test case code from a trace
@@ -61,142 +72,135 @@ generate_call <- function(trace) {
 #'
 #' @importFrom utils str
 #' @export
-generate_test_code <- function(trace, include_trace_dump=FALSE) {
-    UseMethod("generate_test_code")
-}
-
-#' @export
-generate_test_code.genthat_trace <- function(trace, include_trace_dump=FALSE) {
-    call <- generate_call(trace)
-    globals <- paste(names(trace$globals), lapply(trace$globals, serialize_value), sep=" <- ", collapse="\n")
-    retv <- serialize_value(trace$retv)
-
-    header <- "library(testthat)\n\n"
-    if (include_trace_dump) {
-        header <- paste(header, dump_raw_trace(trace), sep="\n")
-    }
-
-    paste0(
-        header,
-        'test_that("', trace$fun, '", {\n',
-        globals,
-        '\nexpect_equal(', call, ', ', retv, ')\n})'
-    )
-}
-
-#' @export
-generate_test_code.default <- function(trace, include_trace_dump) {
-    NULL
-}
-
-
-#' @title generate test from a trace
-#' @description given a trace, it generates a test
-#' @return a data frame or a tibble with the following
-#' trace      : chr
-#' fun        : chr
-#' code       : chr (can be NA)
-#' error      : chr (can be NA)
-#' elapsed    : numeric
-#'
-#' @export
-#'
 generate_test <- function(trace, ...) {
     UseMethod("generate_test")
 }
 
-generate_test.genthat_trace_entry <- function(trace, ...) {
-    list(
-        trace=format(trace),
-        fun=trace$fun,
-        code=NA,
-        error="No return value recorded",
-        elapsed=NA
-    )
-}
+#' @export
+generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
+    tryCatch({
+        externals <- new.env(parent=emptyenv())
+        serializer <- new(Serializer)
+        call <- generate_call(trace, serializer)
+        globals <- generate_globals(trace$globals, serializer)
+        retv <- serializer$serialize_value(trace$retv)
 
-#' @importFrom utils capture.output
-#' @importFrom utils getTxtProgressBar
-#' @importFrom utils setTxtProgressBar
-#' @importFrom utils str
-generate_test.genthat_trace <- function(trace, ...) {
-    result <- list(
-        trace=format(trace),
-        fun=trace$fun,
-        code=NA,
-        error=NA,
-        elapsed=NA
-    )
-
-    # this style is needed so we can set the error field from error handler
-    # which would otherwise create a new scope copying the result list
-    # on modification
-    result <- tryCatch({
-        time <- system.time(code <- generate_test_code(trace, ...))
-        result$elapsed <- time["elapsed"]
-
-        if (!is.null(code)) {
-            result$code <- code
+        header <- "library(testthat)\n\n"
+        if (include_trace_dump) {
+            header <- paste(header, dump_raw_trace(trace), sep="\n")
         }
 
-        result
-    }, error=function(e) {
-        result$error <- e$message
-        result
-    })
+        if (!is.null(trace$seed)) {
+            # .Random.seed is only looked in user environment
+            header <- paste0(header, ".Random.seed <<- .ext.seed\n\n")
+            externals$.ext.seed <- trace$seed
+        }
 
-    result
+        code <- paste0(
+            header,
+            'test_that("', trace$fun, '", {\n',
+            globals,
+            if (nchar(globals) > 0) '\n' else '',
+            '\nexpect_equal(', call, ', ', retv, ')\n})'
+        )
+
+        if (format_code) {
+            code <- reformat_code(code)
+        }
+
+        serializer$externals(externals)
+        attr(code, "externals") <- externals
+
+        code
+    }, error=function(e) {
+        # this so we can have a systematic prefix for the error message
+        # which helps to filter problems by their class
+        stop(simpleError(paste("Generate error:", trimws(e$message, which="both")), e$call))
+    })
 }
 
-#' @title Generates test cases from traces
-#'
-#' @param traces from which to generate test cases
-#' @param show_progress (log) show progress during test generation
-#' @param ... additional arguments supplied to `generate_test_code` function.
-#'
-#' @return a data frame or a tibble with the following
-#' fun        : chr
-#' trace      : chr
-#' trace_type : chr
-#' code       : chr (can be NA)
-#' error      : chr (can be NA)
-#'
-#' @description Generates tests cases from the captured traces.
+#' @export
+generate_test.genthat_trace_entry <- function(trace, ...) {
+    stop("Trace error: No return value")
+}
+
+#' @export
+generate_test.genthat_trace_skipped <- function(trace, ...) {
+    stop("Trace error: Trace too big (", trace$skipped, ")")
+}
+
+#' @export
+generate_test.genthat_trace_error <- function(trace, ...) {
+    stop(paste("Code error:", trace$error$message))
+}
+
+#' @export
+generate_test.genthat_trace_failure <- function(trace, ...) {
+    stop(paste("Trace error:", trace$failure$message))
+}
+
+#' @param tests this should be a data.frame with class genthat_tests, a result
+#'     from calling `generate_tests`.
 #' @export
 #'
-generate_tests <- function(traces, quiet=TRUE, ...) {
-    stopifnot(is.list(traces) || is.environment(traces))
+save_test <- function(pkg, fun, code, output_dir) {
+    stopifnot(is_chr_scalar(pkg))
+    stopifnot(is_chr_scalar(fun))
+    stopifnot(is.character(code), length(code) > 0)
+    stopifnot(is_chr_scalar(output_dir))
 
-    if (length(traces) == 0) {
-        return(data.frame())
+    dname <- file.path(output_dir, pkg, fun)
+    stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
+
+    fname <- next_file_in_row(file.path(dname, "test.R"))
+
+    externals <- attr(code, "externals")
+    if (length(externals) > 0) {
+        fname_ext <- paste0(tools::file_path_sans_ext(fname), ".ext")
+        saveRDS(externals, fname_ext)
     }
 
-    tests <- lapply(traces, function(x) {
-        message(appendLF=FALSE)
-        generate_test(x, ...)
-    })
+    write(paste(code, collapse="\n\n"), file=fname)
 
-    if (requireNamespace("dplyr", quietly=TRUE)) {
-        df <- dplyr::bind_rows(tests)
-        as_data_frame(df)
-    } else {
-        message("dplyr is not available, which is a pity since `do.call(rbind, ...)` is super slow")
-        do.call(rbind, tests)
-    }
+    fname
 }
 
-save_tests <- function(output_dir, tests) {
-    stopifnot(is.character(output_dir) && length(output_dir) == 1)
-    stopifnot(is.data.frame(tests))
+reformat_code <- function(code) {
+    tryCatch({
+        code <- formatR::tidy_source(
+            text=code,
+            output=FALSE,
+            comment=FALSE,
+            blank=TRUE,
+            arrow=TRUE,
+            brace.newline=FALSE,
+            indent=4,
+            width.cutoff=120
+        )
 
-    if (!dir.exists(output_dir)) {
-        if (!dir.create(output_dir)) {
-            stop("Couldn't create ", output_dir)
-        }
-    }
+        code <- code$text.tidy
 
-    lapply(tests, function(x) {
-        fname <- file.path(output_dir, paste0("test-", x$id, ".R"))
-        write(x$test, file=fname)
+        paste(code, collapse="\n")
+        code
     })
+}
+
+#' @title generate test from a trace
+#' @description given a trace, it generates a test and stores it in a file
+#' @return a data frame with the following
+#' pkg        : chr
+#' fun        : chr
+#' filename   : chr (can be NA in which case error must be a chr)
+#' error      : chr (can be NA in which case code must be NA)
+#' elapsed    : numeric (can be NA)
+#'
+#' @export
+#'
+generate_test_file <- function(trace, output_dir, ...) {
+    code <- generate_test(trace, ...)
+
+    pkg <- if (is.null(trace$pkg)) "_NULL_" else trace$pkg
+    fun <- if (is.null(trace$fun)) "_NULL_" else trace$fun
+
+    save_test(pkg, fun, code, output_dir)
 }

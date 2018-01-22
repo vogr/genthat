@@ -1,18 +1,20 @@
+Rcpp::loadModule("SerializerModule", TRUE)
+
 # private genthat space
-`__genthat_private` <- new.env(parent=emptyenv())
+`__genthat_default_retv` <- new.env(parent=emptyenv())
+`__genthat_tmp_arg` <- as.name("*tmp*")
 
 .onLoad <- function(libname, pkgname) {
-    `__genthat_private`$on_exit_original <- create_duplicate(on.exit)
-
+    # this is just initialize the random generator so the .Random.seed is available
+    set.seed(42)
     options(genthat.debug=getOption("genthat.debug", default=FALSE))
     options(genthat.tryCatchDepth=try_catch_stack_depth())
-    options(genthat.default_decorate_method=getOption("genthat.default_decorate_method", default="trycatch"))
-    options(genthat.default_tracer=getOption("genthat.default_tracer", default="set"))
+    options(genthat.keep_failed_tests=getOption("genthat.keep_failed_tests", FALSE))
+    options(genthat.keep_all_traces=getOption("genthat.keep_all_traces", FALSE))
+    options(genthat.max_trace_size=getOption("genthat.max_trace_size", 128*1024))
+    options(genthat.source_paths=getOption("genthat.source_paths", Sys.getenv("GENTHAT_SOURCE_PATHS")))
 
     enable_tracing()
-
-    set_tracer(create_tracer(type=getOption("genthat.default_tracer")))
-    set_decorator(create_decorator(method=getOption("genthat.default_decorate_method", "trycatch")))
 
     invisible()
 }

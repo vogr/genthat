@@ -1,14 +1,18 @@
 #' @export
 #'
-create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch", "count")) {
+create_decorator <- function(method="on.exit") {
     fun <- if (is.character(method)) {
-        method <- match.arg(arg=method, choices=c("onentry", "onexit", "onboth", "trycatch", "count"), several.ok=FALSE)
+        method <- match.arg(arg=method, choices=c("onentry", "onexit", "on.exit", "onboth", "trycatch", "count-entry", "count-exit", "noop"), several.ok=FALSE)
+
         switch(method,
             onentry=decorate_with_onentry,
             onexit=decorate_with_onexit,
+            on.exit=decorate_with_on.exit,
             onboth=decorate_with_onboth,
             trycatch=decorate_with_trycatch,
-            count=decorate_with_count
+            `count-entry`=decorate_with_count_entry,
+            `count-exit`=decorate_with_count_exit,
+            noop=decorate_with_noop
         )
     } else if (is.function(method)) {
         method
@@ -33,202 +37,175 @@ create_decorator <- function(method=c("onentry", "onexit", "onboth", "trycatch",
 #'     `is.function` is `TRUE`.
 #' @export
 #'
-decorate_environment <- function(envir, decorator=get_decorator(),
-                                record_fun=substitute(genthat:::record_trace)) {
-    stopifnot(is.decorator(decorator))
+decorate_environment <- function(env,
+                                 decorator=get_decorator(),
+                                 record_fun=substitute(genthat:::record_trace),
+                                 exclude=character()) {
+    stopifnot(is_decorator(decorator))
 
-    if (is.character(envir)) {
-        stopifnot(length(envir) == 1)
-        library(envir, character.only=TRUE)
-        envir <- as.environment(paste0("package:", envir))
+    if (is.character(env)) {
+        stopifnot(length(env) == 1)
+
+        log_debug("Loading namespace: ", env)
+        library(env, character.only=TRUE)
+
+        env <- getNamespace(env)
     }
 
-    stopifnot(is.environment(envir))
+    stopifnot(is.environment(env))
 
-    # TODO: is the all.names actually correct?
-    names <- ls(envir, all.names=TRUE)
-    vals <- lapply(names, get, envir=envir)
+    names <- ls(env, all.names=TRUE)
+    vals <- lapply(names, get, env=env)
     names(vals) <- names
 
     funs <- filter(vals, is.function)
-    funs <- filter_not(funs, is.primitive)
-    funs <- filter_not(funs, is_s3_generic)
+    funs <- funs[!(names(funs) %in% exclude)]
 
-    invisible(decorate_functions(funs, decorator=decorator, record_fun=record_fun))
+    res <- lapply(names(funs), function(name) {
+        tryCatch({
+            fun <- funs[[name]]
+            decorate_function(fun, name=name, record_fun=record_fun, decorator=decorator, env=env)
+            fun
+        }, error=function(e) {
+            e$message
+        })
+    })
+
+    names(res) <- names(funs)
+
+    invisible(res)
 }
 
 #' @title Decorates given functions
 #'
-#' @param ... the functions that shall be decorated
+#' @param fun the function that shall be decorated
 #'
-#' decorate_functions(list(ls, ...))
-#' decorate_functions(list("ls", ...))
-#' decorate_functions(c("ls", ...))
-#' decorate_functions(ls, ...)
-#' decorate_functions("ls", ...)
-#'
-#' @description Given functions will be decorated in their defining environment.
+#' @description Given function will be decorated in their defining environment.
 #' @export
 #'
-decorate_functions <- function(..., in_env=parent.frame(),
-                              decorator=get_decorator(),
-                              record_fun=substitute(genthat:::record_trace)) {
-    stopifnot(is.decorator(decorator))
+decorate_function <- function(fun, name=substitute(fun),
+                              record_fun=substitute(genthat:::record_trace), decorator=get_decorator(), env=parent.frame()) {
+    stopifnot(is_decorator(decorator))
+    stopifnot(!missing(fun) || is_chr_scalar(name))
 
-    xs <- resolve_decorating_fun_args(..., in_env=in_env)
+    if (missing(fun)) {
+        fun <- NULL
+    }
 
-    decorations <- lapply(xs, function(x) {
-        tryCatch({
-            decorate_function(decorator, fun=x$fun, name=x$name, record_fun=record_fun)
-        }, error=function(e) {
-            warning("Unable to decorate `", x$name, "`: ", e$message)
-        })
-    })
+    # TODO: check args
 
-    invisible(decorations)
-}
+    if (is_tracing_enabled()) {
+        disable_tracing()
+        on.exit(enable_tracing())
+    }
 
-decorate_function <- function(decorator, fun, name, record_fun) {
-    stopifnot(is.decorator(decorator))
+    resolved_fun <- resolve_function(name, fun, env)
+    fun <- resolved_fun$fun
+    fqn <- resolved_fun$fqn
+    name <- resolved_fun$name
+    package <- resolved_fun$package
 
     # TODO: test
     if (!is.function(fun)) {
-        stop(name, ": is not a function")
+        stop(fqn, ": is not a function")
     }
 
     if (is.primitive(fun)) {
-        stop(name, ": is a primitive function")
+        stop(fqn, ": is a primitive function")
     }
 
     if (is_s3_generic(fun)) {
-        stop(name, ": is a S3 generic function")
+        stop(fqn, ": is a S3 generic function")
     }
 
-    # TODO: test
-    if (!is.character(name) || length(name) != 1 || nchar(name) == 0) {
-        stop(fun, ": does not have name")
+    if (is_decorated(fun, fqn, decorator=decorator, env=env)) {
+        reset_function(fun, fqn, decorator=decorator, env=env)
     }
 
-    if (is_decorated(fun)) {
-        reset_function(decorator, fun, name)
-    }
+    log_debug("Decorating function: ", name)
 
-    if (is_debug_enabled()) {
-        message("Decorating function: ", name)
-    }
-
-    pkg <- get_function_package_name(fun)
-    new_fun <- decorator$method(fun, name, pkg, record_fun)
-
-    if (is.null(attr(new_fun, "__genthat_original_fun"))) {
-        attr(new_fun, "__genthat_original_fun") <- create_duplicate(fun)
-    }
+    orig_fun <- create_duplicate(fun)
+    new_fun <- decorator$method(fun, name, package, record_fun)
 
     reassign_function(fun, new_fun)
 
-    fqn <- paste0(pkg, ":::", name)
-    assign(fqn, fun, envir=decorator$decorations)
+    assign(fqn, list(fun=fun, orig=orig_fun), envir=decorator$decorations)
 
-    invisible(fun)
+    invisible(NULL)
 }
 
 #' @title Resets decorated function back to its original
 #'
-#' @description Reverts decorated functions back to their state they were before calling `decorate_functions`.
+#' @description Reverts decorated function back to their state they were before calling `decorate_function`.
 #' @export
 #'
-reset_functions <- function(..., in_env=parent.frame(), decorator=get_decorator()) {
-    stopifnot(is.decorator(decorator))
+reset_function <- function(fun, name=substitute(fun), decorator=get_decorator(), env=parent.frame()) {
+    stopifnot(is_decorator(decorator))
+    stopifnot(!missing(fun) || is_chr_scalar(name))
 
-    xs <- resolve_decorating_fun_args(..., in_env=in_env)
-
-    resets <- lapply(xs, function(x) {
-        tryCatch({
-            reset_function(decorator, fun=x$fun, name=x$name)
-        }, error=function(e) {
-            stop("Unable to reset `", x$name, "`: ", e$message)
-        })
-    })
-
-    invisible(resets)
-}
-
-reset_function <- function(decorator, fun, name) {
-    stopifnot(is.decorator(decorator))
-    stopifnot(is.function(fun))
-    stopifnot(is.character(name) && length(name) == 1)
-
-    if (!is_decorated(fun)) {
-        warning("Function ", name, " is not decorated")
-        return(fun)
+    if (missing(fun)) {
+        fun <- NULL
     }
 
-    if (is_debug_enabled()) {
-        message("Resetting decorated function: ", name)
+    resolved_fun <- resolve_function(name, fun, env)
+
+    fun <- resolved_fun$fun
+    fqn <- resolved_fun$fqn
+
+    if (!is_decorated(fun, fqn, decorator=decorator, env=env)) {
+        warning("Function ", fqn, " is not decorated")
+        return(NULL)
     }
 
-    orig_fun <- attr(fun, "__genthat_original_fun")
-    reassign_function(fun, orig_fun, keep_only_new_attributes=TRUE)
-    attr(fun, "__genthat_original_fun") <- NULL
+    log_debug("Resetting decorated function: ", fqn)
 
-    pkg <- get_function_package_name(fun)
-    fqn <- paste0(pkg, ":::", name)
-    if (exists(fqn, envir=decorator$decorations)) {
-        rm(list=fqn, envir=decorator$decorations)
-    }
+    rec <- get(fqn, envir=decorator$decorations)
 
-    invisible(fun)
+    reassign_function(fun, rec$orig)
+
+    rm(list=fqn, envir=decorator$decorations)
+
+    invisible(NULL)
 }
 
 #' @export
 #'
-is_decorated <- function(fun) {
-    stopifnot(is.function(fun))
+is_decorated <- function(fun, name=substitute(fun), decorator=get_decorator(), env=parent.frame()) {
+    stopifnot(is_decorator(decorator))
+    stopifnot(!missing(fun) || is_chr_scalar(name))
 
-    # TODO: make it a constant
-    !is.null(attr(fun, "__genthat_original_fun"))
+    if (missing(fun)) {
+        fun <- NULL
+    }
+
+    resolved_fun <- resolve_function(name, fun, env)
+    exists(resolved_fun$fqn, envir=decorator$decorations)
 }
 
 #' @export
 #'
 set_decorator <- function(decorator) {
-    stopifnot(is.decorator(decorator))
+    stopifnot(is_decorator(decorator))
 
-    old <- get_decorator()
     options(genthat.decorator=decorator)
-    old
+
+    invisible(decorator)
 }
 
 #' @export
 #'
 get_decorator <- function() {
-    getOption("genthat.decorator")
-}
+    decorator <- getOption("genthat.decorator")
 
-resolve_decorating_fun_args <- function(..., in_env=parent.frame()) {
-    dots <- list(...)
-
-    if (length(dots) == 1 && is.list(dots[[1]]) && !is.null(names(dots[[1]]))) {
-        names <- names(dots[[1]])
-        funs <- dots[[1]]
-    } else if (length(dots) == 1 && (is.character(dots[[1]]) || is.name(dots[[1]]))) {
-        names <- dots[[1]]
-        funs <- lapply(names, resolve_function, in_env=in_env)
-    } else {
-        xs <- substitute(list(...))[-1]
-        xs <- sapply(xs, deparse)
-        names <- lapply(zip(v=dots, s=xs), function(x) {
-            if (is.character(x$v) || is.name(x$v)) x$v else x$s
-        })
-        funs <- lapply(names, resolve_function, in_env=in_env)
+    if (is.null(decorator)) {
+        decorator <- create_decorator()
+        set_decorator(decorator)
     }
 
-    ret <- zip(name=names, fun=funs)
-    names(ret) <- names
-    ret
+    decorator
 }
 
-is.decorator <- function(x) {
+is_decorator <- function(x) {
     inherits(x, "decorator")
 }
 

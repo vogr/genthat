@@ -173,6 +173,11 @@ is.closure <- function(f) {
     typeof(f) == "closure"
 }
 
+#' @importFrom methods is
+is.formula <- function(f) {
+    is.language(f) && is(f, "formula")
+}
+
 is.local_closure <- function(f) {
     is.closure(f) && is.null(get_package_name(environment(f)))
 }
@@ -237,7 +242,7 @@ capture <- function(expr, split=FALSE) {
     sink(type="output", file=fout, split=split)
 
     tryCatch({
-        time <- system.time(expr)
+        time <- stopwatch(expr)
     }, finally={
         sink(type="message")
         sink(type="output")
@@ -246,52 +251,98 @@ capture <- function(expr, split=FALSE) {
     })
 
     list(
-        elapsed=time["elapsed"],
+        elapsed=time,
         stdout=paste(readLines(out), collapse="\n"),
         stderr=paste(readLines(err), collapse="\n")
     )
 }
 
-resolve_package_name <- function(package) {
-    # TODO: no a very good heuristics (read manually description using read.dcf)
-    if (file.exists(package) && endsWith(package, ".tar.gz")) {
-        basename(untar(package, list=TRUE)[1])
-    } else if (dir.exists(package)) {
-        basename(package)
+# resolve_function(f, name="f")
+# resolve_function(name="f")
+#
+resolve_function <- function(name, fun=NULL, env=parent.frame()) {
+    stopifnot(is.environment(env))
+
+    if (is_chr_scalar(name)) {
+        names <- split_function_name(name)
+        name <- names$name
+        package <- names$package
+
+        if (!is.null(package)) {
+            env <- getNamespace(package)
+        }
+
+        if (is.null(fun)) {
+            if (!exists(name, envir=env)) {
+                stop("Function: ", name, " does not exist in environment: ", env);
+            } else {
+                fun <- get(name, envir=env)
+            }
+        }
+
+        if (is.null(package)) {
+            package <- resolve_package_name(fun, name)
+        }
+    } else if (is.name(name) || is.language(name)) {
+        if (is.null(fun)) {
+            stop("resolve_function: symbol/language name object needs additionally fun parameter")
+        }
+
+        if (is.name(name)) {
+            name <- as.character(name)
+            package <- resolve_package_name(fun, name)
+        } else {
+            f_name <- as.character(name[[1]])
+            if (f_name == "::" || f_name == ":::") {
+                package <- as.character(name[[2]])
+                name <- as.character(name[[3]])
+            } else {
+                stop("resolve_function: cannot parse function name from: ", name)
+            }
+        }
     } else {
-        tryCatch({
-            # this throws an exception if it does not exist
-            find.package(package)
-            package
-        }, error=function(e) {
-            stop("Unsupported / non-existing package: ", package)
-        })
+        stop("resolve_function: unsupported parameter combination")
     }
+
+    if (!is.null(package)) {
+        env <- getNamespace(package)
+    }
+
+    if (!exists(name, envir=env)) {
+        stop("Function: ", name, " does not exist in environment: ", format(env));
+    }
+
+    fqn <- get_function_fqn(package, name)
+    return(list(fqn=fqn, name=name, package=package, fun=fun))
 }
 
-resolve_function <- function(name, in_env=parent.frame()) {
-    fun <- if (is.function(name)) {
-        fun
-    } else if (is.name(name) || is.character(name)){
-        get(name, envir=in_env)
-    }
-
-    if (!is.function(fun)) {
-        stop("Not a function: ", name)
-    }
-
-    fun
-}
-
-get_function_package_name <- function(fun) {
+resolve_package_name <- function(fun, name) {
+    stopifnot(is.null(name) ||(is.character(name) && length(name) == 1))
     stopifnot(is.function(fun))
 
     env <- environment(fun)
+    if (is.null(env)) {
+        return(NULL)
+    }
+    pkg_name <- get_package_name(env)
+
+    # A function's environment does not need to be a named environment. For
+    # example if a package in a function is defined using a call to another
+    # higher-order function, it will have a new environment whose parent will be
+    # named environment. This can obviously nest. A concrete example is `%>%`
+    # from magrittr (cf.
+    # https://github.com/tidyverse/magrittr/blob/master/R/pipe.R#L175 ) or
+    # curl:::multi_default.
+    if (is.null(pkg_name) && !is.null(name)) {
+        env <- find_symbol_env(name, env)
+        if (!is.null(env)) {
+            pkg_name <- get_package_name(env)
+        }
+    }
+
     if (identical(env, .BaseNamespaceEnv)) {
         return("base")
     }
-
-    pkg_name <- get_package_name(env)
 
     if (is_empty_str(pkg_name) || identical(env, globalenv())) {
         NULL
@@ -300,4 +351,97 @@ get_function_package_name <- function(fun) {
     }
 }
 
+get_function_fqn <- function(package, name) {
+    stopifnot(is.null(package) || is_chr_scalar(package))
+    stopifnot(is_chr_scalar(name))
 
+    if (is.null(package)) {
+        name
+    } else {
+        paste0(package, ":::", name)
+    }
+}
+
+stopwatch <- function(expr) {
+    time <- Sys.time()
+    force(expr)
+    Sys.time() - time
+}
+
+next_file_in_row <- function(path) {
+    stopifnot(nchar(path) > 0)
+
+    dname <- dirname(path)
+    fname <- basename(path)
+
+    ext <- tools::file_ext(fname)
+    ext <- if (nchar(ext) > 0) paste0(".", ext) else ext
+    ext_ptn <- if (nchar(ext) > 0) paste0("\\", ext, "$") else ext
+
+    name <- tools::file_path_sans_ext(fname)
+
+    existing <- list.files(dname, pattern=paste0(name, "[-]?.*", ext_ptn))
+
+    if (length(existing) == 0) {
+        last <- 0
+    } else {
+        nums <- sub(pattern=paste0(name, "-(\\d+)", ext_ptn), replacement="\\1", existing)
+        nums <- tryCatch(as.numeric(nums), warning=function(e) 0)
+        last <- max(nums)
+    }
+
+    file.path(dname, paste0(name, "-", last + 1, ext))
+}
+
+is_interesting_namespace <- function(env, prefix) {
+    stopifnot(is.environment(env))
+    stopifnot(is.character(prefix) && length(prefix) == 1)
+
+    env_name <- environmentName(env)
+    if (is.null(env_name)) {
+        return(FALSE)
+    }
+
+    # naive as it looks, this is the same check the bytecode compiler does
+    # in https://github.com/wch/r-source/blob/trunk/src/library/compiler/R/cmp.R#L107
+    startsWith(env_name, prefix)
+}
+
+is_imports_namespace <- function(env) {
+    is_interesting_namespace(env, "imports:")
+}
+
+is_package_environment <- function(env) {
+    is_interesting_namespace(env, "package:")
+}
+
+is_package_namespace <- function(env) {
+    isNamespace(env)
+}
+
+is_base_env <- function(env) {
+    isBaseNamespace(env) || identical(env, baseenv())
+}
+
+log_debug <- function(...) {
+    if (is_debug_enabled()) {
+        msg <- paste0(...)
+        cat(msg, "\n")
+    }
+}
+
+is_exception_returnValue <- function(retv) {
+    is.list(retv) &&
+        length(retv) == 3 &&
+        (is.null(retv[[1]]) || is(retv[[1]], "condition")) &&
+        is.language(retv[[2]]) &&
+        is.function(retv[[3]])
+}
+
+is_chr_scalar <- function(s) {
+    is.character(s) && length(s) == 1 && nchar(s) > 0
+}
+
+as_chr_scalar <- function(s, collapse="\n", trim="both") {
+    paste(trimws(s, which=trim), collapse=collapse)
+}

@@ -53,3 +53,69 @@ test_that("reset trace clears traces", {
 
     expect_equal(length(copy_traces(tracer)), 0)
 })
+
+test_that("set tracer works with session files", {
+    trace1 <- create_trace("a", args=list(1,2), retv=3)
+    trace2 <- create_trace("b", args=list(1,2), retv=4)
+    trace3 <- create_trace("c", args=list(1,2), retv=4)
+
+    session_file <- tempfile()
+
+    tracer <- create_set_tracer(session_file=session_file)
+
+    store_trace(tracer, trace1)
+    store_trace(tracer, trace2)
+
+    expect_equal(length(copy_traces(tracer)), 2)
+
+    reset_traces(tracer)
+
+    tracer <- create_set_tracer(session_file=session_file)
+
+    store_trace(tracer, trace1)
+    store_trace(tracer, trace2)
+    store_trace(tracer, trace3)
+
+    expect_equal(copy_traces(tracer), list(trace3))
+})
+
+test_that("set tracer respects max trace size", {
+    trace1 <- create_trace("a", args=list(), retv=0)
+    trace2 <- create_trace("abc", args=list(), retv=0)
+
+    size1 <- length(serialize(trace1, connection=NULL, ascii=FALSE))
+    size2 <- length(serialize(trace2, connection=NULL, ascii=FALSE))
+    expect_true(size1 < size2)
+
+    trace2_skipped <- create_trace("abc", skipped=size2)
+
+    tracer <- create_set_tracer()
+
+    withr::with_options(list(genthat.max_trace_size=size1), {
+        expect_equal(store_trace(tracer, trace1), trace1)
+        expect_equal(store_trace(tracer, trace2), trace2_skipped)
+    })
+
+    traces <- copy_traces(tracer)
+    expect_equal(length(traces), 2)
+})
+
+test_that("set tracer does not consider seed", {
+    set.seed(42)
+    seed1 <- .Random.seed
+    trace1 <- create_trace("a", args=list(), retv=0, seed=seed1)
+
+    set.seed(84)
+    seed2 <- .Random.seed
+    trace2 <- create_trace("a", args=list(), retv=0, seed=seed2)
+
+    expect_false(identical(seed1, seed2))
+
+    tracer <- create_set_tracer()
+
+    store_trace(tracer, trace1)
+    store_trace(tracer, trace2)
+
+    traces <- copy_traces(tracer)
+    expect_equal(length(traces), 1)
+})

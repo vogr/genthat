@@ -1,17 +1,13 @@
 #' @export
 #'
-create_tracer <- function(type=c("sequence", "set")) {
-    if (missing(type)) {
-        type <- "set"
-    }
-
+create_tracer <- function(type="set", ...) {
     type <- match.arg(arg=type, choices=c("sequence", "set"), several.ok=FALSE)
     fun <- switch(type,
         sequence=create_sequence_tracer,
         set=create_set_tracer
     )
 
-    fun()
+    fun(...)
 }
 
 #' @name Store tracer
@@ -60,13 +56,22 @@ reset_traces.default <- function(tracer) {
 #' @export
 #'
 set_tracer <- function(tracer) {
-    old <- get_tracer()
+    stopifnot(!is.null(tracer))
+
     options(genthat.tracer=tracer)
-    old
+
+    invisible(tracer)
 }
 
 #' @export
 #'
 get_tracer <- function() {
-    getOption("genthat.tracer")
+    tracer <- getOption("genthat.tracer")
+
+    if (is.null(tracer)) {
+        tracer <- create_tracer()
+        set_tracer(tracer)
+    }
+
+    tracer
 }

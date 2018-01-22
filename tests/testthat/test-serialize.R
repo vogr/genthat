@@ -103,6 +103,11 @@ test_that("function serialization with a quote", {
     expect_equal(v, 'my_call("0", "1", a=quote(my_fun), b=my_fun(a="1", b=ref))')
 })
 
+test_that("LANGSXP serialization works with anonymous functions", {
+    v <- serialize_code((function(x)x+1)(1))
+    expect_equal(v, "(function(x) x + 1)(1)")
+})
+
 test_that("environment serialization", {
     e <- new.env(parent=emptyenv())
     e$a <- 1
@@ -236,6 +241,133 @@ test_that("data frame serialization", {
     df <- data.frame(x=c(1, 2, 3), y=c(4, 5, 6))
     expect_equal(serialize(df), df)
 })
+
+test_that("can serialize unary functions", {
+    expect_equal(serialize(-1), -1)
+    expect_equal(serialize(+1), +1)
+    expect_equal(serialize_value(quote(~x)), "~x")
+    expect_equal(serialize_value(quote(!x)), "!x")
+})
+
+test_that("RAWSXP serialization", {
+    expect_equal(serialize(as.raw(1)), as.raw(1))
+})
+
+test_that("EXPRSXP serialization", {
+    expect_equal(serialize(expression(1+1)), expression(1+1))
+})
+
+test_that("BUILTINSXP serialization", {
+    expect_equal(serialize_value(quote(`+`)), "`+`")
+})
+
+test_that("SPECIALSXP serialization", {
+    expect_equal(serialize_value(quote(on.exit)), "on.exit")
+})
+
+test_that("external function serialization", {
+    expect_true(is.closure(serialize(testthat::test_file)))
+})
+
+test_that("EXTPTRSXP serializatin works", {
+     Rcpp::cppFunction("Rcpp::XPtr<int> ext_ptr() { int *x = new int[1]; return Rcpp::XPtr<int>(x); }")
+
+     p1 <- ext_ptr()
+     p2 <- ext_ptr()
+
+     # some basic assumptions
+     expect_equal(p1, p1)
+     expect_true(identical(p1, p1))
+     expect_false(identical(p1, p2))
+
+     s <- serialize_value(p1)
+
+     expect_equivalent(s, ".ext.1")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+
+     s <- serialize_value(list(p1, p1))
+     expect_equivalent(s, "list(.ext.1, .ext.1)")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+
+     s <- serialize_value(list(p1, p2))
+     expect_equivalent(s, "list(.ext.1, .ext.2)")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+     expect_equal(attr(s, "externals")$.ext.2, p2)
+
+     # try with attributes
+     x <- list(1, 2, p1)
+     attr(x, "a1") <- p2
+     attr(x, "a2") <- list(p1, p2)
+     s <- serialize_value(x)
+     expect_equivalent(s, "structure(list(1, 2, .ext.1), a1=.ext.2, a2=list(.ext.1, .ext.2))")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+     expect_equal(attr(s, "externals")$.ext.2, p2)
+
+     # try with attributes on primitive vectors
+     x <- c(1, 2, 3)
+     attr(x, "a1") <- p1
+     attr(x, "a2") <- list(p1, p2)
+     s <- serialize_value(x)
+     expect_equivalent(s, "structure(c(1, 2, 3), a1=.ext.1, a2=list(.ext.1, .ext.2))")
+     expect_equal(attr(s, "externals")$.ext.1, p1)
+     expect_equal(attr(s, "externals")$.ext.2, p2)
+
+     # unsupported external pointers
+     p3 <- p1
+     class(p3) <- "DLLHandle"
+
+     expect_error(serialize_value(p3), "EXTPTR with class DLLHandle is not supported")
+})
+
+test_that("S4SXP serialization", {
+    setClass("Person", representation(name="character", age="numeric"), prototype(name=NA_character_, age=0))
+    p1 <- new("Person", name="Joe", age=31)
+
+    s <- serialize_value(p1)
+    expect_equivalent(s, ".ext.1")
+    expect_equal(attr(s, "externals")$.ext.1, p1)
+})
+
+test_that("Serialization works with empty named elemenst (#116)", {
+    l <- structure(list(), names=character())
+    expect_equal(serialize_value(l), "structure(list(), names=character())")
+    expect_equal(serialize(l), l)
+})
+
+test_that("Serialization works with named vectors", {
+    v <- c("1"=1, "2"=2, 3, 4)
+    expect_equal(serialize(v), v)
+})
+
+##     p2 <- new("Person", name="Joe")
+
+##     sides <- function(object) 0
+##     setGeneric("sides")
+
+##     setGeneric("sides", function(object) {
+##         standardGeneric("sides")
+##     })
+
+##     setClass("Shape")
+##     setClass("Polygon", representation(sides = "integer"), contains = "Shape")
+##     setClass("Triangle", contains = "Polygon")
+##     setClass("Square", contains = "Polygon")
+##     setClass("Circle", contains = "Shape")
+
+##     setMethod("sides", signature(object = "Polygon"), function(object) {
+##         object@sides
+##     })
+
+##     setMethod("sides", signature("Triangle"), function(object) 3)
+##     setMethod("sides", signature("Square"),   function(object) 4)
+##     setMethod("sides", signature("Circle"),   function(object) Inf)
+
+##     setGeneric("sides", valueClass = "numeric", function(object) {
+##         standardGeneric("sides")
+##     })
+
+## })
+
 
 ## test_that("", {
 ##     f <- function(a, b, c) a * b * c

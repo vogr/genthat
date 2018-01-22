@@ -1,0 +1,19 @@
+---
+title: "External Package Vignette with Tracing"
+author: "Joe Doe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{External Package Vignette with Tracing}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+This spawns R and runs samplepkg so there should be a trace.
+
+```{r}
+x <- tempfile()
+on.exit(file.remove(x))
+writeLines(c("library(samplepkg)", "my_add(2,3)"), x)
+system2(file.path(R.home("bin"), "R"), c("--no-save", "--no-restore"), stdin=x, env=c("R_TESTS=''"))
+```

@@ -77,7 +77,7 @@ process_traces <- function(traces, db, timestamp) {
     message("PROCESS: # of generated test: ", tests_generated)
 
     task("running generated tests", {
-        runs <- genthat::run_generated_tests(teststests_generated, quiet=FALSE)
+        runs <- genthat::run_generated_test(teststests_generated, quiet=FALSE)
     })
 
     tests_passed <- runs %>% dplyr::filter(status == 1) %>% nrow()

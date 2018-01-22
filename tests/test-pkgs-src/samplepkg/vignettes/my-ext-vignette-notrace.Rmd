@@ -1,0 +1,21 @@
+---
+title: "External Package Vignette without Tracing"
+author: "Joe Doe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{External Package Vignette without Tracing}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+This one does nothing related to this package, instead, it spawns a new R
+instance which does more less nothing as well. This is to test the transitivity
+of the `R_PROFILE` which will be carried to other instances. There should be no
+traces.
+
+```{r}
+x <- tempfile()
+writeLines("ls()", x)
+system2(file.path(R.home("bin"), "R"), c("--no-save", "--no-restore"), stdout="", stderr="", stdin=x, env=c("R_TESTS=''"))
+```

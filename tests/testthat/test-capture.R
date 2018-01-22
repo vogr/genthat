@@ -109,6 +109,28 @@ test_that("find_symbol_env finds symbols", {
     expect_equal(find_symbol_env("d", e3), NULL)
 })
 
+test_that("find_symbol_env finds correct function origins", {
+    e1 <- new.env(parent=emptyenv())
+    e2 <- new.env(parent=e1)
+    e_g <- new.env(parent=emptyenv())
+
+    g <- function() {}
+    environment(g) <- e_g
+
+    e1$g <- g
+    # the symbol is not defined in e_g
+    expect_equal(find_symbol_env("g", e2), e1)
+
+    e_g$g <- g
+    expect_equal(find_symbol_env("g", e2), e_g)
+})
+
+test_that("find_symbol_env resolves %>% (#74)", {
+    library(dplyr)
+    expect_true("package:dplyr" %in% search())
+    expect_equal(find_symbol_env("%>%", globalenv()), asNamespace("magrittr"))
+})
+
 test_that("find_symbol_env finds the earlier symbol", {
     var <- 1 # this shall conflict with stats::var
 
@@ -127,11 +149,11 @@ test_that("get_symbol_values gets values", {
 
     expect_equal(get_symbol_values(c("a", "b"), env), list(a=1, b=2))
     expect_equal(get_symbol_values(c(), env), list())
-    expect_equal(get_symbol_values("unzip", globalenv()), list(unzip=quote(utils:::unzip)))
+    expect_equal(get_symbol_values("unzip", globalenv()), list(unzip=quote(utils::unzip)))
 
     # it is a named list for which expect_equal won't work
     expect_equivalent(get_symbol_values("+", globalenv()), list())
-    expect_equal(get_symbol_values("+", globalenv(), include_base_symbols=TRUE), list(`+`=quote(base:::`+`)))
+    expect_equal(get_symbol_values("+", globalenv(), include_base_symbols=TRUE), list(`+`=as.name("+")))
     expect_length(get_symbol_values("does-not-exists"), 0)
 })
 
@@ -220,10 +242,23 @@ test_that("extract_closure works with references", {
     expect_equal(length(environment(sc)), 2)
 
     # this one is a reference
-    expect_equal(environment(sc)$mtcars, quote(datasets:::mtcars))
+    expect_equal(environment(sc)$mtcars, quote(datasets::mtcars))
 
     # this one is not a reference
     expect_equal(environment(sc)$a, mtcars)
+})
+
+test_that("get_variable_value_or_reference uses correctly :: and :::", {
+    # from package environment
+    expect_equal(get_variable_value_or_reference("zip", as.environment("package:utils")), quote(utils::zip))
+    # from namespace, but exported
+    expect_equal(get_variable_value_or_reference("zip", asNamespace("utils")), quote(utils::zip))
+    # from namespace, but exported
+    expect_equal(get_variable_value_or_reference("specialOps", asNamespace("utils")), quote(utils:::specialOps))
+
+    # value
+    g <- function() {}
+    expect_equal(get_variable_value_or_reference("g", environment(g)), g)
 })
 
 # test for https://github.com/PRL-PRG/genthat/issues/16
@@ -237,7 +272,7 @@ test_that("extract_closure works with default values", {
     expect_equal(length(environment(sc)), 1)
     expect_equal(formals(environment(sc)$a), formals(a))
     expect_equal(body(environment(sc)$a), body(a))
-    expect_equal(environment(environment(sc)$a)$mtcars, quote(datasets:::mtcars))
+    expect_equal(environment(environment(sc)$a)$mtcars, quote(datasets::mtcars))
 })
 
 test_that("extract_closure works with recursion", {
@@ -320,5 +355,116 @@ test_that("capture works with lapply", {
         expect_equal(t$globals$X, 1:10)
         expect_equal(t$retv, i+1)
     }
-    
+})
+
+test_that("get_symbol_value can handle ...", {
+     tracer <- create_sequence_tracer()
+
+     f <- function(...) g(...)
+     g <- function(...) h(...)
+     h <- function(...) {
+         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+     }
+
+     f(10L, 20L)
+     traces <- copy_traces(tracer)
+
+     expect_equal(traces[[1]]$args, list(10L, 20L))
+     expect_length(traces[[1]]$globals, 0L)
+})
+
+test_that("get_symbol_value can handle non-evaluated ..N", {
+     tracer <- create_sequence_tracer()
+
+     f <- function(...) g(...)
+     g <- function(...) h(..1)
+     h <- function(...) {
+         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+     }
+
+     f(10L, 20L)
+     traces <- copy_traces(tracer)
+
+     # here it should be empty since none of the value has been actually used
+     # and therefore the ..1 promise has never been evaluated
+     expect_equal(traces[[1]]$args, list(as.name("..1")))
+     expect_length(traces[[1]]$globals, 0L)
+})
+
+test_that("get_symbol_value can handle evaluated ..N", {
+     tracer <- create_sequence_tracer()
+
+     f <- function(...) g(...)
+     g <- function(...) h(..1)
+     h <- function(...) {
+         ..1 + 1L
+         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+     }
+
+     f(10L*10L, 20L)
+     traces <- copy_traces(tracer)
+
+     expect_equal(traces[[1]]$args, list(100L))
+     expect_length(traces[[1]]$globals, 0L)
+})
+
+test_that("captures nested language objects' global variable", {
+    tracer <- create_sequence_tracer()
+
+    a <- 0
+    b <- 1
+    arg1 <- list(n=quote(a + b + 1), m=1)
+
+    f <- function(x, y) list(x, y)
+
+    record_trace("f", args=list(x=quote(arg1), y=quote(b + 1)), tracer=tracer)
+    t <- get_trace(tracer, 1L)
+
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(x=quote(arg1), y=quote(b + 1)))
+    expect_equal(length(t$globals), 3)
+    expect_equal(t$globals$a, 0)
+    expect_equal(t$globals$b, 1)
+    expect_equal(t$globals$arg1, arg1)
+})
+
+test_that("captures nested language objects' global variables", {
+    tracer <- create_sequence_tracer()
+
+    a <- 1
+    b <- 2
+    c <- 3
+    arg1 <- list(n=quote(a + b), m=quote(b + a))
+    arg2 <- list(n=quote(list(a + c)), m=quote(1))
+
+    f <- function(x, y, z) list(x, y, z)
+
+    record_trace("f", args=list(x=quote(arg1), y=quote(arg2), z=quote(a)), tracer=tracer)
+
+    t <- get_trace(tracer, 1L)
+
+    expect_equal(t$fun, "f")
+    expect_equal(t$args, list(x=quote(arg1), y=quote(arg2), z=quote(a)))
+    expect_equal(length(t$globals), 5)
+    expect_equal(t$globals$a, 1)
+    expect_equal(t$globals$b, 2)
+    expect_equal(t$globals$c, 3)
+    expect_equal(t$globals$arg1, arg1)
+    expect_equal(t$globals$arg2, arg2)
+})
+
+test_that("capture works with replacement functions", {
+
+    tracer <- create_sequence_tracer()
+
+    x <- 1
+    env <- new.env(parent=emptyenv())
+    assign("*tmp*", x, envir=env)
+    record_trace("gg<-", args=list(v=as.name("*tmp*"), a=4, value=5), env=env, tracer=tracer)
+
+    t <- get_trace(tracer, 1L)
+    expect_equal(t$fun, "gg<-")
+    expect_equal(t$args, list(v=quote(`*tmp*`), a=4, value=5))
+    expect_equal(length(t$globals), 1)
+    expect_equal(t$globals$`*tmp*`, x)
 })

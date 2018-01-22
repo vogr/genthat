@@ -8,17 +8,42 @@ extern "C" {
 }
 
 // [[Rcpp::export]]
-SEXP reassign_function(SEXP target_fun, SEXP new_fun, bool keep_only_new_attributes=false) {
+SEXP get_dd_val(int i, SEXP rho, SEXP default_value, bool force=false) {
+    // TODO: check args
+    SEXP dots = findVar(R_DotsSymbol, rho);
+
+    if (TYPEOF(dots) == DOTSXP && dots != R_UnboundValue) {
+        if (length(dots) >= i) {
+            dots = nthcdr(dots, i - 1);
+            SEXP val = CAR(dots);
+
+            if (TYPEOF(val) == PROMSXP) {
+                if (force) {
+                    return Rf_eval(val, rho);
+                } else if (PRVALUE(val) == R_UnboundValue) {
+                    return default_value;
+                } else {
+                    return PRVALUE(val);
+                }
+            } else {
+                return val;
+            }
+        } else {
+            Rf_error("Unable to find ..%d - the ... does not contain %d elements", i, i);
+        }
+    } else {
+        Rf_error("Unable to find ..%d - used in an incorrect context, no ... to look in", i);
+    }
+
+    return default_value;
+}
+
+// [[Rcpp::export]]
+SEXP reassign_function(SEXP target_fun, SEXP new_fun) {
   if (TYPEOF(target_fun) != CLOSXP) error("target_fun must be a function");
   if (TYPEOF(new_fun) != CLOSXP) error("new_fun must be a function");
 
-  //  TODO: check if the formals are the same
   SET_BODY(target_fun, BODY(new_fun));
-  if (keep_only_new_attributes) {
-      DUPLICATE_ATTRIB(target_fun, new_fun);
-  } else {
-      copyMostAttrib(new_fun, target_fun);
-  }
 
   return R_NilValue;
 }
@@ -54,7 +79,7 @@ std::string environment_name_as_code(SEXP env) {
     } else {
         std::string name = environment_name(env);
         if (!name.empty()) {
-            return "as.environment(\"" + name + "\")";
+            return "getNamespace(\"" + name + "\")";
         } else {
             return "";
         }

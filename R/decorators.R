@@ -7,22 +7,27 @@ check_decorate_args <- function(fun, name, pkg, record_fun) {
 decorate_with_onboth <- function(fun, name, pkg, record_fun) {
     check_decorate_args(fun, name, pkg, record_fun)
 
-    # The `retv <- BODY` is OK because in the case of multiple expressions, it will be surrounded with `{}`.
+    # The `retv <- BODY` is OK because in the case of multiple expressions, it
+    # will be surrounded with `{}`.
+
+    # The reason why we use .Internal(...) is that in the case base library is
+    # decorated the `genthat::is_tracing_enabled` will invoke `::` and
+    # consecutively other functions making it an infinite loop
     create_function(
         params=formals(fun),
         body=substitute({
-            if (genthat::is_tracing_enabled()) {
-                genthat::disable_tracing()
+            if (.Internal(getOption("genthat.tracing"))) {
+                .Internal(options(genthat.tracing=FALSE))
                 RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], env=parent.frame())
-                genthat::enable_tracing()
+                .Internal(options(genthat.tracing=TRUE))
             }
 
            `__retv` <- BODY
 
-            if (genthat::is_tracing_enabled()) {
-                genthat::disable_tracing()
+            if (.Internal(getOption("genthat.tracing"))) {
+                .Internal(options(genthat.tracing=FALSE))
                 RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], retv=`__retv`, env=parent.frame())
-                genthat::enable_tracing()
+                .Internal(options(genthat.tracing=TRUE))
             }
 
             `__retv`
@@ -40,10 +45,10 @@ decorate_with_onentry <- function(fun, name, pkg, record_fun) {
     create_function(
         params=formals(fun),
         body=substitute({
-            if (genthat::is_tracing_enabled()) {
-                genthat::disable_tracing()
+            if (.Internal(getOption("genthat.tracing"))) {
+                .Internal(options(genthat.tracing=FALSE))
                 RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], env=parent.frame())
-                genthat::enable_tracing()
+                .Internal(options(genthat.tracing=TRUE))
             }
 
             BODY
@@ -64,10 +69,12 @@ decorate_with_onexit <- function(fun, name, pkg, record_fun) {
         body=substitute({
             `__retv` <- BODY
 
-            if (genthat::is_tracing_enabled()) {
-                genthat::disable_tracing()
+            if (.Internal(getOption("genthat.tracing"))) {
+                .Internal(options(genthat.tracing=FALSE))
+
                 RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], retv=`__retv`, env=parent.frame())
-                genthat::enable_tracing()
+
+                .Internal(options(genthat.tracing=TRUE))
             }
 
             `__retv`
@@ -79,15 +86,32 @@ decorate_with_onexit <- function(fun, name, pkg, record_fun) {
     )
 }
 
-decorate_with_count <- function(fun, name, pkg, record_fun) {
+decorate_with_count_entry <- function(fun, name, pkg, record_fun) {
     check_decorate_args(fun, name, pkg, record_fun)
 
     create_function(
         params=formals(fun),
         body=substitute({
-            RECORD_FUN(name=NAME, pkg=PKG, args=list(), env=parent.frame())
+            genthat:::store_trace(genthat:::get_tracer(), genthat:::create_trace(NAME, PKG))
             BODY
-        }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
+        }, list(NAME=name, PKG=pkg, BODY=body(fun))),
+        env=environment(fun),
+        attributes=list(
+            `__genthat_original_fun`=create_duplicate(fun)
+        )
+    )
+}
+
+decorate_with_count_exit <- function(fun, name, pkg, record_fun) {
+    check_decorate_args(fun, name, pkg, record_fun)
+
+    create_function(
+        params=formals(fun),
+        body=substitute({
+            `__retv` <- BODY
+            genthat:::store_trace(genthat:::get_tracer(), genthat:::create_trace(NAME, PKG))
+            `__retv`
+        }, list(NAME=name, PKG=pkg, BODY=body(fun))),
         env=environment(fun),
         attributes=list(
             `__genthat_original_fun`=create_duplicate(fun)
@@ -101,8 +125,8 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
     create_function(
         params=formals(fun),
         body=substitute({
-            if (genthat::is_tracing_enabled()) {
-                genthat::disable_tracing()
+            if (.Internal(getOption("genthat.tracing"))) {
+                .Internal(options(genthat.tracing=FALSE))
 
                 frame <- new.env(parent=parent.frame())
                 assign(NAME, attr(sys.function(), "__genthat_original_fun"), envir=frame)
@@ -110,16 +134,16 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
                 call[[1]] <- as.name(NAME)
 
                 tryCatch({
-                    genthat::enable_tracing()
+                    .Internal(options(genthat.tracing=TRUE))
                     retv <- eval(call, envir=frame)
 
-                    genthat::disable_tracing()
+                    .Internal(options(genthat.tracing=FALSE))
                     RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match.call())[-1], retv=retv, env=parent.frame())
-                    genthat::enable_tracing()
+                    .Internal(options(genthat.tracing=TRUE))
 
                     return(retv)
                 },  error=function(e) {
-                    genthat::disable_tracing()
+                    .Internal(options(genthat.tracing=FALSE))
 
                     depth <- getOption("genthat.tryCatchDepth")
                     env <- parent.frame(depth + 2)
@@ -130,7 +154,7 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
                     )
 
                     RECORD_FUN(name=NAME, pkg=PKG, args=as.list(match_call)[-1], error=e, env=env)
-                    genthat::enable_tracing()
+                    .Internal(options(genthat.tracing=TRUE))
 
                     stop(e)
                 })
@@ -148,6 +172,46 @@ decorate_with_trycatch <- function(fun, name, pkg, record_fun) {
             PKG=pkg,
             RECORD_FUN=record_fun
         )),
+        env=environment(fun),
+        attributes=list(
+            `__genthat_original_fun`=create_duplicate(fun)
+        )
+    )
+}
+
+decorate_with_noop <- function(fun, name, pkg, record_fun) {
+    fun
+}
+
+decorate_with_on.exit <- function(fun, name, pkg, record_fun) {
+    check_decorate_args(fun, name, pkg, record_fun)
+
+    create_function(
+        params=formals(fun),
+        body=substitute({
+            `__genthat_captured_seed` <- get(".Random.seed", envir=globalenv())
+            on.exit({
+                if (.Internal(getOption("genthat.tracing"))) {
+                    .Internal(options(genthat.tracing=FALSE))
+                    default <- genthat:::`__genthat_default_retv`
+                    retv <- returnValue(default=default)
+                    if (!identical(retv, default) && !genthat:::is_exception_returnValue(retv)) {
+                        RECORD_FUN(
+                            name=NAME,
+                            pkg=PKG,
+                            args=as.list(match.call())[-1],
+                            retv=retv,
+                            seed=`__genthat_captured_seed`,
+                            env=parent.frame()
+                        )
+                    }
+
+                    .Internal(options(genthat.tracing=TRUE))
+                }
+            })
+
+            BODY
+        }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
         env=environment(fun),
         attributes=list(
             `__genthat_original_fun`=create_duplicate(fun)

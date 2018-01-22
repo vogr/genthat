@@ -36,6 +36,11 @@ public:
     cycle_error() : serialization_error("Serialized data structure contains cycle!") {}
 };
 
+static const set<string> UNARY_FUNS = {
+    // TODO are these all?
+    "+", "-", "!", "~", "?"
+};
+
 static const set<string> BASE_INFIX_FUNS = {
     "<-", "=", "<<-", "+", "-", "*", "/", "^", "==", "!=", "<", "<=", ">=", ">", "&", "|", "!", "&&", "||", "~"
 };
@@ -50,6 +55,10 @@ static const set<string> KEYWORDS = {
     "if", "else", "repeat", "while", "function", "for", "in", "next", "break",
     "TRUE", "FALSE", "NULL", "Inf", "NaN", "NA", "NA_integer_", "NA_real_",
     "NA_complex_", "NA_character_", "..."
+};
+
+static const set<string> UNSUPPORTED_EXTPTR_CLASSES = {
+    "RegisteredNativeSymbol", "DLLHandle", "DLLInfoReference"
 };
 
 bool is_digit(char c) {
@@ -103,14 +112,24 @@ private:
     string wrap_in_attributes(SEXP const s, string const &s_str) {
         RObject protected_s(s);
 
-        string elems = "";
+        vector<string> elems;
+
         for (SEXP a = ATTRIB(s); !Rf_isNull(a); a = CDR(a)) {
             SEXP tag = TAG(a);
 
             if (tag == Rf_install("srcref")) {
                 continue;
             } else if (tag == R_NamesSymbol) {
-                continue;
+                if (XLENGTH(CAR(a)) == 0) {
+                    // naming for lists is taken care of in serialize VECSXP, but
+                    // there is a special case of empty names attribute (cf. #116).
+                    elems.push_back("names=character()");
+                } else if (TYPEOF(s) != VECSXP) {
+                    // for lists we handle it directly while creating the list
+                    // call (eg. list(a=1, b=2)), but for vectors we do not
+                    // since they are handled by deparse call
+                    elems.push_back("names=" + serialize(CAR(a), true));
+                }
             } else {
                 string name = attribute_name(tag);
 
@@ -118,12 +137,20 @@ private:
                     continue;
                 }
 
-                elems += name + "=" + serialize(CAR(a), true);
-                elems += !Rf_isNull(CDR(a)) ? ", " : "";
+                elems.push_back(name + "=" + serialize(CAR(a), true));
             }
         }
 
-        return !elems.empty() ?  "structure(" + s_str + ", " + elems + ")" : s_str;
+        string a_str;
+        if (elems.size() > 0) {
+            a_str += elems[0];
+
+            for (auto i = next(begin(elems)); i != end(elems); ++i) {
+                a_str += ", " + *i;
+            }
+        }
+
+        return a_str.empty() ? s_str : "structure(" + s_str + ", " + a_str + ")";
     }
 
     string format_argument(SEXP const arg) {
@@ -205,7 +232,14 @@ private:
     // it is used for the ENVSXP serialization
     set<SEXP> visited_environments;
 
+    // seen externals
+    vector<SEXP> externals_;
+
 public:
+    static bool is_unary_fun(string const &fun) {
+        return UNARY_FUNS.find(fun) != UNARY_FUNS.end();
+    }
+
     static bool is_infix_fun_no_space(string const &fun) {
         return BASE_INFIX_FUNS_NO_SPACE.find(fun) != BASE_INFIX_FUNS_NO_SPACE.end();
     }
@@ -254,15 +288,42 @@ public:
 
             return wrap_in_attributes(s, "list(" + args + ")");
         }
+        case LISTSXP: { /* pairlists */
+            RObject protected_s(s);
+
+            SEXP names = Rf_getAttrib(s, R_NamesSymbol);
+            string args;
+            int i = 0;
+
+            for (SEXP con = s; con != R_NilValue; con = CDR(con)) {
+                string value = serialize(CAR(con), false);
+
+                if (!Rf_isNull(names)) {
+                    string name = escape_name(CHAR(STRING_ELT(names, i++)));
+                    args += name.empty() ? "" : name + "=";
+                }
+
+                args += value;
+                args += CDR(con) != R_NilValue ? ", " : "";
+            }
+
+            return wrap_in_attributes(s, "alist(" + args + ")");
+        }
         case LGLSXP:
         case INTSXP:
         case REALSXP:
         case CPLXSXP:
-        case STRSXP: {
+        case STRSXP:
+        case RAWSXP:
+        case EXPRSXP:
+        case SPECIALSXP:
+        case BUILTINSXP: {
             // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
-            StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | SHOWATTRIBUTES | KEEPNA | DIGITS16);
+            StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | KEEPNA | DIGITS16);
             string res = concatenate(deparsed, "\n");
-            return res;
+            string res_with_attributes = wrap_in_attributes(s, res);
+
+            return res_with_attributes;
         }
         case SYMSXP: {
             RObject protected_s(s);
@@ -334,33 +395,27 @@ public:
 
             return "list2env(list(" + elems + ")" + parent_env_arg + ")";
         }
-        // TODO: do we need this one?
-        case LISTSXP: {/* pairlists */
-            RObject protected_s(s);
-            stringstream outStr;
-            outStr << "\"alist(";
-            SEXP names = Rf_getAttrib(s, R_NamesSymbol);
-            int i = 0;
-
-            for (SEXP con = s; con != R_NilValue; con = CDR(con))
-            {
-                if (i != 0) outStr << ", ";
-
-                outStr << escape_name(CHAR(STRING_ELT(names, i++))) << " = ";
-                auto val = serialize(CAR(con), false);
-                if (val != "")
-                    outStr << val;
-            }
-            outStr << ")\"";
-            return outStr.str();
-        }
         case LANGSXP: {
             RObject protected_s(s);
-            string fun = string(CHAR(PRINTNAME(CAR(s))));
+            SEXP name = CAR(s);
+            string fun;
+
+            if (TYPEOF(name) == SYMSXP) {
+                fun = string(CHAR(PRINTNAME(name)));
+            } else if (TYPEOF(name) == LANGSXP) {
+                fun = serialize(name, false);
+            } else {
+                throw serialization_error("Unknown CAR(x: LANGSXP): " + TYPEOF(name));
+            }
+
             string res;
             s = CDR(s);
 
-            if (is_infix_fun(fun)) {
+            if (is_unary_fun(fun) && CADR(s) == R_NilValue) {
+                SEXP rhs = CAR(s);
+
+                res = fun + serialize(rhs, false);
+            } else if (is_infix_fun(fun)) {
                 SEXP lhs = CAR(s);
                 SEXP rhs = CADR(s);
 
@@ -398,18 +453,41 @@ public:
                 res = "(" + args + ")";
             } else {
                 string args = format_arguments(s);
-                res = escape_name(fun) + "(" + args + ")";
+
+                if (TYPEOF(name) == SYMSXP) {
+                    fun = escape_name(fun);
+                }
+
+                res = fun + "(" + args + ")";
             }
 
             return res;
         }
-            // the following is annoying, but the sexptype2char from memory.c is not public
-        case SPECIALSXP:
-            throw sexp_not_supported_error("SPECIALSXP");
-        case BUILTINSXP:
-            throw sexp_not_supported_error("BUILTINSXP");
-        case EXTPTRSXP:
-            throw sexp_not_supported_error("EXTPTRSXP");
+        case S4SXP:
+        case DOTSXP:
+        case EXTPTRSXP: {
+            if (TYPEOF(s) == EXTPTRSXP) {
+                for (const auto &x : UNSUPPORTED_EXTPTR_CLASSES) {
+                    if (Rf_inherits(s, x.c_str())) {
+                        throw serialization_error("EXTPTR with class " +  x + " is not supported");
+                    }
+                }
+            }
+
+            const vector<SEXP>::const_iterator pos =
+                find_if(externals_.begin(), externals_.end(), [s](SEXP x)->bool { return x == s; });
+
+            int idx;
+
+            if (pos != externals_.end()) {
+                idx = pos - externals_.begin() + 1;
+            } else {
+                externals_.push_back(RObject(s));
+                idx = externals_.size();
+            }
+
+            return ".ext." + to_string(idx);
+        }
         case BCODESXP:
             throw sexp_not_supported_error("BCODESXP");
         case WEAKREFSXP:
@@ -457,32 +535,46 @@ public:
 
             return res;
         }
-        case DOTSXP:
-            throw sexp_not_supported_error("DOTSXP");
         case CHARSXP:
             throw sexp_not_supported_error("CHARSXP");
-        case EXPRSXP:
-            throw sexp_not_supported_error("EXPRSXP");
-        case RAWSXP:
-            throw sexp_not_supported_error("RAWSXP");
         case PROMSXP: {
-            // s = Rf_eval(s, R_BaseEnv);
-            // return serialize(s, quote);
-            throw sexp_not_supported_error("PROMSXP");
+            SEXP forced = Rf_eval(s, Environment::global_env());
+            return serialize(forced, quote);
         }
-        case S4SXP:
-            throw sexp_not_supported_error("S4SXP");
         default:
             throw sexp_not_supported_error("unknown");
         }
     }
+
+    StringVector serialize_value(SEXP s) {
+        return StringVector::create(serialize(s, false));
+    }
+
+    Environment externals(Environment target=Environment::empty_env().new_child(true)) {
+        for (int i=0; i<externals_.size(); i++) {
+            target[".ext." + to_string(i + 1)] = externals_[i];
+        }
+
+        return target;
+    }
+
+    int externals_size() {
+        return externals_.size();
+    }
 };
 
 // [[Rcpp::export]]
-std::string serialize_value(SEXP s) {
+StringVector serialize_value(SEXP s) {
     Serializer serializer;
 
-    return serializer.serialize(s, false);
+    auto result = serializer.serialize_value(s);
+
+    if (serializer.externals_size() > 0) {
+        auto externals = serializer.externals();
+        result.attr("externals") = externals;
+    }
+
+    return result;
 }
 
 // [[Rcpp::export]]
@@ -498,4 +590,12 @@ bool is_infix_fun(std::string const &fun) {
 // [[Rcpp::export]]
 std::string escape_name(std::string const &name) {
     return Serializer::escape_name(name);
+}
+
+RCPP_MODULE(SerializerModule) {
+  class_<Serializer>("Serializer")
+      .default_constructor()
+      .method("serialize_value", &Serializer::serialize_value)
+      .method("externals", &Serializer::externals)
+  ;
 }
