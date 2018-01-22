@@ -187,7 +187,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
             dplyr::filter(result, is.na(error)) %>%
             dplyr::select(file, output, elapsed, coverage)
 
-        if (!getOption("genthat.keep_failed_tests", FALSE)) {
+        if (!getOption("genthat.keep_failed_tests", FALSE) && length(output) > 0) {
             # remove the duplicated tests and empty test directories
             to_remove <- output[!(output %in% result$output)]
             to_check_dirs <- unique(dirname(to_remove))
@@ -205,7 +205,8 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
 
                 to_remove <- unlist(to_remove, use.names=FALSE, recursive=FALSE)
 
-                x<-file.remove(to_remove)
+                file.remove(to_remove)
+
                 to_remove <- filter(to_check_dirs, function(x) length(list.files(x)) == 0)
 
                 if (length(to_remove) > 0) {
