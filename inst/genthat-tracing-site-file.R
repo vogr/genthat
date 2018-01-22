@@ -37,6 +37,8 @@ reg.finalizer(
     e=loadNamespace("genthat"),
     onexit=TRUE,
     f=function(x) {
+        genthat::disable_tracing()
+
         ret <- genthat::process_traces(
             traces=genthat::copy_traces(genthat::get_tracer()),
             output_dir=Sys.getenv("GENTHAT_OUTPUT_DIR"),
