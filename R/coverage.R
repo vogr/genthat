@@ -20,6 +20,8 @@ compute_tests_coverage <- function(path, tests, quiet=TRUE) {
         return(list())
     }
 
+    raw_coverage <- attr(result, "raw_coverage")
+
     names(result) <- tests
 
     coverage <- sapply(result, function(x) if (is.numeric(x)) x[1] else NA)
@@ -28,6 +30,7 @@ compute_tests_coverage <- function(path, tests, quiet=TRUE) {
 
     attr(coverage, "elapsed") <- elapsed
     attr(coverage, "errors") <- errors
+    attr(coverage, "raw_coverage") <- raw_coverage
 
     coverage
 }
@@ -41,7 +44,11 @@ do_compute_tests_coverage <- function(tests) {
     n <- length(tests)
     i <- 1
 
-    lapply(tests, function(test) {
+    get_coverage <- function() {
+        coverage <- structure(as.list(covr:::.counters), class="coverage")
+    }
+
+    result <- lapply(tests, function(test) {
         old_coverage <- list2env(as.list(covr:::.counters), env=new.env(parent=emptyenv()))
 
         log_debug("Running ", i, "/", n, ":", test)
@@ -51,7 +58,7 @@ do_compute_tests_coverage <- function(tests) {
             time <- genthat:::stopwatch(genthat::test_generated_file(test))
             time <- as.numeric(time, units="secs")
 
-            coverage <- structure(as.list(covr:::.counters), class="coverage")
+            coverage <- get_coverage()
             coverage <- covr::percent_coverage(coverage)
 
             log_debug("Finished ", test, " in ", time, " coverage ", coverage)
@@ -66,4 +73,7 @@ do_compute_tests_coverage <- function(tests) {
             as_chr_scalar(e$message)
         })
     })
+
+    attr(result, "raw_coverage") <- covr::tally_coverage(get_coverage())
+    result
 }

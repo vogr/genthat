@@ -118,6 +118,9 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
     tracing <- do.call(rbind, tracing)
     row.names(tracing) <- NULL
 
+    # this is the raw data.frame from covr::tally_coverage
+    # available only for the generate action
+    raw_coverage <- NULL
     if (action == "generate") {
         output <- tracing$output[is.na(tracing$error)]
         log_debug("Generated ", length(output), "/", nrow(tracing), " tests")
@@ -128,6 +131,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
                 output <- output[order(output_size)]
                 runs <- compute_tests_coverage(pkg_src, output, quiet=quiet)
                 coverage <- runs
+                raw_coverage <- attr(runs, "raw_coverage")
                 attr(coverage, "errors") <- NULL
                 attr(coverage, "elapsed") <- NULL
                 elapsed <- attr(runs, "elapsed")
@@ -159,8 +163,8 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
         } else {
             runs <- numeric()
             result <- tracing
-            result$coverage <- NA
-            result$elapsed <- NA
+            result$coverage <- rep(NA, nrow(result))
+            result$elapsed <- rep(NA, nrow(result))
         }
 
         # TODO: try to rewrite using base package
@@ -218,9 +222,10 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
             "generated"=length(output),
             "ran"=sum(!is.na(runs)),
             "kept"=nrow(result),
-            "coverage"=max(result$coverage),
+            "coverage"=if (nrow(result) > 0) max(result$coverage) else 0,
             "elapsed"=sum(result$elapsed)
         )
+        attr(result, "raw_coverage") <- raw_coverage
 
         result
     } else {

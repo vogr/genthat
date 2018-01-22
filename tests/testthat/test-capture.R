@@ -458,13 +458,14 @@ test_that("capture works with replacement functions", {
     tracer <- create_sequence_tracer()
 
     x <- 1
-    env <- new.env(parent=emptyenv())
-    assign("*tmp*", x, envir=env)
-    record_trace("gg<-", args=list(v=as.name("*tmp*"), a=4, value=5), env=env, tracer=tracer)
+    `__genthat_tmp` <- x
+    value <- 5
+    browser()
+    record_trace("gg<-", args=list(v=as.name("*tmp*"), a=4, value=value), retv=1, tracer=tracer)
 
     t <- get_trace(tracer, 1L)
     expect_equal(t$fun, "gg<-")
-    expect_equal(t$args, list(v=quote(`*tmp*`), a=4, value=5))
-    expect_equal(length(t$globals), 1)
-    expect_equal(t$globals$`*tmp*`, x)
+    expect_equal(t$args, list(v=x, a=4, value=value))
+    expect_equal(length(t$globals), 0)
+    expect_true(inherits(t, "genthat_trace"))
 })
