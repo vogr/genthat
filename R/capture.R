@@ -25,25 +25,33 @@ record_trace <- function(name, pkg=NULL, args, retv, error, seed,
             })
         }
 
-        callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
-        globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
-        globals <- lapply(globals, duplicate_global_var)
-
-        if (endsWith(name, "<-") && args[[1]] == `__genthat_tmp_arg`) {
+        if (endsWith(name, "<-")) {
             # replacement function needs to be handle extra
             # cf. https://cran.r-project.org/doc/manuals/R-lang.html#Subset-assignment
 
-            if (exists("*tmp*", envir=env)) {
-                tmp <- get("*tmp*", envir=env)
-                globals$`*tmp*` <- duplicate_global_var(tmp)
+            # instead of looking for *tmp* we need to find the actual name
+            # in the parent frame
+            tmp_name <- names(args)[[1]]
+            value_name <- names(args)[[length(args)]]
+            call_env <- sys.frame(sys.nframe() - 1)
 
-                # this will be a symbol to promise, we need to force otherwise
-                # its value will change before we run serialize_value on it
-                args$value <- eval(duplicate_global_var(args$value))
+            # we are trying to get the *tmp*
+            if (exists("__genthat_tmp", envir=call_env)) {
+                args[[tmp_name]] <- get("__genthat_tmp", envir=call_env)
             } else {
-                stop("Unable to find *tmp* for replacement function ", name)
+                stop("Unable to find __genthat_tmp for replacement function ", name)
+            }
+            # and the *value*
+            if (exists(value_name, envir=call_env)) {
+                args[[value_name]] <- get(value_name, envir=call_env)
+            } else {
+                stop("Unable to find ", value_name, " for replacement function ", name)
             }
         }
+
+        callee <- as.function(c(alist(), as.call(c(quote(`{`), args))), envir=env)
+        globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
+        globals <- lapply(globals, duplicate_global_var)
 
         create_trace(name, pkg, args=args, globals=globals, retv=retv, seed=seed, error=error)
     }, error=function(e) {

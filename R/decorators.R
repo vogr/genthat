@@ -190,6 +190,7 @@ decorate_with_on.exit <- function(fun, name, pkg, record_fun) {
         params=formals(fun),
         body=substitute({
             `__genthat_captured_seed` <- get(".Random.seed", envir=globalenv())
+            TMP
             on.exit({
                 if (.Internal(getOption("genthat.tracing"))) {
                     .Internal(options(genthat.tracing=FALSE))
@@ -211,7 +212,19 @@ decorate_with_on.exit <- function(fun, name, pkg, record_fun) {
             })
 
             BODY
-        }, list(NAME=name, PKG=pkg, RECORD_FUN=record_fun, BODY=body(fun))),
+        }, list(
+            NAME=name,
+            PKG=pkg,
+            RECORD_FUN=record_fun,
+            BODY=body(fun),
+            TMP={
+                if (endsWith(name, "<-")) {
+                    substitute(`__genthat_tmp` <- ARG_NAME, list(ARG_NAME=as.name(names(formals(fun))[1])))
+                } else {
+                    ""
+                }
+            })
+        ),
         env=environment(fun),
         attributes=list(
             `__genthat_original_fun`=create_duplicate(fun)
