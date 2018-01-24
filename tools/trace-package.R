@@ -13,6 +13,13 @@ pboptions(type="none")
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
+`covr-revdep_option_list` <- list(
+    make_option("--package", type="character", help="Package to trace", metavar="PATH"),
+    make_option("--dep", type="character", help="Package to run", metavar="PATH"),
+    make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
+    make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
+)
+
 revdep_option_list <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
     make_option("--dep", type="character", help="Package to run", metavar="PATH"),
@@ -45,27 +52,58 @@ log_debug <- function(...) {
 
 revdep_task <- function(package, dep, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    target <- file.path(output, paste0(package, "-", dep, ".RDS"))
 
-    working_dir <- file.path(output, "tmp")
-    stopifnot(dir.exists(working_dir) || dir.create(working_dir, recursive=TRUE))
+    if (file.exists(target)) {
+        cat("Task has been already ran: ", target, "\n")
 
-    options(genthat.debug=T)
+        res <- readRDS(target)
+    } else {
+        working_dir <- file.path(output, "tmp")
+        stopifnot(dir.exists(working_dir) || dir.create(working_dir, recursive=TRUE))
 
-    res <- genthat::gen_from_package(
-        package,
-        dep,
-        types="all",
-        action="generate",
-        output_dir=output,
-        decorator="on.exit",
-        tracer="set",
-        working_dir=working_dir,
-        prune_tests=T,
-        quiet=quiet
-    )
+        options(genthat.debug=T)
 
-    saveRDS(res, file.path(output, paste0(package, "-", dep, ".RDS")))
+        res <- genthat::gen_from_package(
+            package,
+            dep,
+            types="all",
+            action="generate",
+            output_dir=output,
+            decorator="on.exit",
+            tracer="set",
+            working_dir=working_dir,
+            prune_tests=T,
+            quiet=quiet
+        )
+
+        saveRDS(res, target)
+    }
+
     print(attr(res, "stats"))
+}
+
+`covr-revdep_task` <- function(package, dep, output, quiet) {
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    target <- file.path(output, paste0(package, "-", dep, ".RDS"))
+
+    working_dir <- tempfile()
+    on.exit(unlink(working_dir, recursive=TRUE))
+
+    if (!file.exists(target)) {
+        files <- genthat:::extract_package_code(dep, types="all", output_dir=working_dir)
+        files <- unlist(files)
+        code <- paste0(
+            'tryCatch({ setwd("', dirname(files), '"); source("', basename(files), '", local=TRUE)})',
+            collapse="\n"
+        )
+        res <- covr::package_coverage(path=file.path("~/R/CRAN", package), type="none", code=code, quiet=quiet)
+        df <- covr::tally_coverage(res)
+
+        saveRDS(df, target)
+    } else {
+        cat("Task has been already ran: ", target, "\n")
+    }
 }
 
 coverage_task <- function(package, types, output, quiet) {
@@ -74,7 +112,7 @@ coverage_task <- function(package, types, output, quiet) {
     saveRDS(res, file.path(output, "covr.RDS"))
 }
 
-trace_task <- function(package, config, types, output, action, prune_tests, max_trace_size, debug, quiet) {
+trace_task <- function(package, config, types, output, action, prune_tests, debug, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
 
     types <- match.arg(types, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
@@ -97,7 +135,6 @@ trace_task <- function(package, config, types, output, action, prune_tests, max_
 
     # TODO: move to the main
     options(genthat.debug=debug)
-    options(genthat.max_trace_size=as.integer(max_trace_size))
 
     res <- genthat::gen_from_package(
         package,
@@ -120,7 +157,7 @@ main <- function(args) {
     # TODO handle help option
     # TODO handle debug option
 
-    task_name <- match.arg(args[1], c("coverage", "generate", "revdep", "trace"), several.ok=FALSE)
+    task_name <- match.arg(args[1], c("coverage", "generate", "covr-revdep", "revdep", "trace"), several.ok=FALSE)
 
     task_fun <- get(str_c(task_name, "_task"))
     option_list <- get(str_c(task_name, "_option_list"))

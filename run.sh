@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/bin/bash -x
 set -e
 
 FORCE=${FORCE:-}
+WORKER_JOBS=${WORKER_JOBS:-1}
 
 if [ -z $GENTHAT_SOURCE_PATHS ]; then
    echo "Missing GENTHAT_SOURCE_PATHS"
@@ -10,6 +11,7 @@ fi
 
 if [ $# -eq 1 ]; then
 #    tasks="--coverage"
+#    tasks="--covr-revdep"
     tasks="--revdep"
 #    tasks="--trace --coverage"
     package="$1"
@@ -30,20 +32,19 @@ function _parallel {
 
     if [ -d "$output" ]; then
         echo "Output $output exists!"
-        exit 1
+#        exit 1
     else
         mkdir -p "$output"
     fi
 
     parallel \
         --bar \
-        --jobs 1 \
+        --jobs $WORKER_JOBS \
         --tagstring "{}:" \
         --files \
         --result "$output" \
         --joblog "$output/parallel.log" \
         --shuf \
-        --timeout 6h \
         "$@"
 }
 
@@ -58,15 +59,15 @@ function do_run_task {
         rm -fr "$output"
     fi
 
-    if [ ! -d "$output" ]; then
+#    if [ ! -d "$output" ]; then
         echo "running task $name..."
 
         _parallel \
             "$output" \
             $@
-    else
-        echo "task $name already done, skipping"
-    fi
+#    else
+#        echo "task $name already done, skipping"
+#    fi
 }
 
 function do_trace_task {
@@ -76,6 +77,7 @@ function do_trace_task {
 
     do_run_task \
         "$name" \
+        --timeout 2h \
         ./tools/trace-package.R trace \
         --package "$package" \
         --config "$config" \
@@ -87,19 +89,21 @@ function do_trace_task {
 
 function trace_task {
 #    do_trace_task count-entry--sequence --action stats
-    #do_trace_task count-exit--sequence --action stats
-    #do_trace_task onexit--sequence --action stats
-    #do_trace_task onexit--set --action stats
+#    do_trace_task count-exit--sequence --action
+#    do_trace_task onexit--sequence --action stats
+#    do_trace_task onexit--set --action stats
 #    do_trace_task on.exit--sequence --action stats
-    #do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 131072
-    do_trace_task on.exit--set --action generate --prune-tests --max-trace-size 524288
+#    do_trace_task count-entry--set --action stats
+    do_trace_task on.exit--set --action generate --prune-tests
 }
 
 function revdep_task {
     deps=$(mktemp)
     Rscript -e "options(repos='https://mirrors.nic.cz/R'); cat(paste(intersect(installed.packages()[,1], tools::package_dependencies('$package', reverse=T, recursive=F)[[1]]), collapse='\n'),'\n')" > $deps
+
     do_run_task \
         "revdep" \
+        --timeout 1h \
         -a "$deps" \
         ./tools/trace-package.R revdep \
         --package "$package" \
@@ -107,9 +111,24 @@ function revdep_task {
         --output "$output_base/revdep/output/all/{1}"
 }
 
+function covr_revdep_task {
+    deps=$(mktemp)
+    Rscript -e "options(repos='https://mirrors.nic.cz/R'); cat(paste(intersect(installed.packages()[,1], tools::package_dependencies('$package', reverse=T, recursive=F)[[1]]), collapse='\n'),'\n')" > $deps
+
+    do_run_task \
+        "covr-revdep" \
+        --timeout 1h \
+        -a "$deps" \
+        ./tools/trace-package.R covr-revdep \
+        --package "$package" \
+        --dep "{1}" \
+        --output "$output_base/covr-revdep/output/all/{1}"
+}
+
 function run_package_task {
     do_run_task \
         "run-package" \
+        --timeout 1h \
         ./tools/trace-package.R trace \
         --package "$package" \
         --config none \
@@ -147,6 +166,9 @@ for t in $(echo "$tasks"); do
             ;;
         --revdep)
             revdep_task
+            ;;
+        --covr-revdep)
+            covr_revdep_task
             ;;
         --generate)
             generate_task

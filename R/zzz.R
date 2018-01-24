@@ -10,7 +10,7 @@ Rcpp::loadModule("SerializerModule", TRUE)
     options(genthat.tryCatchDepth=try_catch_stack_depth())
     options(genthat.keep_failed_tests=getOption("genthat.keep_failed_tests", FALSE))
     options(genthat.keep_all_traces=getOption("genthat.keep_all_traces", FALSE))
-    options(genthat.max_trace_size=getOption("genthat.max_trace_size", 128*1024))
+    options(genthat.max_trace_size=getOption("genthat.max_trace_size", 512*1024))
     options(genthat.source_paths=getOption("genthat.source_paths", Sys.getenv("GENTHAT_SOURCE_PATHS")))
 
     enable_tracing()
