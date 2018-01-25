@@ -149,6 +149,7 @@ function run_task {
 function coverage_task {
     do_run_task \
         "coverage" \
+        --timeout 2h \
         ./tools/trace-package.R coverage \
         --package "$package" \
         --types "{1}" \
