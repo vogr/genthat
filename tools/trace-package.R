@@ -162,8 +162,12 @@ trace_task <- function(package, config, types, output, action, prune_tests, debu
         )
 
         readr::write_csv(res, file.path(output, "genthat-tracing.csv"))
-        readr::write_csv(attr(res, "errors"), file.path(output, "genthat-tracing-errors.csv"))
-        readr::write_csv(dplyr::as_data_frame(as.list(attr(res, "stats"))), file.path(output, "genthat-tracing-stats.csv"))
+        if (!is.null(attr(res, "errors"))) {
+            readr::write_csv(attr(res, "errors"), file.path(output, "genthat-tracing-errors.csv"))
+        }
+        if (!is.null(attr(res, "stats"))) {
+            readr::write_csv(dplyr::as_data_frame(as.list(attr(res, "stats"))), file.path(output, "genthat-tracing-stats.csv"))
+        }
     } else {
         cat("Task has been already ran: ", target, "\n")
     }
