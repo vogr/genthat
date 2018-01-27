@@ -11,8 +11,9 @@ fi
 
 if [ $# -eq 1 ]; then
 #    tasks="--coverage"
-#    tasks="--covr-revdep"
-    tasks="--revdep"
+#    tasks="--run-generated-tests"
+    tasks="--covr-revdep"
+#    tasks="--revdep"
 #    tasks="--trace --coverage"
     package="$1"
 elif [ $# -gt 1 ]; then
@@ -125,6 +126,17 @@ function covr_revdep_task {
         --output "$output_base/covr-revdep/output/all/{1}"
 }
 
+function run_generated_tests_task {
+    do_run_task \
+        "run-generated-tests" \
+        --timeout 1h \
+        ./tools/trace-package.R run-generated-tests \
+        --package "$package" \
+        --tests "$output_base/trace-on.exit--set/output/all" \
+        --output "$output_base/run-generated-tests/output/{1}" \
+        ::: all
+}
+
 function run_package_task {
     do_run_task \
         "run-package" \
@@ -169,6 +181,9 @@ for t in $(echo "$tasks"); do
             ;;
         --covr-revdep)
             covr_revdep_task
+            ;;
+        --run-generated-tests)
+            run_generated_tests_task
             ;;
         --generate)
             generate_task

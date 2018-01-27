@@ -13,6 +13,13 @@ pboptions(type="none")
 
 genthat_version <- devtools::as.package(find.package("genthat"))$version
 
+`run-generated-tests_option_list` <- list(
+    make_option("--package", type="character", help="Package to trace", metavar="PATH"),
+    make_option("--tests", type="character", help="Path tot tests", metavar="PATH"),
+    make_option("--output", type="character", help="Name of the output directory for results", default=tempfile(file="genthat-tests"), metavar="PATH"),
+    make_option(c("-q", "--quiet"), help="Quiet output", action="store_true", default=FALSE)
+)
+
 `covr-revdep_option_list` <- list(
     make_option("--package", type="character", help="Package to trace", metavar="PATH"),
     make_option("--dep", type="character", help="Package to run", metavar="PATH"),
@@ -48,6 +55,23 @@ trace_option_list <- list(
 log_debug <- function(...) {
     msg <- paste0(...)
     cat(msg, "\n")
+}
+
+`run-generated-tests_task` <- function(package, tests, output, quiet) {
+    stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    target <- file.path(output, "run-generated-tests.csv")
+
+    if (file.exists(target)) {
+        cat("Task has been already ran: ", target, "\n")
+    } else {
+        files <- list.files(tests, pattern="test-.*\\.R$", recursive=TRUE, full.names=TRUE)
+        time <- genthat:::stopwatch(res <- genthat::run_generated_test(files))
+        res <- is.na(res)
+
+        df <- dplyr::data_frame(package=package, time=time, files=length(files), ran=sum(!res), failed=sum(res))
+        print(df)
+        readr::write_csv(df, target)
+    }
 }
 
 revdep_task <- function(package, dep, output, quiet) {
@@ -86,23 +110,28 @@ revdep_task <- function(package, dep, output, quiet) {
 `covr-revdep_task` <- function(package, dep, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
     target <- file.path(output, paste0(package, "-", dep, ".RDS"))
+    revdep <- file.path(sub(pattern="covr-revdep", replacement="revdep", output), paste0(package, "-", dep, ".RDS"))
 
     working_dir <- tempfile()
     on.exit(unlink(working_dir, recursive=TRUE))
 
-    if (!file.exists(target)) {
-        files <- genthat:::extract_package_code(dep, types="all", output_dir=working_dir)
-        files <- unlist(files)
-        code <- paste0(
-            'tryCatch({ setwd("', dirname(files), '"); source("', basename(files), '", local=TRUE)})',
-            collapse="\n"
-        )
-        res <- covr::package_coverage(path=file.path("~/R/CRAN", package), type="none", code=code, quiet=quiet)
-        df <- covr::tally_coverage(res)
+    if (file.exists(revdep)) {
+        if (!file.exists(target)) {
+            files <- genthat:::extract_package_code(dep, types="all", output_dir=working_dir)
+            files <- unlist(files)
+            code <- paste0(
+                'tryCatch({ setwd("', dirname(files), '"); source("', basename(files), '", local=TRUE)})',
+                collapse="\n"
+            )
+            res <- covr::package_coverage(path=file.path("~/R/CRAN", package), type="none", code=code, quiet=quiet)
+            df <- covr::tally_coverage(res)
 
-        saveRDS(df, target)
+            saveRDS(df, target)
+        } else {
+            cat("Task has been already ran: ", target, "\n")
+        }
     } else {
-        cat("Task has been already ran: ", target, "\n")
+        cat("Revdep task was not run: ", revdep, "\n")
     }
 }
 
@@ -157,7 +186,8 @@ main <- function(args) {
     # TODO handle help option
     # TODO handle debug option
 
-    task_name <- match.arg(args[1], c("coverage", "generate", "covr-revdep", "revdep", "trace"), several.ok=FALSE)
+    task_name <- match.arg(args[1],
+        c("run-generated-tests", "coverage", "generate", "covr-revdep", "revdep", "trace"), several.ok=FALSE)
 
     task_fun <- get(str_c(task_name, "_task"))
     option_list <- get(str_c(task_name, "_option_list"))
