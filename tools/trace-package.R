@@ -137,49 +137,69 @@ revdep_task <- function(package, dep, output, quiet) {
 
 coverage_task <- function(package, types, output, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
-    res <- covr::package_coverage(path=file.path("~/R/CRAN", package), type=types, quiet=quiet)
-    saveRDS(res, file.path(output, "covr.RDS"))
+    target <- file.path(output, paste0("covr.RDS"))
+
+    source_dir <- file.path(Sys.getenv("GENTHAT_SOURCE_PATHS"), package)
+    if (!dir.exists(source_dir)) {
+        stop("Source does not exists: ", source_dir)
+    }
+
+    if (!file.exists(target)) {
+        res <- covr::package_coverage(path=file.path("~/R/CRAN", package), type=types, quiet=quiet)
+        saveRDS(res, target)
+    } else {
+        cat("Task has been already ran: ", target, "\n")
+    }
 }
 
 trace_task <- function(package, config, types, output, action, prune_tests, debug, quiet) {
     stopifnot(dir.exists(output) || dir.create(output, recursive=TRUE))
+    target <- file.path(output, "genthat-tracing-stats.csv")
 
-    types <- match.arg(types, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
+    if (!file.exists(target)) {
+        types <- match.arg(types, c("examples", "tests", "vignettes", "all"), several.ok=FALSE)
 
-    config <- str_split_fixed(config, "--", n=2)
-    stopifnot(nrow(config) == 1)
-    decorator <- config[, 1]
-    tracer <- config[, 2]
+        config <- str_split_fixed(config, "--", n=2)
+        stopifnot(nrow(config) == 1)
+        decorator <- config[, 1]
+        tracer <- config[, 2]
 
-    working_dir <- file.path(output, "tmp")
-    stopifnot(dir.exists(working_dir) || dir.create(working_dir, recursive=TRUE))
+        working_dir <- file.path(output, "tmp")
+        stopifnot(dir.exists(working_dir) || dir.create(working_dir, recursive=TRUE))
 
-    if (decorator == "none") {
-        decorator <- NULL
+        if (decorator == "none") {
+            decorator <- NULL
+        }
+
+        if (length(tracer) == 0 || nchar(tracer) == 0) {
+            tracer <- "set"
+        }
+
+        # TODO: move to the main
+        options(genthat.debug=debug)
+
+        res <- genthat::gen_from_package(
+            package,
+            types=types,
+            output_dir=output,
+            action=action,
+            decorator=decorator,
+            tracer=tracer,
+            working_dir=working_dir,
+            prune_tests=prune_tests,
+            quiet=quiet
+        )
+
+        readr::write_csv(res, file.path(output, "genthat-tracing.csv"))
+        if (!is.null(attr(res, "errors"))) {
+            readr::write_csv(attr(res, "errors"), file.path(output, "genthat-tracing-errors.csv"))
+        }
+        if (!is.null(attr(res, "stats"))) {
+            readr::write_csv(dplyr::as_data_frame(as.list(attr(res, "stats"))), file.path(output, "genthat-tracing-stats.csv"))
+        }
+    } else {
+        cat("Task has been already ran: ", target, "\n")
     }
-
-    if (length(tracer) == 0 || nchar(tracer) == 0) {
-        tracer <- "set"
-    }
-
-    # TODO: move to the main
-    options(genthat.debug=debug)
-
-    res <- genthat::gen_from_package(
-        package,
-        types=types,
-        output_dir=output,
-        action=action,
-        decorator=decorator,
-        tracer=tracer,
-        working_dir=working_dir,
-        prune_tests=prune_tests,
-        quiet=quiet
-    )
-
-    readr::write_csv(res, file.path(output, "genthat-tracing.csv"))
-    readr::write_csv(attr(res, "errors"), file.path(output, "genthat-tracing-errors.csv"))
-    readr::write_csv(dplyr::as_data_frame(as.list(attr(res, "stats"))), file.path(output, "genthat-tracing-stats.csv"))
 }
 
 main <- function(args) {
