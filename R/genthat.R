@@ -295,8 +295,12 @@ trace_package <- function(pkgs, files_to_run,
         env <- c()
         site_file <- NULL
 
+        if (length(decorator) == 0 || decorator == "none") {
+            decorator <- NULL
+        }
+
         # this is to support a simple run of the files without any genthat involved
-        if (!is.null(decorator) || decorator != "none") {
+        if (!is.null(decorator)) {
             vars <- list()
 
             vars$debug <- is_debug_enabled()
