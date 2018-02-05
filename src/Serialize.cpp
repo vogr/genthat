@@ -266,7 +266,35 @@ public:
         }
     }
 
+    string serialize_binary(SEXP s) {
+        if (TYPEOF(s) == EXTPTRSXP) {
+            for (const auto &x : UNSUPPORTED_EXTPTR_CLASSES) {
+                if (Rf_inherits(s, x.c_str())) {
+                    throw serialization_error("EXTPTR with class " +  x + " is not supported");
+                }
+            }
+        }
+
+        const vector<SEXP>::const_iterator pos =
+            find_if(externals_.begin(), externals_.end(), [s](SEXP x)->bool { return x == s; });
+
+        int idx;
+
+        if (pos != externals_.end()) {
+            idx = pos - externals_.begin() + 1;
+        } else {
+            externals_.push_back(RObject(s));
+            idx = externals_.size();
+        }
+
+        return ".ext." + to_string(idx);
+    }
+
     string serialize(SEXP s, bool quote) {
+        if (Rf_isS4(s)) {
+            return serialize_binary(s);
+        }
+
         switch (TYPEOF(s)) {
         case NILSXP:
             return "NULL";
@@ -465,29 +493,8 @@ public:
         }
         case S4SXP:
         case DOTSXP:
-        case EXTPTRSXP: {
-            if (TYPEOF(s) == EXTPTRSXP) {
-                for (const auto &x : UNSUPPORTED_EXTPTR_CLASSES) {
-                    if (Rf_inherits(s, x.c_str())) {
-                        throw serialization_error("EXTPTR with class " +  x + " is not supported");
-                    }
-                }
-            }
-
-            const vector<SEXP>::const_iterator pos =
-                find_if(externals_.begin(), externals_.end(), [s](SEXP x)->bool { return x == s; });
-
-            int idx;
-
-            if (pos != externals_.end()) {
-                idx = pos - externals_.begin() + 1;
-            } else {
-                externals_.push_back(RObject(s));
-                idx = externals_.size();
-            }
-
-            return ".ext." + to_string(idx);
-        }
+        case EXTPTRSXP:
+            return serialize_binary(s);
         case BCODESXP:
             throw sexp_not_supported_error("BCODESXP");
         case WEAKREFSXP:
