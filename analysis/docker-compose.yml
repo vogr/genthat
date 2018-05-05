@@ -1,8 +1,0 @@
-version: '3'
-services:
-  rstudio:
-    image: fikovnik/rstudio
-    ports:
-      - 8788:8787
-    volumes:
-      - "..:/home/rstudio"

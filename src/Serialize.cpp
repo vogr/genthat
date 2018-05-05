@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "utils.h"
+#include "Utils.h"
 
 using namespace Rcpp;
 using namespace std;

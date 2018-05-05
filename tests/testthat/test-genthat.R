@@ -91,9 +91,3 @@ test_that("process_traces with generate action work", {
     ret <- process_traces(list(), output_dir=tmp, action="generate")
     expect_equal(dim(ret), c(0, 2))
 })
-
-test_that("pruning works", {
-    with_mock(
-
-    )
-})

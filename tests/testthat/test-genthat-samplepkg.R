@@ -1,6 +1,7 @@
 context("genthat on sample package")
 
 test_that("trace_package works on a single file from sample package", {
+    skip_on_cran()
     with_test_pkgs({
         output_dir <- tempfile()
         f1 <- tempfile()
@@ -24,6 +25,7 @@ test_that("trace_package works on a single file from sample package", {
 })
 
 test_that("trace_package works on a sample package", {
+    skip_on_cran()
     with_test_pkgs({
         output_dir <- tempfile()
         f1 <- tempfile()
@@ -81,6 +83,7 @@ test_that("trace_package works on a sample package", {
 })
 
 test_that("gen_from_package works on a sample package", {
+    skip_on_cran()
     with_test_pkgs({
         output_dir <- tempfile()
 
@@ -97,11 +100,12 @@ test_that("gen_from_package works on a sample package", {
             quiet=!is_debug_enabled()
         )
 
-        expect_equal(nrow(ret), 16)
+        expect_equal(nrow(ret), 17)
     })
 })
 
 test_that("gen_from_package works on a sample package", {
+    skip_on_cran()
     with_test_pkgs({
         output_dir <- tempfile()
 

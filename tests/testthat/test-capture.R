@@ -460,7 +460,6 @@ test_that("capture works with replacement functions", {
     x <- 1
     `__genthat_tmp` <- x
     value <- 5
-    browser()
     record_trace("gg<-", args=list(v=as.name("*tmp*"), a=4, value=value), retv=1, tracer=tracer)
 
     t <- get_trace(tracer, 1L)

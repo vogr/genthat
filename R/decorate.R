@@ -84,7 +84,8 @@ decorate_environment <- function(env,
 #' @export
 #'
 decorate_function <- function(fun, name=substitute(fun),
-                              record_fun=substitute(genthat:::record_trace), decorator=get_decorator(), env=parent.frame()) {
+                              record_fun=substitute(genthat:::record_trace),
+                              decorator=get_decorator(), env=parent.frame()) {
     stopifnot(is_decorator(decorator))
     stopifnot(!missing(fun) || is_chr_scalar(name))
 

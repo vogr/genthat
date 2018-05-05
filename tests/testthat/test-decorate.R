@@ -150,7 +150,8 @@ test_that("decorator does not work with S3 generics", {
 })
 
 test_that("decorator works with S4 methods", {
-    setGeneric("sides", function(object) {
+
+    setGeneric("sides", where=environment(), function(object) {
         standardGeneric("sides")
     })
 
@@ -158,8 +159,8 @@ test_that("decorator works with S4 methods", {
     setClass("Polygon", representation(sides = "integer"), contains = "Shape")
     setClass("Triangle", contains = "Polygon")
 
-    setMethod("sides", signature(object = "Polygon"), function(object) object@sides)
-    setMethod("sides", signature("Triangle"), function(object) 3)
+    setMethod("sides", where=environment(), signature(object = "Polygon"), function(object) object@sides)
+    setMethod("sides", where=environment(), signature("Triangle"), function(object) 3)
 
     tracer <- create_sequence_tracer()
     set_tracer(tracer)

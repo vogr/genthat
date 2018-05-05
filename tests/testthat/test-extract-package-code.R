@@ -1,6 +1,8 @@
 context("extract-package-code")
 
 test_that("extract package code work on sample package", {
+    skip_on_cran()
+
     tmp <- tempfile()
     on.exit(unlink(tmp, recursive=TRUE))
 
@@ -41,3 +43,4 @@ test_that("extract package code work on sample package", {
         expect_equal(unlist(ret, use.names=FALSE), character())
     })
 })
+
