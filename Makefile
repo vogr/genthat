@@ -1,12 +1,21 @@
 PKGNAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
 PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
 
-build: clean
+build:
 	Rscript -e "devtools::document()"
-	R CMD build .
+	R CMD build \
+      --no-manual \
+      --no-build-vignettes \
+      .
 
 check: build
-	R CMD check --as-cran $(PKGNAME)_$(PKGVERS).tar.gz
+	R CMD check \
+      --no-codoc \
+      --no-examples \
+      --no-manual \
+      --no-vignettes \
+      --no-build-vignettes \
+      $(PKGNAME)_$(PKGVERS).tar.gz
 
 clean:
 	rm -f $(PKGNAME)_$(PKGVERS).tar.gz
