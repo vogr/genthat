@@ -13,34 +13,24 @@ compute_tests_coverage <- function(path, tests, quiet=TRUE) {
         tmp
     )
 
-    total_coverage <- covr::package_coverage(path, type="none", code=code, quiet=quiet)
-    total_coverage <- covr::tally_coverage(total_coverage)
+    covr::package_coverage(path, type="none", code=code, quiet=quiet)
 
     result <- readRDS(tmp)
     if (length(result) == 0) {
         return(list())
     }
 
-    # now we need to normalize the stored coverage
-    result <- lapply(result, function(x) {
-        if (is.data.frame(x)) {
-            coverage <- normalize_coverage(x, full=total_coverage)
-            coverage <- (sum(coverage$value > 0) / length(coverage$value)) * 100
+    raw_coverage <- attr(result, "raw_coverage")
 
-            c(coverage, attr(x, "time"))
-        } else {
-            x
-        }
-    })
     names(result) <- tests
 
-    errors <- sapply(result, function(x) if (is.character(x)) x else NA)
     coverage <- sapply(result, function(x) if (is.numeric(x)) x[1] else NA)
     elapsed <- sapply(result, function(x) if (is.numeric(x)) x[2] else NA)
+    errors <- sapply(result, function(x) if (is.character(x)) x else NA)
 
     attr(coverage, "elapsed") <- elapsed
     attr(coverage, "errors") <- errors
-    attr(coverage, "raw_coverage") <- total_coverage
+    attr(coverage, "raw_coverage") <- raw_coverage
 
     coverage
 }
@@ -68,13 +58,12 @@ do_compute_tests_coverage <- function(tests) {
             time <- genthat:::stopwatch(genthat::test_generated_file(test))
             time <- as.numeric(time, units="secs")
 
-            coverage <- covr::tally_coverage(get_coverage())
-            coverage <- dplyr::filter(coverage, value > 0)
+            coverage <- get_coverage()
+            coverage <- covr::percent_coverage(coverage)
 
-            log_debug("Finished ", test, " in ", time, " covered lines: ", coverage)
+            log_debug("Finished ", test, " in ", time, " coverage ", coverage)
 
-            attr(coverage, "time") <- time
-            coverage
+            c(coverage, time)
         }, error=function(e) {
             # we do not want to capture coverage of failed tests
             # TODO: again not the nicest, we should ask for API to manipulate coverage
@@ -85,16 +74,6 @@ do_compute_tests_coverage <- function(tests) {
         })
     })
 
+    attr(result, "raw_coverage") <- covr::tally_coverage(get_coverage())
     result
-}
-
-normalize_coverage <- function(partial, full) {
-    tmp_partial <- dplyr::mutate(partial, filename=sub(".*/R/", "R/", filename))
-    tmp <- dplyr::left_join(full, tmp_partial, by=c("filename", "functions", "line"))
-    tmp <- dplyr::mutate(tmp, value=ifelse(is.na(value.y), 0, value.y))
-    tmp <- dplyr::select(tmp, -value.x, -value.y)
-
-    stopifnot(sum(tmp$value) == sum(partial$value))
-
-    tmp
 }
