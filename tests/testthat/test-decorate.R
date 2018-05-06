@@ -155,11 +155,11 @@ test_that("decorator works with S4 methods", {
         standardGeneric("sides")
     })
 
-    setClass("Shape")
-    setClass("Polygon", representation(sides = "integer"), contains = "Shape")
-    setClass("Triangle", contains = "Polygon")
+    setClass("Shape", where=environment())
+    setClass("Polygon", where=environment(), representation(sides="integer"), contains="Shape")
+    setClass("Triangle", where=environment(), contains="Polygon")
 
-    setMethod("sides", where=environment(), signature(object = "Polygon"), function(object) object@sides)
+    setMethod("sides", where=environment(), signature(object="Polygon"), function(object) object@sides)
     setMethod("sides", where=environment(), signature("Triangle"), function(object) 3)
 
     tracer <- create_sequence_tracer()
