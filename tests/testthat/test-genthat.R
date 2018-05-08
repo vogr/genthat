@@ -68,7 +68,9 @@ test_that("process_traces with generate action work", {
     trace_3 <- create_trace("fun3", error=simpleError("Bad call"))
     trace_4 <- create_trace("fun4", failure=simpleError("Something is wrong"))
 
-    ret <- process_traces(list(trace_1, trace_2, trace_3, trace_4), output_dir=tmp, action="generate")
+    withr::with_options(list(genthat.keep_failed_traces=TRUE), {
+        ret <- process_traces(list(trace_1, trace_2, trace_3, trace_4), output_dir=tmp, action="generate")
+    })
 
     expect_equal(nrow(ret), 4)
 

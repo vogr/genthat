@@ -305,6 +305,8 @@ trace_package <- function(pkgs, files_to_run,
 
             vars$debug <- is_debug_enabled()
             vars$keep_all_traces <- getOption("genthat.keep_all_traces", FALSE)
+            vars$keep_failed_traces <- getOption("genthat.keep_failed_traces", FALSE)
+
             vars$decorator <- decorator
             vars$tracer <- tracer
             vars$session_file <- set_tracer_session_file
@@ -365,7 +367,7 @@ save_trace_file <- function(trace, output_dir, name) {
     fname
 }
 
-generate_action <- function(trace, output_dir, save_failed_trace=TRUE) {
+generate_action <- function(trace, output_dir, keep_failed_trace=FALSE) {
     tryCatch({
         testfile <- generate_test_file(trace, output_dir)
         log_debug("Saving test into: ", testfile)
@@ -381,7 +383,7 @@ generate_action <- function(trace, output_dir, save_failed_trace=TRUE) {
         testfile <- NA
         error <- trimws(e$message, which="both")
 
-        if (save_failed_trace || getOption("genthat.keep_all_traces", FALSE)) {
+        if (keep_failed_trace || getOption("genthat.keep_all_traces", FALSE)) {
             testfile <- save_trace_file(trace, output_dir, "failed-trace")
             log_debug("Saving failed trace into: ", testfile)
         }
@@ -423,9 +425,9 @@ process_traces <- function(traces, output_dir, action) {
 
             action_fun <- function(trace) export_action(trace, output_dir, save_traces)
         } else {
-            save_failed_traces <- as.logical(getOption("genthat.save_failed_traces", TRUE))
+            keep_failed_traces <- as.logical(getOption("genthat.keep_failed_traces", TRUE))
 
-            action_fun <- function(trace) generate_action(trace, output_dir, save_failed_traces)
+            action_fun <- function(trace) generate_action(trace, output_dir, keep_failed_traces)
         }
 
         log_debug("Processing ", length(traces), " traces")

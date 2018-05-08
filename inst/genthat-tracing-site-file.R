@@ -4,6 +4,7 @@ options(error = function() {
 })
 
 options(genthat.debug=as.logical(Sys.getenv("GENTHAT_DEBUG", "FALSE")))
+options(genthat.keep_failed_traces=as.logical(Sys.getenv("GENTHAT_KEEP_FAILED_TRACES", "FALSE")))
 options(genthat.keep_all_traces=as.logical(Sys.getenv("GENTHAT_KEEP_ALL_TRACES", "FALSE")))
 options(genthat.max_trace_size=as.integer(Sys.getenv("GENTHAT_MAX_TRACE_SIZE")))
 
