@@ -445,3 +445,22 @@ is_chr_scalar <- function(s) {
 as_chr_scalar <- function(s, collapse="\n", trim="both") {
     paste(trimws(s, which=trim), collapse=collapse)
 }
+
+#' @title Computes coverage from a number of covr results
+#' 
+#' @export
+#'
+compute_coverage <- function(...) {
+    coverage <- dplyr::bind_rows(...)
+
+    # only keep coverage of R file - genthat does not support C/C++ coverage
+    coverage_df <-
+        coverage %>%
+        dplyr::mutate(filename=sub(".*/R/", "R/", filename)) %>%
+        dplyr::filter(grepl("(.R|.r)$", filename)) %>%
+        dplyr::group_by(filename, functions, line) %>%
+        dplyr::summarise(value=sum(value))
+
+    # compute the percentage
+    (sum(coverage_df$value > 0) / length(coverage_df$value)) * 100
+}
