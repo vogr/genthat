@@ -1,5 +1,34 @@
 context("genthat on sample package")
 
+library(dplyr)
+library(stringr)
+
+# The sample package contains the following code:
+#
+# - examples [6]
+#   - My-public.Rd [0]
+#     - contains one example which does not touch any of the package code
+#   - My-add.Rd [2]
+#     - two calls to my_add
+#   - My-call.Rd [4]
+#     - two calls to my_call
+#     - two calls to my_add
+# - tests [6]
+#   - testthat/testMain.R [8]
+#      - one call to my_public
+#      - one call to my_private
+#      - one call to my_add
+#      - four calls to my_call
+#      - one call to my_warning
+#      - one call to my_error - not recorded
+# - vignettes [2]
+#   - my-ext-vignette-notrace.Rmd [0]
+#     - no calls to simplepkg
+#   - my-ext-vigntte-trace.Rmd [1]
+#     - one call to my_add
+#   - my-vignette.Rmd [1]
+#     - one call to my_add
+
 test_that("trace_package works on a single file from sample package", {
     skip_on_cran()
     skip_on_travis()
@@ -90,14 +119,14 @@ test_that("gen_from_package works on a sample package", {
     skip_on_cran()
     skip_on_travis()
 
-    with_test_pkgs({
+    ret <- with_test_pkgs({
         output_dir <- tempfile()
 
         on.exit({
             unlink(output_dir, recursive=TRUE)
         })
 
-        ret <- gen_from_package(
+        gen_from_package(
             "samplepkg",
             types="all",
             tracer="sequence",
@@ -105,9 +134,24 @@ test_that("gen_from_package works on a sample package", {
             action="export",
             quiet=!is_debug_enabled()
         )
-
-        expect_equal(nrow(ret), 17)
     })
+
+    # check by sources
+    expect_nrow(dplyr::filter(ret, str_detect(file, "My-add.Rd.R$")), 2)
+    expect_nrow(dplyr::filter(ret, str_detect(file, "My-call.Rd.R$")), 4)
+    expect_nrow(dplyr::filter(ret, str_detect(file, "testthat.R$")), 8)
+    expect_nrow(dplyr::filter(ret, str_detect(file, "my-ext-vignette-trace.R$")), 1)
+    expect_nrow(dplyr::filter(ret, str_detect(file, "my-vignette.R$")), 1)
+
+    # check by functions
+    expect_nrow(dplyr::filter(ret, str_detect(output, "/my_add/")), 7)
+    expect_nrow(dplyr::filter(ret, str_detect(output, "/my_call/")), 6)
+    expect_nrow(dplyr::filter(ret, str_detect(output, "/my_public/")), 1)
+    expect_nrow(dplyr::filter(ret, str_detect(output, "/my_warning/")), 1)
+    expect_nrow(dplyr::filter(ret, str_detect(output, "/my_private/")), 1)
+
+    # check that =there is no error
+    expect_equal(sum(is.na(ret$error)), 16)
 })
 
 test_that("gen_from_package works on a sample package", {

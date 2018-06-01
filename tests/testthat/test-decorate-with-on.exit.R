@@ -26,12 +26,7 @@ test_that("decorated function calls records retv on success", {
     # TEST error
     capture <- list()
     expect_error(d(FALSE, 1L, 2L))
-    expect_equal(format(capture$retv[[1]]),  "an error")
-    expect_equal(format(capture$retv[[2]]),  "d(FALSE, 1L, 2L)")
-    expect_true(is.function(capture$retv[[3]]))
-    expect_equal(capture$name, "f")
-    expect_equal(capture$pkg, NULL)
-    expect_equal(capture$args, list(a=FALSE, b=1L, c=2L))
+    expect_equal(capture, list())
 })
 
 test_that("decorated functions can be multiline function", {
