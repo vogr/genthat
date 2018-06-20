@@ -76,8 +76,9 @@ generate_test <- function(trace, ...) {
     UseMethod("generate_test")
 }
 
+#' @importFrom methods new
 #' @export
-generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
+generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE, ...) {
     tryCatch({
         externals <- new.env(parent=emptyenv())
         serializer <- new(Serializer)

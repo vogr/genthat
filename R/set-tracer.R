@@ -51,8 +51,8 @@ store_trace.set_tracer <- function(tracer, trace) {
 #' @export
 #'
 reset_traces.set_tracer <- function(tracer) {
-    rm(list=ls(envir=tracer$known_traces, sort=FALSE, all.names=TRUE), envir=tracer$known_traces)
-    rm(list=ls(envir=tracer$traces, sort=FALSE, all.names=TRUE), envir=tracer$traces)
+    rm(list=ls(envir=tracer$known_traces, sorted=FALSE, all.names=TRUE), envir=tracer$known_traces)
+    rm(list=ls(envir=tracer$traces, sorted=FALSE, all.names=TRUE), envir=tracer$traces)
 }
 
 #' @export

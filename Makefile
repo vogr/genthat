@@ -1,32 +1,34 @@
-PKGNAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
-PKGVERS := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
+CHECK_OUTPUT_DIR := /tmp
+PKG_NAME := $(shell sed -n "s/Package: *\([^ ]*\)/\1/p" DESCRIPTION)
+PKG_VERSION := $(shell sed -n "s/Version: *\([^ ]*\)/\1/p" DESCRIPTION)
+ARCHIVE := $(PKG_NAME)_$(PKG_VERSION).tar.gz
 
-build:
+.PHONY: build document check clean install test install-dependencies docker
+
+all: install
+
+build: document
+	R CMD build .
+
+document:
 	Rscript -e "devtools::document()"
-	R CMD build \
-      --no-manual \
-      --no-build-vignettes \
-      .
+	Rscript -e "rmarkdown::render('README.Rmd')"
 
 check: build
-	R CMD check \
-      --no-codoc \
-      --no-examples \
-      --no-manual \
-      --no-vignettes \
-      --no-build-vignettes \
-      $(PKGNAME)_$(PKGVERS).tar.gz
+	R CMD check --as-cran --output=$(CHECK_OUTPUT_DIR) $(ARCHIVE)
 
 clean:
-	rm -f $(PKGNAME)_$(PKGVERS).tar.gz
-	rm -fr "genthat.Rcheck"
+	rm -f $(ARCHIVE)
 	rm -f src/*.so src/*.o
 
 install: build
-	R CMD INSTALL .
+	R CMD INSTALL --preclean --with-keep.source $(PKGNAME)_$(PKGVERS).tar.gz
 
 test:
 	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test()'
 
-docker: 
-	docker build --rm -t genthat .
+install-dependencies:
+	Rscript -e 'devtools::install_dev_deps()'
+
+docker:
+	docker build --rm -t prlprg/genthat .

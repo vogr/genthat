@@ -10,8 +10,8 @@
 #' @param package the name of the package.
 #' @param dir the path to the directory containing the source of the package
 #' @param lib_paths a character vector describing the location of R library
-#'     trees to search through when locating `package`, or ‘NULL’. The default
-#'     value of ‘NULL’ corresponds to checking the loaded namespace, then all
+#'     trees to search through when locating `package`, or `NULL`. The default
+#'     value of `NULL`` corresponds to checking the loaded namespace, then all
 #'     libraries currently known in `.libPaths()`.
 #' @param types which code artifacts to extract, `tests`, `vignettes`,
 #'     `examples`, `all`.
@@ -120,6 +120,7 @@ extract_code <- function(package, lib_paths, types, output_dir) {
 
 
 #' @importFrom tools Rd_db Rd2ex
+#' @importFrom stats na.omit
 extract_package_examples <- function(package, path, lib_paths, output_dir) {
     db <- tryCatch({
         tools::Rd_db(package, lib.loc=lib_paths)

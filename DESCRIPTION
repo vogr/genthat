@@ -20,11 +20,13 @@ Imports:
     covr,
     digest,
     dplyr,
+    devtools,
     formatR,
     magrittr,
     methods,
     Rcpp (>= 0.11.3),
     testthat,
+    tibble,
     tools,
     utils,
     withr

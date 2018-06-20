@@ -31,8 +31,10 @@ NULL
 #' # in case the package has been already installed with necessary artifacts
 #' \dontrun{gen_from_package(find.package("my-packages"))}
 #'
+#' @importFrom tibble data_frame
 #' @importFrom magrittr %>%
 #' @importFrom devtools as.package
+#'
 #' @export
 #'
 gen_from_package <- function(path, from=NULL,
@@ -239,6 +241,8 @@ gen_from_package <- function(path, from=NULL,
 #' @param files chr vector of paths to R files that shall be run
 #' @param output_dir the name of the directory where to output traces or NULL if
 #'     traces should not be saved
+#'
+#' @importFrom utils read.csv
 #'
 #' @export
 #'

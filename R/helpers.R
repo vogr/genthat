@@ -447,7 +447,8 @@ as_chr_scalar <- function(s, collapse="\n", trim="both") {
 }
 
 #' @title Computes coverage from a number of covr results
-#' 
+#'
+#' @importFrom dplyr mutate filter group_by summarise bind_rows
 #' @export
 #'
 compute_coverage <- function(...) {

@@ -13,6 +13,8 @@
 ^\.gitignore$
 ^\.idea$
 ^\.travis.yml$
+^\.config$
+^\build$
 ^TAGS$
 ^genthat\.Rproj$
 ^genthat_.*.tar.gz$

@@ -13,8 +13,8 @@ extract_package_code(package, dir, lib_paths = NULL, types = c("examples",
 \item{dir}{the path to the directory containing the source of the package}
 
 \item{lib_paths}{a character vector describing the location of R library
-trees to search through when locating `package`, or ‘NULL’. The default
-value of ‘NULL’ corresponds to checking the loaded namespace, then all
+trees to search through when locating `package`, or `NULL`. The default
+value of `NULL`` corresponds to checking the loaded namespace, then all
 libraries currently known in `.libPaths()`.}
 
 \item{types}{which code artifacts to extract, `tests`, `vignettes`,

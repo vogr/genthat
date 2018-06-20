@@ -35,7 +35,8 @@ compute_tests_coverage <- function(path, tests, quiet=TRUE) {
     coverage
 }
 
-#' @importFrom covr percent_coverage
+#' @importFrom covr percent_coverage tally_coverage
+#' @importFrom utils assignInNamespace
 #
 do_compute_tests_coverage <- function(tests) {
     # accessing the covr:::.coverage is a bit of a hack, yet the most effective
@@ -49,7 +50,7 @@ do_compute_tests_coverage <- function(tests) {
     }
 
     result <- lapply(tests, function(test) {
-        old_coverage <- list2env(as.list(covr:::.counters), env=new.env(parent=emptyenv()))
+        old_coverage <- list2env(as.list(covr:::.counters), envir=new.env(parent=emptyenv()))
 
         log_debug("Running ", i, "/", n, ":", test)
         i <<- i + 1
@@ -67,7 +68,7 @@ do_compute_tests_coverage <- function(tests) {
         }, error=function(e) {
             # we do not want to capture coverage of failed tests
             # TODO: again not the nicest, we should ask for API to manipulate coverage
-            assignInNamespace(".counters", old_coverage, ns="covr")
+            utils::assignInNamespace(".counters", old_coverage, ns="covr")
 
             log_debug("Failed ", test)
             as_chr_scalar(e$message)
