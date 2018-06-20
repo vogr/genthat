@@ -1,47 +1,59 @@
 context("extract-package-code")
 
-test_that("extract package code work on sample package", {
+# this one is not a great unit test, but it is much easier to write the code in
+# one go, instead of setting up the environment all the time
+test_that("extract_package_code", {
     skip_on_cran()
     skip_on_travis()
 
     tmp <- tempfile()
     on.exit(unlink(tmp, recursive=TRUE))
 
-    with_test_pkgs({
-        examples <- file.path(tmp, "examples", c("My-add.Rd.R", "My-call.Rd.R", "My-public.Rd.R"))
-        tests <- file.path(tmp, "tests", "testthat.R")
-        vignettes <- file.path(tmp, "vignettes",
-            c("my-ext-vignette-notrace.R", "my-ext-vignette-trace.R", "my-vignette.R"))
+    examples <- file.path(tmp, "examples", c("My-add.Rd.R", "My-call.Rd.R", "My-public.Rd.R"))
+    tests <- file.path(tmp, "tests", "testthat.R")
+    vignettes <- file.path(
+        tmp,
+        "vignettes",
+        c("my-ext-vignette-notrace.R", "my-ext-vignette-trace.R", "my-vignette.R")
+    )
 
-        # test examples
-        ret <- extract_package_code("samplepkg", types="examples", output_dir=tmp)
-        expect_length(ret, 1)
-        expect_equal(ret$examples, examples)
-        expect_true(all(file.exists(examples)))
+    # the idea is to test the both ways of calling the function
+    lib_path <- .TEST_PKG_LIB
+    package_path <- file.path(.TEST_PKG_SRC, "samplepkg")
 
-        # test tests
-        ret <- extract_package_code("samplepkg", types="tests", output_dir=tmp)
-        expect_length(ret, 1)
-        expect_equal(ret$tests, tests)
+    check_files <- function(actual, expected) {
+        expect_equal(actual, expected)
+        expect_true(all(file.exists(unlist(expected))))
+    }
 
-        # test vignettes
-        ret <- extract_package_code("samplepkg", types="vignettes", output_dir=tmp)
-        expect_length(ret, 1)
-        expect_equal(ret$vignettes, vignettes)
+    # examples
+    ret <- extract_package_code("samplepkg", lib_paths=lib_path, types="examples", output_dir=tmp)
+    check_files(ret, list(examples=examples))
+    ret <- extract_package_code(dir=package_path, types="examples", output_dir=tmp)
+    check_files(ret, list(examples=examples))
 
-        # test all
-        ret <- extract_package_code("samplepkg", types="all", output_dir=tmp)
-        expect_length(ret, 3)
-        expect_equal(unlist(ret, use.names=FALSE), c(examples, tests, vignettes))
+    # tests
+    ret <- extract_package_code("samplepkg", lib_paths=lib_path, types="tests", output_dir=tmp)
+    check_files(ret, list(tests=tests))
+    ret <- extract_package_code(dir=package_path, types="tests", output_dir=tmp)
+    check_files(ret, list(tests=tests))
 
-        # test filter
-        ret <- extract_package_code("samplepkg", types="examples", filter="add", output_dir=tmp)
-        expect_length(ret, 1)
-        expect_equal(ret$examples, examples[1])
+    # vignettes
+    ret <- extract_package_code("samplepkg", lib_paths=lib_path, types="vignettes", output_dir=tmp)
+    check_files(ret, list(vignettes=vignettes))
+    ret <- extract_package_code(dir=package_path, types="vignettes", output_dir=tmp)
+    check_files(ret, list(vignettes=vignettes))
 
-        # empty package
-        ret <- extract_package_code("emptypkg", types="all", output_dir=tmp)
-        expect_equal(unlist(ret, use.names=FALSE), character())
-    })
+    # test filter
+    ret <- extract_package_code("samplepkg", lib_paths=lib_path, types="all", filter="add", output_dir=tmp)
+    check_files(ret, list(examples=examples[1], tests=character(), vignettes=character()))
+    ret <- extract_package_code(dir=package_path, filter="add", output_dir=tmp)
+    check_files(ret, list(examples=examples[1], tests=character(), vignettes=character()))
+
+    # test empty package
+    ret <- extract_package_code("emptypkg", lib_paths=.TEST_PKG_LIB, types="all", output_dir=tmp)
+    expect_equivalent(unlist(ret), character())
+    ret <- extract_package_code(dir=file.path(.TEST_PKG_SRC, "emptypkg"), types="all", output_dir=tmp)
+    expect_equivalent(unlist(ret), character())
 })
 

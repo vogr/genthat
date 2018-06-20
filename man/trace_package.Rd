@@ -4,15 +4,22 @@
 \alias{trace_package}
 \title{Decorate all functions from given package and runs package code}
 \usage{
-trace_package(pkgs, files_to_run, output_dir = ".", decorator = "on.exit",
+trace_package(packages, files, output_dir = ".", decorator = "on.exit",
   tracer = "set", action = c("stats", "export", "generate"),
   working_dir = tempfile(pattern = "genthat-trace-"), quiet = TRUE,
   lib_paths = NULL)
 }
 \arguments{
-\item{output_dir}{the name of the directory where to output traces or NULL if traces should not be saved}
+\item{packages}{chr vector of package names whose functions should be traced.
+All the packages need to be installed in the `lib_paths`.}
+
+\item{files}{chr vector of paths to R files that shall be run}
+
+\item{output_dir}{the name of the directory where to output traces or NULL if
+traces should not be saved}
 }
 \description{
-Decorates all functions in a package and then generates test cases based on
-the code contained in the package examples, vignettes and tests.
+Decorates all functions in a package and then generates test
+    cases based on the code contained in the package examples, vignettes and
+    tests.
 }

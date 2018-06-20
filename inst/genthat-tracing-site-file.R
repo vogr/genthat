@@ -30,8 +30,8 @@ if (Sys.getenv("GENTHAT_TRACER") == "set") {
 
 library(methods)
 
-for (pkg in strsplit(Sys.getenv("GENTHAT_PKGS"), ",", fixed=TRUE)[[1]]) {
-    genthat::decorate_environment(pkg)
+for (package in strsplit(Sys.getenv("GENTHAT_PACKAGES"), ",", fixed=TRUE)[[1]]) {
+    genthat::decorate_environment(package)
 }
 
 reg.finalizer(

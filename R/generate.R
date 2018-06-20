@@ -139,6 +139,12 @@ generate_test.genthat_trace_failure <- function(trace, ...) {
     stop(paste("Trace error:", trace$failure$message))
 }
 
+#' Saves 'code' for the give 'pkg'::'fun' into 'output_dir'
+#'
+#' The test and its `ext`` counterpart will be stored in
+#' `getwd()/<pkg>/<fun>/test-<n>.{R,ext}`. Where `<n>` is the next increment of
+#' the number of `test-<i>.R` files in the directory.
+#'
 #' @param tests this should be a data.frame with class genthat_tests, a result
 #'     from calling `generate_tests`.
 #' @export

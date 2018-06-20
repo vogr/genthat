@@ -1,56 +1,53 @@
 context("gen_from_package")
 
+# TODO: move to test-genthat.R
+
 test_that("gen_from_package works on sample pkg", {
-    testthat::skip("until the API is stable")
+    skip_on_cran()
+    skip_on_travis()
 
     output_dir <- tempfile()
     working_dir <- tempfile()
-    info_file <- tempfile()
 
-    on.exit(unlink(c(output_dir, working_dir, info_file), recursive=TRUE))
+    on.exit(unlink(c(output_dir, working_dir), recursive=TRUE))
 
     with_test_pkgs({
         ret <- gen_from_package(
-            "samplepkg",
+            find.package("samplepkg"),
             types=c("examples", "tests"),
+            action="generate",
             output_dir=output_dir,
-            working_dir=working_dir,
-            quiet=TRUE,
-            info_file=info_file
+            working_dir=working_dir
         )
 
-        expect_equal(ret$n_tests, c(2, 4, NA, 8))
-
-        info <- readr::read_csv(info_file)
-        expect_equal(nrow(info), 14)
-
-        run <- lapply(info[, "test_file"]$test_file, source, verbose=FALSE)
-        run <- sapply(run, `[[`, "value")
-        expect_equal(run, rep(TRUE, 14))
+        # TODO: better matching after the API is stable
+        expect_true(sum(complete.cases(ret)) > 0)
     })
 })
 
 test_that("gen_from_package works on empty pkg", {
-    testthat::skip("until the API is stable")
+    skip_on_cran()
+    skip_on_travis()
 
     output_dir <- tempfile()
     working_dir <- tempfile()
-    info_file <- tempfile()
 
-    on.exit(unlink(c(output_dir, working_dir, info_file), recursive=TRUE))
+    on.exit(unlink(c(output_dir, working_dir), recursive=TRUE))
 
     with_test_pkgs({
-        ret <- gen_from_package(
-            "emptypkg",
-            types=c("examples", "tests"),
-            output_dir=output_dir,
-            working_dir=working_dir,
-            quiet=TRUE,
-            info_file=info_file
+        expect_warning(
+            ret <- gen_from_package(
+                find.package("emptypkg"),
+                types="all",
+                output_dir=output_dir,
+                working_dir=working_dir,
+                quiet=TRUE
+            ),
+            "No runnable code was found, make sure that the `from` packages were installed with"
         )
-        expect_equal(ret$n_tests, as.integer(c(NA, NA)))
 
-        expect_false(file.exists(info_file))
+        expect_nrow(ret, 0)
+        # TODO assert column names and attributes
     })
 })
 

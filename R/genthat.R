@@ -6,80 +6,74 @@
 #' @import Rcpp
 NULL
 
-# TODO: sync API with covr?
-# TODO: gen_from_function
-# TODO: gen_from_code
-# TODO: gen_from_source
-# TODO: trace_package
 
-#' @export
+# TODO: gen_from_package - calls gen_from_source
+# TODO: gen_from_function - calls gen_from_source
+# TODO: gen_from_code - calls gen_from_source
+# TODO: gen_from_source - this shall be the main entry point
+# TODO: trace_package - this is the most flexible variant configuring all
+
+#' Extract unit tests for a package
 #'
-trace_from_source_package <- function(path, quiet=TRUE, ...) {
-    package <- devtools::as.package(path)
-
-    withr::with_temp_libpaths({
-        utils::install.packages(
-            path,
-            repos=NULL,
-            lib=.libPaths()[1],
-            type="source",
-            INSTALL_opts = c(
-                "--example",
-                "--install-tests",
-                "--with-keep.source",
-                "--no-multiarch"
-            ),
-            quiet=quiet
-        )
-
-        gen_from_package(package$package, lib_paths=.libPaths()[1], quiet=quiet, ...)
-    })
-}
-
+#' This function extracts units tests for a given package on the `path`. By
+#' default it runs package examples, tests and vignettes.
+#'
+#' @param path file path to the package.
+#' @param from a character vector indicating which package(s) code shall be used
+#'     to extract the code from. Default `NULL` stands for the package in
+#'     `path`.
+#' @param types which code artifacts to run from the `from` packages,
+#'     'examples', 'tests', 'vignettes' or 'all'
+#'
+#' @examples
+#' \dontrun{gen_from_package(".")}
+#'
+#' # in case the package has been already installed with necessary artifacts
+#' \dontrun{gen_from_package(find.package("my-packages"))}
+#'
 #' @importFrom magrittr %>%
+#' @importFrom devtools as.package
 #' @export
 #'
-gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
+gen_from_package <- function(path, from=NULL,
                              types=c("examples", "tests", "vignettes", "all"),
                              action=c("stats", "export", "generate"),
                              filter=NULL,
-                             prune_tests=FALSE,
+                             prune_tests=TRUE,
                              quiet=TRUE,
                              ...) {
 
-    if (prune_tests) {
-        if (action != "generate") {
-            stop("Test pruning only works with generate action")
-        }
+    stopifnot(is_chr_scalar(path))
+    stopifnot(dir.exists(path))
+    stopifnot(action != "generate" || prune_tests)
 
-        if (length(pkgs_to_trace) != 1) {
-            stop("Test pruning only works for single packages")
-        }
+    package <- devtools::as.package(path)
+    working_dir <- tempfile(pattern="genthat-gen_from_package")
 
-        pkg_src <- file.path(getOption("genthat.source_paths"), pkgs_to_trace)
-        log_debug("Looking for package sources in ", paste(pkg_src, split=", "))
-
-        pkg_src <- pkg_src[file.exists(pkg_src)]
-
-        if (length(pkg_src) == 0) {
-            stop("Unable to find package source in ", paste(getOption("genthat.source_paths"), split=", "))
-        }
-
-        pkg_src <- pkg_src[1]
-        log_debug("Found package sources in ", pkg_src)
+    if (is.null(from)) {
+        # the extract_package_code only work on packages that are installed
+        # we need to install the package if it has not yet been installed
+        files <- extract_package_code(dir=path, types=types, output_dir=working_dir, filter=filter)
+        from <- package$package
+    } else {
+        files <- lapply(from, extract_package_code, types=types, output_dir=working_dir, filter=filter)
     }
 
-    working_dir <- tempfile(pattern="genthat-gen_from_package")
-    files <- lapply(pkgs_to_run, extract_package_code, types=types, output_dir=working_dir, filter=filter)
-    files <- unlist(files)
+    files <- unlist(files, use.names=FALSE)
 
     if (length(files) == 0) {
+        if (is.null(from)) {
+            warning("The package does not contain any runnable code in ", paste(types, sep=","))
+        } else {
+            warning("No runnable code was found, make sure that the `from` packages were installed with `INSTALL_opts=c('--example', '--install-tests')")
+        }
+
         return(data.frame(file=character(), output=character(),  error=character()))
     }
 
     tracing <- trace_package(
-        pkgs=pkgs_to_trace,
-        files_to_run=files,
+        packages=package$package,
+        files=files,
         action=action,
         quiet=quiet,
         ...
@@ -129,7 +123,7 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
             if (prune_tests) {
                 output_size <- file.size(output)
                 output <- output[order(output_size)]
-                runs <- compute_tests_coverage(pkg_src, output, quiet=quiet)
+                runs <- compute_tests_coverage(path, output, quiet=quiet)
                 coverage <- runs
                 raw_coverage <- attr(runs, "raw_coverage")
                 attr(coverage, "errors") <- NULL
@@ -218,13 +212,13 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
         }
 
         attr(result, "errors") <- errors
-        attr(result, "stats") <- c(
-            "all"=nrow(tracing),
-            "generated"=length(output),
-            "ran"=sum(!is.na(runs)),
-            "kept"=nrow(result),
-            "coverage"=if (nrow(result) > 0) max(result$coverage) else 0,
-            "elapsed"=sum(result$elapsed)
+        attr(result, "stats") <- data_frame(
+            all=nrow(tracing),
+            generated=length(output),
+            ran=sum(!is.na(runs)),
+            kept=nrow(result),
+            coverage=if (nrow(result) > 0) max(result$coverage) else 0,
+            elapsed=sum(result$elapsed)
         )
         attr(result, "raw_coverage") <- raw_coverage
 
@@ -236,38 +230,41 @@ gen_from_package <- function(pkgs_to_trace, pkgs_to_run=pkgs_to_trace,
 
 #' @title Decorate all functions from given package and runs package code
 #'
-#' @description Decorates all functions in a package and then generates test cases based on
-#' the code contained in the package examples, vignettes and tests.
+#' @description Decorates all functions in a package and then generates test
+#'     cases based on the code contained in the package examples, vignettes and
+#'     tests.
 #'
-#' @param output_dir the name of the directory where to output traces or NULL if traces should not be saved
+#' @param packages chr vector of package names whose functions should be traced.
+#'     All the packages need to be installed in the `lib_paths`.
+#' @param files chr vector of paths to R files that shall be run
+#' @param output_dir the name of the directory where to output traces or NULL if
+#'     traces should not be saved
 #'
 #' @export
 #'
-# TODO: update the signature to make it more flexible
-# TODO: update the documentation
-# TODO: sync names usage pkg ~ package
-trace_package <- function(pkgs, files_to_run,
+# TODO: this shall call trace_functions
+trace_package <- function(packages, files,
                           output_dir=".",
                           decorator="on.exit", tracer="set",
                           action=c("stats", "export", "generate"),
                           working_dir=tempfile(pattern="genthat-trace-"),
                           quiet=TRUE, lib_paths=NULL) {
 
-    stopifnot(is.character(files_to_run))
-    if (length(files_to_run) == 0) {
+    stopifnot(is.character(files))
+    if (length(files) == 0) {
         return(character())
     }
 
-    if (is.null(names(files_to_run))) {
-        names(files_to_run) <- files_to_run
+    if (is.null(names(files))) {
+        names(files) <- files
     }
 
-    stopifnot(is.character(pkgs), length(pkgs) > 0)
-    # check if packages exists
-    find.package(pkgs, lib_paths)
+    stopifnot(is.character(packages), length(packages) > 0)
+    # check if packages exists in the provided libraries
+    find.package(packages, lib_paths)
 
     # both output_dir and working_dir must be absolute because the future R
-    # instances will be run from the dirs where the files_to_run are
+    # instances will be run from the dirs where the files are
     stopifnot(is_chr_scalar(output_dir))
     stopifnot(dir.exists(output_dir) || dir.create(output_dir, recursive=TRUE))
     output_dir <- normalizePath(output_dir, mustWork=TRUE)
@@ -315,12 +312,13 @@ trace_package <- function(pkgs, files_to_run,
             vars$output_dir <- output_dir
             vars$stats_file <- stats_file
             vars$max_trace_size <- getOption("genthat.max_trace_size", .Machine$integer.max)
-            vars$pkgs <- paste(pkgs, sep=",")
+            vars$packages <- paste(packages, sep=",")
 
             # convert the variables to the expected format GENTHAT_<VAR>=<value>
             env <- sapply(names(vars), function(x) {
                 paste(toupper(paste0("genthat_", x)), as.character(vars[[x]]), sep="=")
             }, USE.NAMES=FALSE)
+
             site_file <- system.file("genthat-tracing-site-file.R", package="genthat")
         }
 
@@ -351,8 +349,8 @@ trace_package <- function(pkgs, files_to_run,
         }
     }
 
-    log_debug("Running ", length(files_to_run), " files")
-    lapply(files_to_run, run_file)
+    log_debug("Running ", length(files), " files")
+    lapply(files, run_file)
 }
 
 save_trace_file <- function(trace, output_dir, name) {
@@ -405,6 +403,8 @@ export_action <- function(trace, output_dir, save_trace=TRUE) {
     c(tracefile, error)
 }
 
+#' Process traces based on given action
+#' 
 #' @param file that has been running
 #' @export
 #'

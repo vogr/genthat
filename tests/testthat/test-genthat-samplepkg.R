@@ -33,7 +33,7 @@ test_that("trace_package works on a single file from sample package", {
     skip_on_cran()
     skip_on_travis()
 
-    with_test_pkgs({
+    ret <- with_test_pkgs({
         output_dir <- tempfile()
         f1 <- tempfile()
 
@@ -45,14 +45,14 @@ test_that("trace_package works on a single file from sample package", {
         # a trace
         cat("samplepkg::my_add(1,1)", file=f1)
 
-        ret <- trace_package("samplepkg", f1, output_dir=output_dir, action="export", quiet=!is_debug_enabled())
-
-        expect_equal(length(ret), 1)
-        expect_equal(names(ret), f1)
-
-        expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-1.RDS"))
-        expect_equal(ret[[f1]]$error, NA)
+        trace_package("samplepkg", f1, output_dir=output_dir, action="export", quiet=!is_debug_enabled())
     })
+
+    expect_equal(length(ret), 1)
+    expect_equal(names(ret), f1)
+
+    expect_equal(ret[[f1]]$output, file.path(output_dir, "samplepkg", "my_add", "trace-1.RDS"))
+    expect_equal(ret[[f1]]$error, NA)
 })
 
 test_that("trace_package works on a sample package", {
@@ -127,7 +127,7 @@ test_that("gen_from_package works on a sample package", {
         })
 
         gen_from_package(
-            "samplepkg",
+            find.package("samplepkg"),
             types="all",
             tracer="sequence",
             output_dir=output_dir,
@@ -152,29 +152,4 @@ test_that("gen_from_package works on a sample package", {
 
     # check that =there is no error
     expect_equal(sum(is.na(ret$error)), 16)
-})
-
-test_that("gen_from_package works on a sample package", {
-    skip_on_cran()
-    skip_on_travis()
-
-    with_test_pkgs({
-        output_dir <- tempfile()
-
-        on.exit({
-            unlink(output_dir, recursive=TRUE)
-        })
-
-        ret <- gen_from_package(
-            "emptypkg",
-            types="all",
-            tracer="sequence",
-            output_dir=output_dir,
-            action="export",
-            quiet=!is_debug_enabled()
-        )
-
-        expect_equal(nrow(ret), 0)
-        expect_equal(names(ret), c("file", "output", "error"))
-    })
 })
