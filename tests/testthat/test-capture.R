@@ -322,7 +322,6 @@ test_that("record_trace resolves caller and callee environments", {
         x+20+d+e
     }
 
-    ## browser()
     # env$f(y=2*x, a+x+y)
     record_trace("f", pkg=NULL, list(x=quote(b(d)), quote(a)), tracer=tracer)
 

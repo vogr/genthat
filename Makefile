@@ -25,7 +25,7 @@ install: build
 	R CMD INSTALL --preclean --with-keep.source $(PKGNAME)_$(PKGVERS).tar.gz
 
 test:
-	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test()'
+	Rscript -e 'options(genthat.run_integration_test=TRUE); devtools::test(stop_on_failure=TRUE, reporter="summary")'
 
 install-dependencies:
 	Rscript -e 'devtools::install_dev_deps()'
