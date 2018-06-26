@@ -19,7 +19,6 @@ All the packages need to be installed in the `lib_paths`.}
 traces should not be saved}
 }
 \description{
-Decorates all functions in a package and then generates test
-    cases based on the code contained in the package examples, vignettes and
-    tests.
+Decorates all functions in a package and then generates test cases based on
+    the code contained in the package examples, vignettes and tests.
 }

@@ -5,8 +5,7 @@
 \title{Extract unit tests for a package}
 \usage{
 gen_from_package(path, from = NULL, types = c("examples", "tests",
-  "vignettes", "all"), action = c("stats", "export", "generate"),
-  filter = NULL, prune_tests = TRUE, quiet = TRUE, ...)
+  "vignettes", "all"), filter = NULL, ...)
 }
 \arguments{
 \item{path}{file path to the package.}

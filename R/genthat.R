@@ -6,13 +6,6 @@
 #' @import Rcpp
 NULL
 
-
-# TODO: gen_from_package - calls gen_from_source
-# TODO: gen_from_function - calls gen_from_source
-# TODO: gen_from_code - calls gen_from_source
-# TODO: gen_from_source - this shall be the main entry point
-# TODO: trace_package - this is the most flexible variant configuring all
-
 #' Extract unit tests for a package
 #'
 #' This function extracts units tests for a given package on the `path`. By
@@ -37,28 +30,18 @@ NULL
 #'
 #' @export
 #'
-gen_from_package <- function(path, from=NULL,
-                             types=c("examples", "tests", "vignettes", "all"),
-                             action=c("stats", "export", "generate"),
-                             filter=NULL,
-                             prune_tests=TRUE,
-                             quiet=TRUE,
-                             ...) {
+gen_from_package <- function(path, from=NULL, types=c("examples", "tests", "vignettes", "all"), filter=NULL, ...) {
+    stopifnot(is_chr_scalar(path) && dir.exists(path))
 
-    stopifnot(is_chr_scalar(path))
-    stopifnot(dir.exists(path))
-    stopifnot(action != "generate" || prune_tests)
+    temp_dir <- tempfile(pattern="genthat-gen_from_package")
+    on.exit(unlink(temp_dir, recursive=TRUE))
 
-    package <- devtools::as.package(path)
-    working_dir <- tempfile(pattern="genthat-gen_from_package")
-
-    if (is.null(from)) {
+    files <- if (is.null(from)) {
         # the extract_package_code only work on packages that are installed
         # we need to install the package if it has not yet been installed
-        files <- extract_package_code(dir=path, types=types, output_dir=working_dir, filter=filter)
-        from <- package$package
+        extract_package_code(dir=path, types=types, output_dir=temp_dir, filter=filter)
     } else {
-        files <- lapply(from, extract_package_code, types=types, output_dir=working_dir, filter=filter)
+        lapply(from, extract_package_code, types=types, output_dir=temp_dir, filter=filter)
     }
 
     files <- unlist(files, use.names=FALSE)
@@ -67,16 +50,28 @@ gen_from_package <- function(path, from=NULL,
         if (is.null(from)) {
             warning("The package does not contain any runnable code in ", paste(types, sep=","))
         } else {
-            warning("No runnable code was found, make sure that the `from` packages were installed with `INSTALL_opts=c('--example', '--install-tests')")
+            warning("No runnable code was found, make sure that the `from` packages were installed with ",
+                    "`INSTALL_opts=c('--example', '--install-tests')")
         }
 
-        return(data.frame(file=character(), output=character(),  error=character()))
+        # TODO: is this correct?
+        data.frame(file=character(), output=character(),  error=character())
+    } else {
+        gen_from_source(path, files=files, ...)
     }
+}
 
+#' @export
+gen_from_source <- function(path, files, action, output_dir, prune_tests=TRUE, quiet=TRUE, ...) {
+    stopifnot(is_chr_scalar(path) && dir.exists(path))
+    stopifnot(action != "generate" || prune_tests)
+
+    package <- devtools::as.package(path)
     tracing <- trace_package(
         packages=package$package,
         files=files,
         action=action,
+        output_dir=output_dir,
         quiet=quiet,
         ...
     )
@@ -228,13 +223,13 @@ gen_from_package <- function(path, from=NULL,
     } else {
         tracing
     }
+
 }
 
-#' @title Decorate all functions from given package and runs package code
+#' Decorate all functions from given package and runs package code
 #'
-#' @description Decorates all functions in a package and then generates test
-#'     cases based on the code contained in the package examples, vignettes and
-#'     tests.
+#' Decorates all functions in a package and then generates test cases based on
+#'     the code contained in the package examples, vignettes and tests.
 #'
 #' @param packages chr vector of package names whose functions should be traced.
 #'     All the packages need to be installed in the `lib_paths`.

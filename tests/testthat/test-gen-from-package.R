@@ -43,7 +43,7 @@ test_that("gen_from_package works on empty pkg", {
                 working_dir=working_dir,
                 quiet=TRUE
             ),
-            "No runnable code was found, make sure that the `from` packages were installed with"
+            "^The package does not contain any runnable code in all$"
         )
 
         expect_nrow(ret, 0)
