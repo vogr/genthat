@@ -58,7 +58,7 @@ test_that("replacement function", {
         on.exit(unlink(tmp, recursive=TRUE))
 
         test <- generate_test_file(t, tmp)
-        res <- run_generated_test(test, quiet=F)
+        res <- run_generated_test(test)
         expect_true(res > 0)
     })
 })
@@ -84,7 +84,7 @@ test_that("full tracing scenario with a seed", {
         expect_equal(length(traces[[1]]$retv), 10)
 
         test <- generate_test_file(traces[[1]], tmp)
-        res <- run_generated_test(test, quiet=F)
+        res <- run_generated_test(test)
         expect_true(res > 0)
     })
 })
