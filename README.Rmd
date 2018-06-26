@@ -1,6 +1,8 @@
 ---
 title: "genthat - a R package for extracing unit tests from R code"
-output: md_document
+output:
+  md_document:
+    variant: markdown_github
 ---
 
 [![Build Status](https://travis-ci.org/PRL-PRG/genthat.svg)](https://travis-ci.org/PRL-PRG/genthat)

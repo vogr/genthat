@@ -34,7 +34,9 @@ Installation
 The package shall soon be on CRAN, in the mean time, it can be installed
 easily using the `devtools` package:
 
-    devtools::install_github('genthat', 'PRL-PRG')
+``` r
+devtools::install_github('genthat', 'PRL-PRG')
+```
 
 Or download the sources and build manually. If you’re running R on
 Windows, you need to install Rtools.
