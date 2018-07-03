@@ -16,7 +16,7 @@ NULL
 #'     used to extract the code from. Default \code{NULL} stands for the package
 #'     in `path`. For non-\code{NULL} values, the packages shall be installed
 #'     with the appropriate options, i.e. \code{INSTALL_opts('--example',
-#'     '--install-tests)} in order to contain the required code. For
+#'     '--install-tests')} in order to contain the required code. For
 #'     \code{NULL}, the package will be installed with the appropriate options
 #'     based on the \code{types}.
 #' @param types which code artifacts to run from the `from` packages,
