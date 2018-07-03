@@ -152,6 +152,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sexp_address
+std::string sexp_address(SEXP s);
+RcppExport SEXP _genthat_sexp_address(SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(sexp_address(s));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP _rcpp_module_boot_SerializerModule();
 
@@ -169,6 +180,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_genthat_create_duplicate", (DL_FUNC) &_genthat_create_duplicate, 1},
     {"_genthat_environment_name", (DL_FUNC) &_genthat_environment_name, 1},
     {"_genthat_environment_name_as_code", (DL_FUNC) &_genthat_environment_name_as_code, 1},
+    {"_genthat_sexp_address", (DL_FUNC) &_genthat_sexp_address, 1},
     {"_rcpp_module_boot_SerializerModule", (DL_FUNC) &_rcpp_module_boot_SerializerModule, 0},
     {NULL, NULL, 0}
 };

@@ -1,6 +1,6 @@
 ---
-title: "testr - Basic Usage"
-author: "Roman Tsegelskyi & Petr Maj"
+title: "genthat - Getting Started Guide"
+author: "Filip Krikava"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >

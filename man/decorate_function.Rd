@@ -4,13 +4,27 @@
 \alias{decorate_function}
 \title{Decorates given functions}
 \usage{
-decorate_function(fun, name = substitute(fun),
-  record_fun = substitute(genthat:::record_trace),
-  decorator = get_decorator(), env = parent.frame())
+decorate_function(fun, onentry = NULL, onexit = NULL, onerror = NULL,
+  env = parent.frame())
 }
 \arguments{
-\item{fun}{the function that shall be decorated}
+\item{fun}{the function to decorate as a function reference or as function
+name as string, in which case it will be looked up in the given \code{env}}
+
+\item{onentry}{the function to be called on the \code{fun} entry}
+
+\item{onexit}{the function to be called on the \code{fun} exit}
+
+\item{onerror}{the function to be called on the \code{fun} error}
+
+\item{env}{if \code{fun} is not given, resolve \code{name} in the given
+\code{env} and up}
 }
 \description{
 Given function will be decorated in their defining environment.
+}
+\details{
+Primitive and S3 generic functions (the ones calling \code{UseMethod}) cannot
+be traced. If a function has been already decorated, it will be reset and
+decorated again.
 }

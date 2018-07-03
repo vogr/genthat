@@ -15,6 +15,11 @@ na_last <- function(x) {
 }
 
 test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)", {
+    on.exit({
+        reset_functions()
+        reset_traces()
+    })
+
     # if this does not fail it means that in globalenv there is a variable `a`
     # in this case this test will fail
     expect_error(get("a", envir=globalenv()))
@@ -22,7 +27,12 @@ test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)",
     tracer <- create_set_tracer()
     set_tracer(tracer)
 
-    d <- decorate_with_on.exit(dplyr:::arrange.data.frame, "arrange.data.frame", "dplyr", record_fun=quote(genthat:::record_trace))
+    d <- create_decorated_function(
+        fun=dplyr:::arrange.data.frame,
+        name="arrange.data.frame",
+        package="dplyr",
+        onexit=record_trace
+    )
 
     expect_true(na_last(d(df2, a)$a))
 
@@ -37,25 +47,28 @@ test_that("dplyr arrange.data.frame (from dplyr/tests/testthat/test-arrange.r)",
 })
 
 test_that("replacement function", {
+    on.exit({
+        reset_functions()
+        reset_traces()
+    })
+
     with_test_pkgs({
         x <- 1:5
         samplepkg::gg(x, 4) <- 0
         expect_equal(x, c(0, 0, 0, 4, 5))
 
-        d <- create_decorator()
         tracer <- create_set_tracer()
         set_tracer(tracer)
-        on.exit(reset_traces())
 
         y <- 1:5
-        decorate_function(samplepkg::`gg<-`, decorator=d)
+        decorate_function(samplepkg::`gg<-`, onexit=record_trace)
         samplepkg::gg(y, 4) <- 0
         expect_equal(y, c(0, 0, 0, 4, 5))
 
         t <- copy_traces(tracer)[[1]]
 
         tmp <- tempfile()
-        on.exit(unlink(tmp, recursive=TRUE))
+        on.exit(unlink(tmp, recursive=TRUE), add=TRUE)
 
         test <- generate_test_file(t, tmp)
         res <- run_generated_test(test)
@@ -64,18 +77,22 @@ test_that("replacement function", {
 })
 
 test_that("full tracing scenario with a seed", {
+    on.exit({
+        reset_functions()
+        reset_traces()
+    })
+
     set.seed(42)
 
     with_test_pkgs({
         tmp <- tempfile()
         on.exit(unlink(tmp, recursive=TRUE))
 
-        d <- create_decorator()
         tracer <- create_set_tracer()
         set_tracer(tracer)
         on.exit(reset_traces())
 
-        decorate_function(samplepkg::my_add, decorator=d)
+        decorate_function(samplepkg::my_add, onexit=record_trace)
 
         samplepkg::my_add(runif(10), 1)
 

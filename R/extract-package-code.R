@@ -8,7 +8,7 @@
 #' install the package.
 #'
 #' @param package the name of the package.
-#' @param dir the path to the directory containing the source of the package
+#' @param path the path to the directory containing the source of the package
 #' @param lib_paths a character vector describing the location of R library
 #'     trees to search through when locating `package`, or `NULL`. The default
 #'     value of `NULL`` corresponds to checking the loaded namespace, then all
@@ -24,14 +24,14 @@
 #'     where the code has been extracted. The element names correspond to the
 #'     elements in the types parameter.
 #'
-#' @importFrom devtools as.package install_local
+#' @importFrom devtools as.package
 #' @importFrom tools file_path_sans_ext
 #' @importFrom withr with_temp_libpaths
 #'
 #' @export
 #'
 # TODO: support commentDontrun, commentDonttest
-extract_package_code <- function(package, dir, lib_paths=NULL,
+extract_package_code <- function(package, path, lib_paths=NULL,
                                  types=c("examples", "tests", "vignettes", "all"),
                                  output_dir=".",
                                  filter=NULL) {
@@ -40,49 +40,36 @@ extract_package_code <- function(package, dir, lib_paths=NULL,
     stopifnot(is_chr_scalar(output_dir))
     stopifnot(is.null(filter) || is_chr_scalar(filter))
 
-    if ((missing(package) && missing(dir))
-        || (!missing(package) && !missing(dir))) {
-        stop("Either package or dir must be provided")
+    if ((missing(package) && missing(path))
+        || (!missing(package) && !missing(path))) {
+        stop("Either package or path must be provided")
     }
 
-    if ("all" %in% types) {
-        types <- c("examples", "tests", "vignettes")
-    }
-    types <- match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
+    types <- match_types(types)
     # so the return list is named
     names(types) <- types
 
     files <- if (!missing(package)) {
         # extracting from package / lib_paths
 
-        if (!missing(dir)) stop("you must specify either 'package' or 'dir'")
+        if (!missing(path)) stop("you must specify either 'package' or 'path'")
 
         extract_code(package, lib_paths=lib_paths, types=types, output_dir=output_dir)
-    } else if (!missing(dir)) {
+    } else if (!missing(path)) {
         # extracting from source
 
         if (!missing(lib_paths)) stop("'lib_paths' are only used with 'package' option")
-        pkg <- devtools::as.package(dir)
+        pkg <- devtools::as.package(path)
 
         withr::with_temp_libpaths({
-            # install package to the temp lib with all code
-            devtools::install_local(
-                dir,
-                build_vignettes=("vignettes" %in% types),
-                keep_source=TRUE,
-                INSTALL_opts=c(
-                    if ("examples" %in% types) "--example" else character(),
-                    if ("tests" %in% types) "--install-tests" else character()
-                ),
-                quiet=TRUE
-            )
+            install_package(path, types)
 
             # by passing NULL we rely on the .libPaths() which should be set to
-            # a temp dir
+            # a temp path
             extract_code(pkg$package, lib_paths=NULL, types=types, output_dir=output_dir)
         })
     } else {
-        stop("you must specify 'package' or 'dir'")
+        stop("you must specify 'package' or 'path'")
     }
 
     if (!is.null(filter)) {

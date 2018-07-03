@@ -139,30 +139,70 @@ test_that("resolve_package_name returns the package name", {
     expect_equal(resolve_package_name(my_f, "my_f"), NULL)
 })
 
+# this is the way we are actually using the resolve_function
+# so we need to test resolve_function2
+resolve_function2 <- function(fun, env=parent.frame()) {
+    resolve_function(fun, substitute(fun), env)
+}
 
-test_that("resolve_function", {
-    expect_equal(resolve_function("ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-    expect_equal(resolve_function("base::ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-    expect_equal(resolve_function("base:::ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-
-    expect_equal(resolve_function("ls", ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-    expect_equal(resolve_function(quote(ls), ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-    expect_equal(resolve_function(quote(base::ls), ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-    expect_equal(resolve_function(quote(base:::ls), ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
-
-    expect_error(resolve_function("utils::this_one_does_not_exist_here_123"), "")
-    expect_error(resolve_function("this_one_does_not_exist_here_123", ls), "")
-    expect_error(resolve_function(quote(this_one_does_not_exists), ls), "")
-
-    my_fun <- function() {}
-    expect_equal(resolve_function("my_fun"), list(fqn="my_fun", name="my_fun", package=NULL, fun=my_fun))
-    expect_equal(resolve_function(quote(my_fun), my_fun), list(fqn="my_fun", name="my_fun", package=NULL, fun=my_fun))
-
-    env <- new.env(parent=emptyenv())
-    env$f <- function() {}
-    expect_equal(resolve_function("f", env=env), list(fqn="f", name="f", package=NULL, fun=env$f))
+test_that("resolve_function using string", {
+    expect_equal(resolve_function2("ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function2("base::ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function2("base:::ls"), list(fqn="base:::ls", name="ls", package="base", fun=ls))
 })
 
+test_that("resolve_function using function refs", {
+    expect_equal(resolve_function2(ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function2(base::ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function2(base::ls), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+})
+
+test_that("resolve_function using quotes", {
+    expect_equal(resolve_function2(quote(ls)), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function2(quote(base::ls)), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+    expect_equal(resolve_function2(quote(base:::ls)), list(fqn="base:::ls", name="ls", package="base", fun=ls))
+})
+
+test_that("resolve_function non-existing functions", {
+    expect_error(resolve_function2("utils::this_one_does_not_exist_here_123"))
+    expect_error(resolve_function2("this_one_does_not_exist_here_123"))
+    expect_error(resolve_function2(quote(this_one_does_not_exists)))
+})
+
+test_that("resolve_function local function", {
+    my_fun <- function() {}
+    expect_equal(resolve_function2("my_fun"), list(fqn="my_fun", name="my_fun", package=NULL, fun=my_fun))
+    expect_equal(resolve_function2(quote(my_fun)), list(fqn="my_fun", name="my_fun", package=NULL, fun=my_fun))
+})
+
+test_that("resolve_function on special symbols", {
+    expect_equal(
+        resolve_function2(`substr<-`),
+        list(fqn="base:::`substr<-`", name="substr<-", package="base", fun=`substr<-`)
+    )
+    expect_equal(
+        resolve_function2(base::`substr<-`),
+        list(fqn="base:::`substr<-`", name="substr<-", package="base", fun=`substr<-`)
+    )
+    expect_equal(resolve_function2(`::`), list(fqn="base:::`::`", name="::", package="base", fun=`::`))
+    expect_equal(resolve_function2(`:::`), list(fqn="base:::`:::`", name=":::", package="base", fun=`:::`))
+
+    expect_equal(resolve_function2("::"), list(fqn="base:::`::`", name="::", package="base", fun=`::`))
+    expect_equal(resolve_function2(":::"), list(fqn="base:::`:::`", name=":::", package="base", fun=`:::`))
+})
+
+test_that("resolve_function in specified env", {
+    env <- new.env(parent=emptyenv())
+    env$f <- function() {}
+    expect_equal(resolve_function2("f", env=env), list(fqn="f", name="f", package=NULL, fun=env$f))
+})
+
+test_that("is_s3_generic works", {
+    f <- function(x) 42
+
+    expect_true(is_s3_generic(print))
+    expect_false(is_s3_generic(f))
+})
 
 # TODO: update for link_environments()
 ## test_that("linked_environment links environments", {

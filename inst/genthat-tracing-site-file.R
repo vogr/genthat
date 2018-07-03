@@ -8,9 +8,7 @@ options(genthat.keep_failed_traces=as.logical(Sys.getenv("GENTHAT_KEEP_FAILED_TR
 options(genthat.keep_all_traces=as.logical(Sys.getenv("GENTHAT_KEEP_ALL_TRACES", "FALSE")))
 options(genthat.max_trace_size=as.integer(Sys.getenv("GENTHAT_MAX_TRACE_SIZE")))
 
-genthat::set_decorator(genthat::create_decorator(Sys.getenv("GENTHAT_DECORATOR")))
-
-if (Sys.getenv("GENTHAT_TRACER") == "set") {
+if (Sys.getenv("GENTHAT_TRACER_TYPE") == "set") {
     local({
         session_file <- Sys.getenv("GENTHAT_SESSION_FILE")
         if (nchar(session_file) == 0) {
@@ -18,20 +16,18 @@ if (Sys.getenv("GENTHAT_TRACER") == "set") {
         }
 
         genthat::set_tracer(
-            genthat::create_tracer(
-                "set",
-                session_file=session_file
-            )
+            genthat::create_tracer("set", session_file=session_file)
         )
     })
 } else {
-    genthat::set_tracer(genthat::create_tracer(Sys.getenv("GENTHAT_TRACER")))
+    genthat::set_tracer(genthat::create_tracer(Sys.getenv("GENTHAT_TRACER_TYPE")))
 }
 
 library(methods)
 
+# TODO: a temp file with all the functions to be decorated
 for (package in strsplit(Sys.getenv("GENTHAT_PACKAGES"), ",", fixed=TRUE)[[1]]) {
-    genthat::decorate_environment(package)
+    genthat::decorate_environment(package, type="all", onexit=genthat::record_trace)
 }
 
 reg.finalizer(

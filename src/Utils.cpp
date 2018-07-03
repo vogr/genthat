@@ -1,4 +1,5 @@
 #include <string>
+#include <stdio.h>
 
 #include "Utils.h"
 
@@ -84,4 +85,13 @@ std::string environment_name_as_code(SEXP env) {
             return "";
         }
     }
+}
+
+// [[Rcpp::export]]
+std::string sexp_address(SEXP s) {
+    char *address;
+    if (asprintf(&address, "%p", s) == -1) {
+        Rf_error("Getting address of SEXP failed");
+    }
+    return std::string(address);
 }

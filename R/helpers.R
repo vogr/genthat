@@ -103,11 +103,15 @@ is_empty_str <- function(s) {
 split_function_name <- function(name) {
     stopifnot(!is_empty_str(name))
 
-    x <- strsplit(name, ":")[[1]]
-    if (length(x) == 1) {
-        list(package=NULL, name=x[1])
+    if (name == "::" || name == ":::") {
+        list(package="base", name=name)
     } else {
-        list(package=x[1], name=x[length(x)])
+        x <- strsplit(name, ":")[[1]]
+        if (length(x) == 1) {
+            list(package=NULL, name=x[1])
+        } else {
+            list(package=x[1], name=x[length(x)])
+        }
     }
 }
 
@@ -257,13 +261,30 @@ capture <- function(expr, split=FALSE) {
     )
 }
 
-# resolve_function(f, name="f")
-# resolve_function(name="f")
-#
-resolve_function <- function(name, fun=NULL, env=parent.frame()) {
+resolve_function <- function(fun, name, env=parent.frame()) {
+    stopifnot(!is.null(fun))
+    stopifnot(!is.null(name))
     stopifnot(is.environment(env))
 
-    if (is_chr_scalar(name)) {
+    if (!is.function(fun)) {
+        name <- fun
+    }
+
+    if (is.name(name)) {
+        name <- as.character(name)
+    }
+
+    if (is.call(name)) {
+        # function call in the language
+        lang <- name
+        f_name <- as.character(lang[[1]])
+        if (f_name == "::" || f_name == ":::") {
+            name <- as.character(lang[[3]])
+            package <- as.character(lang[[2]])
+        } else {
+            stop("resolve_function: cannot parse function name from: ", name)
+        }
+    } else if (is_chr_scalar(name)) {
         names <- split_function_name(name)
         name <- names$name
         package <- names$package
@@ -271,37 +292,20 @@ resolve_function <- function(name, fun=NULL, env=parent.frame()) {
         if (!is.null(package)) {
             env <- getNamespace(package)
         }
-
-        if (is.null(fun)) {
-            if (!exists(name, envir=env)) {
-                stop("Function: ", name, " does not exist in environment: ", env);
-            } else {
-                fun <- get(name, envir=env)
-            }
-        }
-
-        if (is.null(package)) {
-            package <- resolve_package_name(fun, name)
-        }
-    } else if (is.name(name) || is.language(name)) {
-        if (is.null(fun)) {
-            stop("resolve_function: symbol/language name object needs additionally fun parameter")
-        }
-
-        if (is.name(name)) {
-            name <- as.character(name)
-            package <- resolve_package_name(fun, name)
-        } else {
-            f_name <- as.character(name[[1]])
-            if (f_name == "::" || f_name == ":::") {
-                package <- as.character(name[[2]])
-                name <- as.character(name[[3]])
-            } else {
-                stop("resolve_function: cannot parse function name from: ", name)
-            }
-        }
     } else {
-        stop("resolve_function: unsupported parameter combination")
+        stop(typeof(fun), ": unsupported type")
+    }
+
+    if (!is.function(fun)) {
+        if (!exists(name, envir=env)) {
+            stop("Function: ", name, " does not exist in environment: ", env);
+        } else {
+            fun <- get(name, envir=env)
+        }
+    }
+
+    if (is.null(package)) {
+        package <- resolve_package_name(fun, name)
     }
 
     if (!is.null(package)) {
@@ -313,6 +317,7 @@ resolve_function <- function(name, fun=NULL, env=parent.frame()) {
     }
 
     fqn <- get_function_fqn(package, name)
+
     return(list(fqn=fqn, name=name, package=package, fun=fun))
 }
 
@@ -354,6 +359,8 @@ resolve_package_name <- function(fun, name) {
 get_function_fqn <- function(package, name) {
     stopifnot(is.null(package) || is_chr_scalar(package))
     stopifnot(is_chr_scalar(name))
+
+    name <- escape_name(name)
 
     if (is.null(package)) {
         name
@@ -464,4 +471,72 @@ compute_coverage <- function(...) {
 
     # compute the percentage
     (sum(coverage_df$value > 0) / length(coverage_df$value)) * 100
+}
+
+is_s3_generic <- function(fun) {
+    stopifnot(is.function(fun))
+
+    globals <- codetools::findGlobals(fun, merge = FALSE)$functions
+    any(globals == "UseMethod")
+}
+
+resolve_env <- function(env) {
+    if (is.character(env)) {
+        stopifnot(length(env) == 1)
+
+        log_debug("Loading namespace: ", env)
+        library(env, character.only=TRUE)
+
+        env <- getNamespace(env)
+    }
+
+    env
+}
+
+get_functions_from_env <- function(env, type=c("exported", "private", "all")) {
+    env <- resolve_env(env)
+    stopifnot(is.environment(env))
+
+    type <- match.arg(type, c("exported", "private", "all"), several.ok=FALSE)
+
+    names <- switch(
+        type,
+        exported=getNamespaceExports(env),
+        private=ls(env, all.names=FALSE),
+        all=ls(env, all.names=TRUE)
+    )
+
+    vals <- lapply(names, get, env=env)
+    names(vals) <- names
+
+    funs <- filter(vals, is.function)
+}
+
+match_types <- function(types) {
+    if ("all" %in% types) {
+        types <- c("examples", "tests", "vignettes")
+    }
+
+    match.arg(types, c("examples", "tests", "vignettes"), several.ok=TRUE)
+}
+
+#' @return the name of the installed package
+#'
+#' @importFrom devtools install_local
+#'
+install_package <- function(path, types=c("examples", "tests", "vignettes", "all")) {
+    types <- match_types(types)
+
+    devtools::install_local(
+        path,
+        build_vignettes=("vignettes" %in% types),
+        keep_source=TRUE,
+        INSTALL_opts=c(
+            if ("examples" %in% types) "--example" else character(),
+            if ("tests" %in% types) "--install-tests" else character()
+        ),
+        quiet=TRUE
+    )
+
+    as.package(path)$package
 }

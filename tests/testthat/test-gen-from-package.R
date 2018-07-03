@@ -50,4 +50,3 @@ test_that("gen_from_package works on empty pkg", {
         # TODO assert column names and attributes
     })
 })
-

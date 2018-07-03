@@ -4,13 +4,13 @@
 \alias{extract_package_code}
 \title{Extracts code from examples, tests and/or vignettes for a given package.}
 \usage{
-extract_package_code(package, dir, lib_paths = NULL, types = c("examples",
+extract_package_code(package, path, lib_paths = NULL, types = c("examples",
   "tests", "vignettes", "all"), output_dir = ".", filter = NULL)
 }
 \arguments{
 \item{package}{the name of the package.}
 
-\item{dir}{the path to the directory containing the source of the package}
+\item{path}{the path to the directory containing the source of the package}
 
 \item{lib_paths}{a character vector describing the location of R library
 trees to search through when locating `package`, or `NULL`. The default

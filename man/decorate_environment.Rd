@@ -4,8 +4,8 @@
 \alias{decorate_environment}
 \title{Decorates functions in an environment}
 \usage{
-decorate_environment(env, decorator = get_decorator(),
-  record_fun = substitute(genthat:::record_trace), exclude = character())
+decorate_environment(env, type = c("exported", "private", "all"),
+  exclude = character(), ...)
 }
 \arguments{
 \item{envir}{an environment that shall be decorated or a character scalar

@@ -13,7 +13,7 @@ test_that("record_trace correctly evaluates and stores arguments", {
     g <- function(y) a + y
     f <- function(x, y) x + y
 
-    record_trace("f", args=list(x=quote(b + 2), y=quote(g(1))), tracer=tracer)
+    record_trace(list(name="f", args=list(x=quote(b + 2), y=quote(g(1))), tracer=tracer))
 
     t <- get_trace(tracer, 1L)
 
@@ -40,7 +40,7 @@ test_that("record_trace correctly evaluates and stores arguments with ...", {
     f <- function(x, ...) x
 
     # f(b+1, 2, 3, g(c))
-    record_trace("f", args=list(quote(b + 1), 2, 3, quote(g(c))), tracer=tracer)
+    record_trace(list(name="f", args=list(quote(b + 1), 2, 3, quote(g(c))), tracer=tracer))
 
     t <- get_trace(tracer, 1L)
 
@@ -58,7 +58,7 @@ test_that("record_trace called from a function body with argument matching", {
 
     # kind of a simulation of the injected code
     f <- function(x) {
-        record_trace("f", pkg=NULL, as.list(match.call())[-1], tracer=tracer)
+        record_trace(list(name="f", pkg=NULL, as.list(match.call())[-1], tracer=tracer))
     }
 
     f()
@@ -77,7 +77,7 @@ test_that("record_trace correctly resolves the names in lexical scopes", {
     x <- 1
     # and x is here
     f <- function(x, y) {
-        record_trace("f", pkg=NULL, as.list(match.call())[-1], tracer=tracer)
+        record_trace(list(name="f", pkg=NULL, args=as.list(match.call())[-1], tracer=tracer))
     }
 
     f(x, 2)
@@ -323,7 +323,7 @@ test_that("record_trace resolves caller and callee environments", {
     }
 
     # env$f(y=2*x, a+x+y)
-    record_trace("f", pkg=NULL, list(x=quote(b(d)), quote(a)), tracer=tracer)
+    record_trace(list(name="f", pkg=NULL, args=list(x=quote(b(d)), quote(a)), tracer=tracer))
 
     t <- get_trace(tracer, 1L)
 
@@ -342,7 +342,14 @@ test_that("capture works with lapply", {
 
     f <- function(x) {
         y <- x+1
-        record_trace("f", pkg=NULL, args=as.list(match.call())[-1], retv=y, env=parent.frame(), tracer=tracer)
+        record_trace(list(
+            name="f",
+            pkg=NULL,
+            args=as.list(match.call())[-1],
+            retv=y,
+            env=parent.frame(),
+            tracer=tracer
+        ))
         y
     }
 
@@ -362,7 +369,7 @@ test_that("get_symbol_value can handle ...", {
      f <- function(...) g(...)
      g <- function(...) h(...)
      h <- function(...) {
-         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+         record_trace(list(name="h", args=as.list(match.call())[-1], tracer=tracer))
      }
 
      f(10L, 20L)
@@ -378,7 +385,7 @@ test_that("get_symbol_value can handle non-evaluated ..N", {
      f <- function(...) g(...)
      g <- function(...) h(..1)
      h <- function(...) {
-         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+         record_trace(list(name="h", args=as.list(match.call())[-1], tracer=tracer))
      }
 
      f(10L, 20L)
@@ -397,7 +404,7 @@ test_that("get_symbol_value can handle evaluated ..N", {
      g <- function(...) h(..1)
      h <- function(...) {
          ..1 + 1L
-         record_trace("h", args=as.list(match.call())[-1], tracer=tracer)
+         record_trace(list(name="h", args=as.list(match.call())[-1], tracer=tracer))
      }
 
      f(10L*10L, 20L)
@@ -416,7 +423,7 @@ test_that("captures nested language objects' global variable", {
 
     f <- function(x, y) list(x, y)
 
-    record_trace("f", args=list(x=quote(arg1), y=quote(b + 1)), tracer=tracer)
+    record_trace(list(name="f", args=list(x=quote(arg1), y=quote(b + 1)), tracer=tracer))
     t <- get_trace(tracer, 1L)
 
     expect_equal(t$fun, "f")
@@ -438,7 +445,7 @@ test_that("captures nested language objects' global variables", {
 
     f <- function(x, y, z) list(x, y, z)
 
-    record_trace("f", args=list(x=quote(arg1), y=quote(arg2), z=quote(a)), tracer=tracer)
+    record_trace(list(name="f", args=list(x=quote(arg1), y=quote(arg2), z=quote(a)), tracer=tracer))
 
     t <- get_trace(tracer, 1L)
 
@@ -459,7 +466,7 @@ test_that("capture works with replacement functions", {
     x <- 1
     `__genthat_tmp` <- x
     value <- 5
-    record_trace("gg<-", args=list(v=as.name("*tmp*"), a=4, value=value), retv=1, tracer=tracer)
+    record_trace(list(name="gg<-", args=list(v=as.name("*tmp*"), a=4, value=value), retv=1, tracer=tracer))
 
     t <- get_trace(tracer, 1L)
     expect_equal(t$fun, "gg<-")

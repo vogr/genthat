@@ -4,9 +4,12 @@
 \alias{reset_function}
 \title{Resets decorated function back to its original}
 \usage{
-reset_function(fun, name = substitute(fun), decorator = get_decorator(),
-  env = parent.frame())
+reset_function(fun, env = parent.frame())
+}
+\arguments{
+\item{fun}{function or function name}
 }
 \description{
-Reverts decorated function back to their state they were before calling `decorate_function`.
+Reverts decorated function back to their state they were before calling
+\code{decorate_function}.
 }

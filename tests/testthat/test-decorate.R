@@ -4,6 +4,100 @@ if (!requireNamespace("devtools", quietly=TRUE)) {
     stop("devtools needed for this function to work. Please install it.", call. = FALSE)
 }
 
+test_that("reset_functions resets all decorated function", {
+    f <- function(x) x
+    f1 <- function(x) x*2
+
+    g <- function(y) y
+    g1 <- function(y) y*2
+
+    .decorations[["x"]] <- list(fqn="x", fun=f, ofun=f1)
+    .decorations[["y"]] <- list(fqn="y", fun=g, ofun=g1)
+
+    reset_functions()
+
+    expect_length(.decorations, 0)
+    expect_equal(f, f1)
+    expect_equal(g, g1)
+})
+
+test_that("decorate_function decorates a function", {
+    on.exit(reset_functions())
+
+    f <- function(x) 42
+
+    capture <- list()
+    expect_equal(decorate_function(f, onentry=function(info) { capture <<- info }), "f")
+
+    expect_length(.decorations, 1)
+    with(.decorations[[sexp_address(f)]], {
+        expect_equal(fqn, "f")
+        expect_equal(fun, f)
+        expect_equal(body(ofun), 42)
+    })
+
+    f(1)
+
+    with(capture, {
+        expect_equal(name, "f")
+        expect_equal(decorator, "onentry")
+    })
+})
+
+test_that("decorate_function decorates only functions", {
+    expect_error(decorate_function(1+1), "double: unsupported type")
+})
+
+test_that("decorate_function fails to decorate primitive functions", {
+    expect_error(decorate_function(sin), "sin: is a primitive function")
+})
+
+test_that("decorate_function fails to decorate s3 generic functions", {
+    expect_error(decorate_function(print), "print: is a S3 generic function")
+})
+
+test_that("get_decorations returns a list of decorated functions", {
+    on.exit(reset_functions())
+
+    f <- function(x) 42
+    g <- function(y) 84
+
+    decorate_function(f, onentry=identity)
+    decorate_function(g, onentry=identity)
+
+    ff <- f
+    gg <- g
+
+    with(get_decorations(), {
+        expect_equal(body(f), body(ff))
+        expect_equal(body(g), body(gg))
+    })
+})
+
+test_that("is_decorated", {
+    on.exit(reset_functions())
+
+    f <- function(x) 42
+    g <- function(y) 84
+
+    decorate_function(f, onentry=identity)
+
+    expect_true(is_decorated(f))
+    expect_false(is_decorated(g))
+})
+
+test_that("reset_function", {
+    on.exit(reset_functions())
+
+    f <- function(x) 42
+    g <- function(y) 84
+
+    decorate_function(f, onentry=identity)
+
+    expect_equal(reset_function(f), "f")
+    expect_warning(reset_function(g), "g: is not decorated")
+})
+
 test_that("create_function creates functions", {
     f <- create_function(pairlist(a=1, b=2), substitute(a+b))
     expect_equal(f(), 3)
@@ -26,34 +120,8 @@ test_that("create_function assigns attributes", {
     expect_equal(attributes(f), attrs)
 })
 
-test_that("is_decorated knows when a functions is decorated", {
-    d1 <- create_decorator()
-    d2 <- create_decorator()
-
-    f <- function() {}
-    expect_false(is_decorated(f, decorator=d1))
-
-    decorate_function(f, decorator=d1)
-    expect_true(is_decorated(f, decorator=d1))
-    expect_false(is_decorated(f, decorator=d2))
-})
-
-test_that("decorate functions redecorates already decorated function", {
-    d1 <- create_decorator()
-
-    f <- function() {}
-    expect_false(is_decorated(f, decorator=d1))
-
-    decorate_function(f, decorator=d1)
-    b1 <- body(f)
-    decorate_function(f, decorator=d1)
-    b2 <- body(f)
-
-    expect_equal(b1, b2)
-})
-
 test_that("decorate_environment decorates all functions in the environment", {
-    d <- create_decorator()
+    on.exit(reset_functions())
 
     env <- new.env(parent=emptyenv())
 
@@ -72,18 +140,25 @@ test_that("decorate_environment decorates all functions in the environment", {
 
     expect_equal(length(env), 5)
 
-    decorate_environment(env, decorator=d, exclude="j")
+    res <- decorate_environment(env, type="all", onentry=identity, exclude="j")
 
-    expect_equal(length(env), 5)
+    expect_length(res, 4)
 
-    expect_true(is_decorated(name="f", decorator=d, env=env))
-    expect_true(is_decorated(name="g", decorator=d, env=env))
+    with(res, {
+        expect_type(f, "closure")
+        expect_type(g, "closure")
+        expect_equal(h, "h: is a primitive function")
+        expect_equal(i, "i: is a S3 generic function")
+    })
 
-    expect_false(is_decorated(name="h", decorator=d, env=env)) # it is a primitive function
-    expect_false(is_decorated(name="i", decorator=d, env=env)) # it is S3 generic
-    expect_false(is_decorated(name="j", decorator=d, env=env)) # it excluded
+    expect_length(env, 5)
 
-    # TODO: check decorations
+    expect_true(is_decorated("f", env))
+    expect_true(is_decorated("g", env))
+
+    expect_false(is_decorated("h", env)) # it is a primitive function
+    expect_false(is_decorated("i", env)) # it is S3 generic
+    expect_false(is_decorated("j", env)) # it excluded
 })
 
 test_that("reassign_function only replaces function body", {
@@ -108,48 +183,14 @@ test_that("create_duplicate duplicates a function", {
      expect_error(create_duplicate(NULL))
 })
 
-test_that("decorate_function returns decorated function", {
-    d <- create_decorator()
+test_that("decorator_function works with S4 methods", {
+    on.exit(reset_functions())
 
-    f <- function(x) x
-
-    decorate_function(f, decorator=d)
-
-    expect_equal(length(d$decorations), 1)
-
-    expect_true(is.function(f))
-    expect_true(is_decorated(f, decorator=d))
-    expect_true(is.list(d$decorations$f))
-})
-
-test_that("reset_function", {
-    d <- create_decorator()
-
-    f <- function(x) x
-
-    decorate_function(f, decorator=d)
-    expect_true(is_decorated(f, decorator=d))
-    expect_equal(length(d$decorations), 1)
-
-    reset_function(f, decorator=d)
-    expect_false(is_decorated(f, decorator=d))
-    expect_equal(length(d$decorations), 0)
-})
-
-test_that("decorator does not work with S3 generics", {
-    f <- function(x) UseMethod("n")
-    g <- function(x) {
-        1+1
-        UseMethod("n")
-    }
-
-    d <- create_decorator()
-
-    expect_error(decorate_function(f, decorator=d), regexp="f: is a S3 generic function")
-    expect_error(decorate_function(g, decorator=d), regexp="g: is a S3 generic function")
-})
-
-test_that("decorator works with S4 methods", {
+    # the reason why the where environment is needed is that
+    # test_check (which is called from R CMD check) calls test_pkg_env
+    # which creates a local copy of the whole package environment
+    # with attributes so there will be two namespaces called genthat
+    # and that confuses resolve_function
 
     setGeneric("sides", where=environment(), function(object) {
         standardGeneric("sides")
@@ -162,30 +203,27 @@ test_that("decorator works with S4 methods", {
     setMethod("sides", where=environment(), signature(object="Polygon"), function(object) object@sides)
     setMethod("sides", where=environment(), signature("Triangle"), function(object) 3)
 
-    tracer <- create_sequence_tracer()
-    set_tracer(tracer)
-    on.exit(reset_traces())
-
-    d <- create_decorator()
-    decorate_function(name="sides", decorator=d)
+    capture <- list()
+    decorate_function("sides", onexit=function(info) {
+        capture <<- info
+    })
 
     p <- new("Polygon", sides=4L)
     t <- new("Triangle")
 
     sides(p)
-    sides(t)
+    with(capture, {
+        expect_equal(name, "sides")
+        expect_equal(args$object, quote(p))
+        expect_equal(decorator, "onexit")
+    })
 
-    traces <- copy_traces()
-    expect_equal(length(traces), 2)
-    expect_equal(traces[[1]]$globals$p, p)
-    expect_equal(traces[[1]]$retv, 4)
-    expect_equal(traces[[2]]$globals$t, t)
-    expect_equal(traces[[2]]$retv, 3)
+    capture <- list()
+    sides(t)
+    with(capture, {
+        expect_equal(name, "sides")
+        expect_equal(args$object, quote(t))
+        expect_equal(decorator, "onexit")
+    })
 })
 
-1
-## ## # TODO: test that we cannot decorate builtins
-
-## ## # TODO: test imported namespaces
-
-## ## # TODO: test decorations

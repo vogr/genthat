@@ -1,7 +1,14 @@
-# Default function entry decorator.
-# Creates the trace record and stores it into the trace vector.
-record_trace <- function(name, pkg=NULL, args, retv, error, seed,
-                        env=parent.frame(), tracer=get_tracer()) {
+#' @export
+record_trace <- function(info) {
+
+    name <- info$name
+    package <- info$package
+    args <- info$args
+    retv <- info$retv
+    error <- info$error
+    seed <- info$seed
+    env <- if (is.null(info$env)) parent.frame() else info$env
+    tracer <- if (is.null(info$tracer)) get_tracer() else info$tracer
 
     # TODO: (performance) all this makes sense only if there are symbols anywhere in args
     # get callee globals (free variables) that we need to capture
@@ -33,6 +40,7 @@ record_trace <- function(name, pkg=NULL, args, retv, error, seed,
             # in the parent frame
             tmp_name <- names(args)[[1]]
             value_name <- names(args)[[length(args)]]
+            # TODO: this should be just -1
             call_env <- sys.frame(sys.nframe() - 1)
 
             # we are trying to get the *tmp*
@@ -53,11 +61,11 @@ record_trace <- function(name, pkg=NULL, args, retv, error, seed,
         globals <- as.list(environment(extract_closure(callee)), all.names=TRUE)
         globals <- lapply(globals, duplicate_global_var)
 
-        create_trace(name, pkg, args=args, globals=globals, retv=retv, seed=seed, error=error)
+        create_trace(name, package, args=args, globals=globals, retv=retv, seed=seed, error=error)
     }, error=function(e) {
-        create_trace(name, pkg, args=args, failure=e)
+        create_trace(name, package, args=args, failure=e)
     }, warning=function(e) {
-        create_trace(name, pkg, args=args, failure=e)
+        create_trace(name, package, args=args, failure=e)
     })
 
     store_trace(tracer, trace)
@@ -182,17 +190,17 @@ get_symbol_values <- function(names, env=parent.frame(), include_base_symbols=FA
 }
 
 get_variable_value_or_reference <- function(name, env) {
-    pkg <- get_package_name(env)
+    package <- get_package_name(env)
 
     if (is_base_env(env)) {
         substitute(NAME, list(NAME=as.name(name)))
     } else if (is_package_environment(env)) {
-        substitute(PKG::NAME, list(PKG=as.name(pkg), NAME=as.name(name)))
+        substitute(PACKAGE::NAME, list(PACKAGE=as.name(package), NAME=as.name(name)))
     } else if (is_package_namespace(env)) {
         if (name %in% getNamespaceExports(env)) {
-            substitute(PKG::NAME, list(PKG=as.name(pkg), NAME=as.name(name)))
+            substitute(PACKAGE::NAME, list(PACKAGE=as.name(package), NAME=as.name(name)))
         } else {
-            substitute(PKG:::NAME, list(PKG=as.name(pkg), NAME=as.name(name)))
+            substitute(PACKAGE:::NAME, list(PACKAGE=as.name(package), NAME=as.name(name)))
         }
     } else {
         get(name, envir=env, inherits=FALSE)
@@ -276,7 +284,10 @@ extract_closure <- function(fun, name=substitute(fun), .visited=list()) {
                     # we should only link the environments in the case it is necessary
                     # i.e. any of the global functions need access to this environment
                     # the idea is demonstrated in the test-capture.R
-                    link_environments(e, .fun_filter=function(x) is.local_closure(x) && isTRUE(attr(x, "genthat_needs_link")))
+                    link_environments(e, .fun_filter=function(x) {
+                        is.local_closure(x) && isTRUE(attr(x, "genthat_needs_link"))
+                    })
+
                     e
                 }
 

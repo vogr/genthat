@@ -10,9 +10,13 @@ gen_from_package(path, from = NULL, types = c("examples", "tests",
 \arguments{
 \item{path}{file path to the package.}
 
-\item{from}{a character vector indicating which package(s) code shall be used
-to extract the code from. Default `NULL` stands for the package in
-`path`.}
+\item{from}{a character vector of package names, from which code shall be
+used to extract the code from. Default \code{NULL} stands for the package
+in `path`. For non-\code{NULL} values, the packages shall be installed
+with the appropriate options, i.e. \code{INSTALL_opts('--example',
+'--install-tests)} in order to contain the required code. For
+\code{NULL}, the package will be installed with the appropriate options
+based on the \code{types}.}
 
 \item{types}{which code artifacts to run from the `from` packages,
 'examples', 'tests', 'vignettes' or 'all'}

@@ -4,19 +4,18 @@ test_that("tracing control work", {
     capture <- list()
 
     f <- function(x,y) x + y
-    decorate_function(f, record_fun=function(...) capture <<- list(...))
+    decorate_function(f, onexit=function(info) capture <<- info)
 
     disable_tracing()
     f(1L, 2L)
 
     expect_equal(is_tracing_enabled(), FALSE)
-    expect_equal(length(capture), 0L)
+    expect_length(capture, 0L)
 
     enable_tracing()
     f(1L, 2L)
 
     expect_equal(is_tracing_enabled(), TRUE)
-    expect_equal(length(capture), 6L)
     expect_equal(capture$retv, 3L)
 })
 

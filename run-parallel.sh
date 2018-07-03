@@ -2,7 +2,7 @@
 set -e
 
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 <package-list>"
+    echo "Usage: $0 <package-name|package-list-file>"
     exit 1
 fi
 

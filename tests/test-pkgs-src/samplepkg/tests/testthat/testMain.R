@@ -46,7 +46,6 @@ test_that("indirect call with two closures", {
 
 test_that("warnings", {
     expect_warning(my_warning())
-    ## expect_equal(my_warning(), "my warning")
 })
 
 test_that("errors", {
