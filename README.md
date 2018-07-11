@@ -21,67 +21,13 @@ library(devtools)
 install_github('PRL-PRG/genthat')
 ```
 
-Or download the sources and build manually. If you're running R on Windows, you need to install Rtools.
+Or download the sources and build manually.
 
 Usage
 -----
 
-```r
-library("genthat")
-library("somePackage")
+Look for the [genthat overview](https://htmlpreview.github.io/?https://raw.githubusercontent.com/fikovnik/ISSTA18-artifact/master/overview.html)
 
-fn1 <- function(a) { a + 1 }
-fn2 <- function(b) { b + 2 }
-
-# STEP 1 - Decorate one or more functions so that calls to it are recorded.
-
-# a) create a traced version of a function (the original is not affected)
-fn1 <- decorate_functions(fn1)
-# b) decorate a function bound in an environment
-decorate_functions("fn2", env = environment())
-#    same as
-decorate_functions("fn2") # `env=environment()` is the default
-# c) decorate a function exported from a package
-decorate_functions("exported_fn1", "exported_fn2", package = "somePackage")
-# d) decorate all the functions a package exports
-decorate_functions(package = "somePackage")
-# e) decorate all the functions in a package including non-exported ones
-decorate_functions(package = "somePackage", include_hidden = TRUE)
-
-# STEP 2 - Call some code that calls the decorated functions (this will generate the traces).
-
-fn1(42)
-fn2(69)
-# utility function to run code accompanying the package
-run_package("somePackage", include_tests = TRUE, include_vignettes = TRUE, include_man_pages = TRUE)
-
-# STEP 3 - Undecorate all the functions.
-
-undecorate_all()
-
-# STEP 4 - The traces were stored internally and are made available through an iterable interface.
-
-# a) Iterate over the traces.
-traces <- genthat::traces
-while (traces$has_next()) {
-    trace <- traces$get_next()
-    print(trace)
-}
-# b) Generate regression tests from the traces. *
-gen_tests(output_dir = "./genthat_tests")
-
-# *) In this case it wouldn't generate anything as all the traces were consumed by the while loop.
-
-```
-Alternatively we provide wrapper functions that cover the most common usecases.
-
-```r
-library("genthat")
-
-# This call will:
-# 1) decorate all the functions defined in the package (exported & hidden)
-# 2) run the tests in the package
-# 3) generate new tests from the traces
-gen_from_package("/path/to/some-package", include_tests = TRUE,  output_dir = "./genthat_tests")
-```
-
+More resources:
+- [ISSTA'18 paper](http://janvitek.org/pubs/issta18.pdf)
+- [ISSTA'18 artifact](https://github.com/fikovnik/ISSTA18-artifact)
