@@ -349,9 +349,12 @@ public:
             // all the primitive vectors should be serialized by SEXP deparse1(SEXP call, Rboolean abbrev, int opts)
             StringVector deparsed = Rf_deparse1(s, FALSE, KEEPINTEGER | KEEPNA | DIGITS16);
             string res = concatenate(deparsed, "\n");
-            string res_with_attributes = wrap_in_attributes(s, res);
-
-            return res_with_attributes;
+            if (res.length() > 512) {
+                return serialize_binary(s);
+            } else {
+                string res_with_attributes = wrap_in_attributes(s, res);
+                return res_with_attributes;
+            }
         }
         case SYMSXP: {
             RObject protected_s(s);
