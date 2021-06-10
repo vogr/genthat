@@ -85,23 +85,40 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         globals <- generate_globals(trace$globals, serializer)
         retv <- serializer$serialize_value(trace$retv)
 
-        header <- "library(testthat)\n\n"
+        header <- paste0(
+            "argv <- commandArgs(trailingOnly=TRUE)\n",
+            "dest <- if(length(argv) > 0) file(argv[[1]], open=\"wb\") else raw()",
+            "library(", trace$pkg, ")\n\n",
+            "warmup_times <- double(10)\n",
+            "bench_times <- double(10)\n"
+        )
         if (include_trace_dump) {
             header <- paste(header, dump_raw_trace(trace), sep="\n")
         }
 
-        if (!is.null(trace$seed)) {
+        footer <- paste0(
+            "writeBin(c(warmup_times, bench_times), dest)\n"
+        )
+
+        #if (!is.null(trace$seed)) {
             # .Random.seed is only looked in user environment
-            header <- paste0(header, ".Random.seed <<- .ext.seed\n\n")
-            externals$.ext.seed <- trace$seed
-        }
+        #    header <- paste0(header, ".Random.seed <<- .ext.seed\n\n")
+        #    externals$.ext.seed <- trace$seed
+        #}
 
         code <- paste0(
-            header,
-            'test_that("', trace$fun, '", {\n',
-            globals,
-            if (nchar(globals) > 0) '\n' else '',
-            '\nexpect_equal(', call, ', ', retv, ')\n})'
+            header, "\n",
+            'for (i in 1:10) {\n',
+                "t0  <- Sys.time()\n",
+                call, "\n",
+                "warmup_times[[i]] <- Sys.time() - t0\n",
+            "}\n",
+            'for (i in 1:10) {\n',
+                "t0  <- Sys.time()\n",
+                call, "\n",
+                "runtime[[i]] <- Sys.time() - t0\n",
+            "}\n",
+            footer
         )
 
         if (format_code) {
