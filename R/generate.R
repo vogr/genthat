@@ -85,19 +85,25 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         globals <- generate_globals(trace$globals, serializer)
         retv <- serializer$serialize_value(trace$retv)
 
+        n_runs = 50
+
         header <- paste0(
             "argv <- commandArgs(trailingOnly=TRUE)\n",
-            "dest <- if(length(argv) > 0) file(argv[[1]], open=\"wb\") else raw()",
             "library(", trace$pkg, ")\n\n",
-            "warmup_times <- double(10)\n",
-            "bench_times <- double(10)\n"
+            "n_runs <- 50",
+            "times <- double(n_runs)\n"
         )
+        
         if (include_trace_dump) {
             header <- paste(header, dump_raw_trace(trace), sep="\n")
         }
 
         footer <- paste0(
-            "writeBin(c(warmup_times, bench_times), dest)\n"
+            "if(length(argv) > 0) { \n",
+            "saveRDS(times, argv[[1]])\n",
+            "} else {\n",
+            "print(times)\n",
+            "}\n"
         )
 
         #if (!is.null(trace$seed)) {
@@ -108,15 +114,10 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
 
         code <- paste0(
             header, "\n",
-            'for (i in 1:10) {\n',
+            'for (i in 1:n_runs) {\n',
                 "t0  <- Sys.time()\n",
                 call, "\n",
-                "warmup_times[[i]] <- Sys.time() - t0\n",
-            "}\n",
-            'for (i in 1:10) {\n',
-                "t0  <- Sys.time()\n",
-                call, "\n",
-                "runtime[[i]] <- Sys.time() - t0\n",
+                "times[[i]] <- Sys.time() - t0\n",
             "}\n",
             footer
         )
