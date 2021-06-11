@@ -90,7 +90,7 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         header <- paste0(
             "argv <- commandArgs(trailingOnly=TRUE)\n",
             "library(", trace$pkg, ")\n\n",
-            "n_runs <- 50",
+            "n_runs <- 50\n",
             "times <- double(n_runs)\n"
         )
         
