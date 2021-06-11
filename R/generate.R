@@ -131,6 +131,8 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
 
         code
     }, error=function(e) {
+        log_debug("Failed to generate_test:")
+        log_debug(e$message)
         # this so we can have a systematic prefix for the error message
         # which helps to filter problems by their class
         stop(simpleError(paste("Generate error:", trimws(e$message, which="both")), e$call))
