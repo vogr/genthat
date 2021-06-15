@@ -77,46 +77,59 @@ generate_test <- function(trace, ...) {
 }
 
 #' @export
-generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_code=TRUE) {
+generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump=FALSE, format_code=TRUE) {
     tryCatch({
-        externals <- new.env(parent=emptyenv())
         serializer <- new(Serializer)
         call <- generate_call(trace, serializer)
         globals <- generate_globals(trace$globals, serializer)
         retv <- serializer$serialize_value(trace$retv)
+        externals <- new.env(parent=emptyenv())
+
+        # .Random.seed is only looked in user environment
+        externals$.ext.seed <- trace$seed
 
         header <- paste0(
             "library(", trace$pkg, ")\n\n",
             "argv <- commandArgs(trailingOnly=TRUE)\n",
-            "n_iterations <- 50\n",
-            "times <- double(n_iterations)\n"
+            "test_env <- readRDS(\"", dest_basename, ".ext\")\n",
+            "parent.env(test_env) <- baseenv()\n"
         )
         
-        if (include_trace_dump) {
-            header <- paste(header, dump_raw_trace(trace), sep="\n")
-        }
 
-        footer <- paste0(
-            "if(length(argv) > 0) { \n",
-            "saveRDS(times, argv[[1]])\n",
-            "} else {\n",
-            "print(times)\n",
-            "}\n"
-        )
 
-        #if (!is.null(trace$seed)) {
-            # .Random.seed is only looked in user environment
-        #    header <- paste0(header, ".Random.seed <<- .ext.seed\n\n")
-        #    externals$.ext.seed <- trace$seed
-        #}
-
-        code <- paste0(
-            header, "\n",
+        inner <- paste0(
+            '.Random.seed <<- .ext.seed\n\n',
+            "n_iterations <- 50\n",
+            "times <- double(n_iterations)\n",
+            globals, if (nchar(globals) > 0) '\n' else '',
             'for (i in 1:n_iterations) {\n',
                 "t0  <- Sys.time()\n",
                 call, "\n",
                 "times[[i]] <- Sys.time() - t0\n",
             "}\n",
+            "times"
+        )
+
+        if (include_trace_dump) {
+            inner <- paste(dump_raw_trace(trace), sep="\n")
+        }
+
+
+        footer <- paste0(
+            "if(length(argv) > 0) { \n",
+            "saveRDS(times, argv[[1]])\n",
+            "} else {\n",
+            "times\n",
+            "}\n"
+        )
+
+        code <- paste0(
+            header, "\n",
+            'times <- with(test_env,\n',
+            '{\n',
+            inner,
+            "}\n",
+            ')\n',
             footer
         )
 
@@ -125,6 +138,7 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         }
 
         serializer$externals(externals)
+
         attr(code, "externals") <- externals
 
         code
@@ -157,29 +171,37 @@ generate_test.genthat_trace_failure <- function(trace, ...) {
     stop(paste("Trace error:", trace$failure$message))
 }
 
+get_dest_basename <- function(pkg, fun, output_dir) {
+    stopifnot(is_chr_scalar(pkg))
+    stopifnot(is_chr_scalar(fun))
+    stopifnot(is_chr_scalar(output_dir))
+    dname <- file.path(output_dir, pkg, fun)
+
+    R_fname <- next_file_in_row(file.path(dname, "test.R"))
+    tools::file_path_sans_ext(R_fname)
+}
+
+
 #' @param tests this should be a data.frame with class genthat_tests, a result
 #'     from calling `generate_tests`.
 #' @export
 #'
-save_test <- function(pkg, fun, code, output_dir) {
-    stopifnot(is_chr_scalar(pkg))
-    stopifnot(is_chr_scalar(fun))
-    stopifnot(is.character(code), length(code) > 0)
-    stopifnot(is_chr_scalar(output_dir))
+save_test <- function(dest_basename, code) {
 
-    dname <- file.path(output_dir, pkg, fun)
+    stopifnot(is.character(code), length(code) > 0)
+
+    dname <- dirname(dest_basename)
     stopifnot(dir.exists(dname) || dir.create(dname, recursive=TRUE))
 
-    fname <- next_file_in_row(file.path(dname, "test.R"))
+    fname <- paste0(dest_basename, ".R")
 
     externals <- attr(code, "externals")
     if (length(externals) > 0) {
-        fname_ext <- paste0(tools::file_path_sans_ext(fname), ".ext")
+        fname_ext <- paste0(dest_basename, ".ext")
         saveRDS(externals, fname_ext)
     }
 
     write(paste(code, collapse="\n\n"), file=fname)
-
     fname
 }
 
@@ -215,10 +237,12 @@ reformat_code <- function(code) {
 #' @export
 #'
 generate_test_file <- function(trace, output_dir, ...) {
-    code <- generate_test(trace, ...)
-
     pkg <- if (is.null(trace$pkg)) "_NULL_" else trace$pkg
     fun <- if (is.null(trace$fun)) "_NULL_" else trace$fun
+    
+    dest_basename <- get_dest_basename(pkg, fun, output_dir)
 
-    save_test(pkg, fun, code, output_dir)
+    code <- generate_test(trace, dest_basename, ...)
+
+    save_test(dest_basename, code)
 }
