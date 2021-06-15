@@ -85,13 +85,11 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
         globals <- generate_globals(trace$globals, serializer)
         retv <- serializer$serialize_value(trace$retv)
 
-        n_runs = 50
-
         header <- paste0(
-            "argv <- commandArgs(trailingOnly=TRUE)\n",
             "library(", trace$pkg, ")\n\n",
-            "n_runs <- 50\n",
-            "times <- double(n_runs)\n"
+            "argv <- commandArgs(trailingOnly=TRUE)\n",
+            "n_iterations <- 50\n",
+            "times <- double(n_iterations)\n"
         )
         
         if (include_trace_dump) {
@@ -114,7 +112,7 @@ generate_test.genthat_trace <- function(trace, include_trace_dump=FALSE, format_
 
         code <- paste0(
             header, "\n",
-            'for (i in 1:n_runs) {\n',
+            'for (i in 1:n_iterations) {\n',
                 "t0  <- Sys.time()\n",
                 call, "\n",
                 "times[[i]] <- Sys.time() - t0\n",

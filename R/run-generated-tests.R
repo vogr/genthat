@@ -10,7 +10,7 @@ test_generated_file <- function(test) {
         testthat::test_env()
     }
 
-    testthat::test_file(test, reporter="stop", env=env)
+    source(test, local=env)
 }
 
 #' @export
@@ -28,11 +28,11 @@ run_generated_test <- function(tests, quiet=TRUE) {
                 cat("Running ", test, "... ")
             }
 
-            time <- stopwatch(res <- test_generated_file(test))
+            time <- stopwatch(test_generated_file(test))
 
-            if (length(res) == 0) {
-                stop("testthat::test_file result was empty")
-            }
+            #if (length(res) == 0) {
+            #    stop("testthat::test_file result was empty")
+            #}
 
             time <- as.numeric(time, units="secs")
 
@@ -44,6 +44,7 @@ run_generated_test <- function(tests, quiet=TRUE) {
         }, error=function(e) {
             if (!quiet) {
                 cat("FAILED\n")
+                message(e$message)
             }
 
             as_chr_scalar(e$message)
