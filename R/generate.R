@@ -86,33 +86,28 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
         externals <- new.env(parent=emptyenv())
 
         # .Random.seed is only looked in user environment
-        externals$.ext.seed <- trace$seed
+        # externals$.ext.seed <- trace$seed
 
         header <- paste0(
             "library(", trace$pkg, ")\n\n",
             "argv <- commandArgs(trailingOnly=TRUE)\n",
-            "test_env <- readRDS(\"", dest_basename, ".ext\")\n",
-            "parent.env(test_env) <- baseenv()\n"
+            "n_iterations <- 50\n",
+            "times <- double(n_iterations)\n",
+            globals, if (nchar(globals) > 0) '\n' else ''
         )
-        
+
+        if (include_trace_dump) {
+            header <- paste(header, dump_raw_trace(trace), sep="\n")
+        }
 
 
         inner <- paste0(
-            '.Random.seed <<- .ext.seed\n\n',
-            "n_iterations <- 50\n",
-            "times <- double(n_iterations)\n",
-            globals, if (nchar(globals) > 0) '\n' else '',
             'for (i in 1:n_iterations) {\n',
                 "t0  <- Sys.time()\n",
                 call, "\n",
                 "times[[i]] <- Sys.time() - t0\n",
-            "}\n",
-            "times"
+            "}\n"
         )
-
-        if (include_trace_dump) {
-            inner <- paste(dump_raw_trace(trace), sep="\n")
-        }
 
 
         footer <- paste0(
@@ -125,11 +120,7 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
 
         code <- paste0(
             header, "\n",
-            'times <- with(test_env,\n',
-            '{\n',
-            inner,
-            "}\n",
-            ')\n',
+            inner, "\n",
             footer
         )
 
@@ -138,7 +129,6 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
         }
 
         serializer$externals(externals)
-
         attr(code, "externals") <- externals
 
         code
