@@ -92,19 +92,25 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
             "library(", trace$pkg, ")\n\n",
             "argv <- commandArgs(trailingOnly=TRUE)\n",
             "n_iterations <- 50\n",
-            "times <- double(n_iterations)\n",
-            globals, if (nchar(globals) > 0) '\n' else ''
+            "times <- double(n_iterations)\n"
         )
 
         if (include_trace_dump) {
             header <- paste(header, dump_raw_trace(trace), sep="\n")
         }
 
-
-        inner <- paste0(
-            'for (i in 1:n_iterations) {\n',
-                "t0  <- Sys.time()\n",
+        fun <- paste0(
+            "function_to_run <- function() {\n",
+                globals, if (nchar(globals) > 0) '\n' else '',
                 call, "\n",
+            "}\n"
+        )
+
+        loop <- paste0(
+            'for (i in 1:n_iterations) {\n',
+                globals, if (nchar(globals) > 0) '\n' else '',
+                "t0  <- Sys.time()\n",
+                "function_to_run()\n",
                 "times[[i]] <- Sys.time() - t0\n",
             "}\n"
         )
@@ -112,15 +118,16 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
 
         footer <- paste0(
             "if(length(argv) > 0) { \n",
-            "saveRDS(times, argv[[1]])\n",
+                "saveRDS(times, argv[[1]])\n",
             "} else {\n",
-            "times\n",
+                "times\n",
             "}\n"
         )
 
         code <- paste0(
             header, "\n",
-            inner, "\n",
+            fun, "\n",
+            loop, "\n",
             footer
         )
 
