@@ -10,7 +10,7 @@ test_generated_file <- function(test) {
         testthat::test_env()
     }
 
-    message("* Will run test file ", test)
+    log_debug("* Will run test file ", test)
 
     capture.output(r <- source(test, local=env))
     r

@@ -108,7 +108,6 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
 
         loop <- paste0(
             'for (i in 1:n_iterations) {\n',
-                globals, if (nchar(globals) > 0) '\n' else '',
                 "t0  <- Sys.time()\n",
                 "function_to_run()\n",
                 "times[[i]] <- Sys.time() - t0\n",

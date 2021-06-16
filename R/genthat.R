@@ -290,7 +290,7 @@ trace_package <- function(pkgs, files_to_run,
     })
 
     run_file <- function(fname) {
-        log_debug("Running file", fname, " ...")
+        log_debug("Running file ", fname, " ...")
 
         env <- c()
         site_file <- NULL
