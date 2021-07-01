@@ -87,7 +87,7 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
 
         # .Random.seed is only looked in user environment
         externals$.ext.seed <- trace$seed
-        ext_file <- paste0(dest_basename, ".ext")
+        ext_file <- basename(paste0(dest_basename, ".ext"))
 
         header <- paste0(
             "set.seed(1)\n",
