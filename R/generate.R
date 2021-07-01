@@ -86,13 +86,21 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
         externals <- new.env(parent=emptyenv())
 
         # .Random.seed is only looked in user environment
-        # externals$.ext.seed <- trace$seed
+        externals$.ext.seed <- trace$seed
+        ext_file <- paste0(dest_basename, ".ext")
 
         header <- paste0(
-            "library(", trace$pkg, ")\n\n",
+            "set.seed(1)\n",
+            "env <- if (file.exists(\"", ext_file, "\")) {\n",
+                "readRDS(\"", ext_file, "\")\n",
+                "} else {\n",
+                "list(.ext.seed=.Random.seed)\n",
+            "}\n",
             "argv <- commandArgs(trailingOnly=TRUE)\n",
-            "n_iterations <- 50\n",
-            "times <- double(n_iterations)\n"
+            "n_iterations <- 200\n",
+            "times <- double(n_iterations)\n",
+            "retv <-", retv, "\n",
+            "library(", trace$pkg, ")\n\n"
         )
 
         if (include_trace_dump) {
@@ -107,10 +115,13 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
         )
 
         loop <- paste0(
-            'for (i in 1:n_iterations) {\n',
+            "for (i in 1:n_iterations) {\n",
+                ".Random.seed <<- env$.ext.seed\n",
                 "t0  <- Sys.time()\n",
-                "function_to_run()\n",
+                "res <- function_to_run()\n",
                 "times[[i]] <- Sys.time() - t0\n",
+                "if (! isTRUE(all.equal(res, retv)))\n",
+                    "stop(\"Unexpected result\\n\", res, \"\\nexpected\\n\", retv)\n",
             "}\n"
         )
 
