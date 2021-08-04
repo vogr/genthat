@@ -82,24 +82,14 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
         serializer <- new(Serializer)
         call <- generate_call(trace, serializer)
         globals <- generate_globals(trace$globals, serializer)
-        retv <- serializer$serialize_value(trace$retv)
         externals <- new.env(parent=emptyenv())
 
-        # .Random.seed is only looked in user environment
+        # Save seed and retv in the datafile
         externals$.ext.seed <- trace$seed
-        ext_file <- basename(paste0(dest_basename, ".ext"))
+        externals$.ext.retv <- trace$retv
+        #ext_file <- basename(paste0(dest_basename, ".ext"))
 
         header <- paste0(
-            "set.seed(1)\n",
-            "env <- if (file.exists(\"", ext_file, "\")) {\n",
-                "readRDS(\"", ext_file, "\")\n",
-                "} else {\n",
-                "list(.ext.seed=.Random.seed)\n",
-            "}\n",
-            "argv <- commandArgs(trailingOnly=TRUE)\n",
-            "n_iterations <- 200\n",
-            "times <- double(n_iterations)\n",
-            "retv <-", retv, "\n",
             "library(", trace$pkg, ")\n\n"
         )
 
@@ -113,32 +103,31 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
                 call, "\n",
             "}\n"
         )
+        
+        # loop <- paste0(
+        #     "for (i in 1:n_iterations) {\n",
+        #         ".Random.seed <<- env$.ext.seed\n",
+        #         "t0  <- Sys.time()\n",
+        #         "res <- function_to_run()\n",
+        #         "times[[i]] <- Sys.time() - t0\n",
+        #         "if (! isTRUE(all.equal(res, retv)))\n",
+        #             "stop(\"Unexpected result\\n\", res, \"\\nexpected\\n\", retv)\n",
+        #     "}\n"
+        # )
+        
 
-        loop <- paste0(
-            "for (i in 1:n_iterations) {\n",
-                ".Random.seed <<- env$.ext.seed\n",
-                "t0  <- Sys.time()\n",
-                "res <- function_to_run()\n",
-                "times[[i]] <- Sys.time() - t0\n",
-                "if (! isTRUE(all.equal(res, retv)))\n",
-                    "stop(\"Unexpected result\\n\", res, \"\\nexpected\\n\", retv)\n",
-            "}\n"
-        )
 
-
-        footer <- paste0(
-            "if(length(argv) > 0) { \n",
-                "saveRDS(times, argv[[1]])\n",
-            "} else {\n",
-                "times\n",
-            "}\n"
-        )
+        # footer <- paste0(
+        #     "if(length(argv) > 0) { \n",
+        #         "saveRDS(times, argv[[1]])\n",
+        #     "} else {\n",
+        #         "times\n",
+        #     "}\n"
+        # )
 
         code <- paste0(
             header, "\n",
-            fun, "\n",
-            loop, "\n",
-            footer
+            fun, "\n"
         )
 
         if (format_code) {
