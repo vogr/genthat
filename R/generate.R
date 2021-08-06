@@ -84,9 +84,10 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
         globals <- generate_globals(trace$globals, serializer)
         externals <- new.env(parent=emptyenv())
 
+        # retv and seed are now generated in a second run.
         # Save seed and retv in the datafile
-        externals$.ext.seed <- trace$seed
-        externals$.ext.retv <- trace$retv
+        #externals$.ext.seed <- trace$seed
+        #externals$.ext.retv <- trace$retv
         #ext_file <- basename(paste0(dest_basename, ".ext"))
 
         header <- paste0(
@@ -104,27 +105,6 @@ generate_test.genthat_trace <- function(trace, dest_basename, include_trace_dump
             "}\n"
         )
         
-        # loop <- paste0(
-        #     "for (i in 1:n_iterations) {\n",
-        #         ".Random.seed <<- env$.ext.seed\n",
-        #         "t0  <- Sys.time()\n",
-        #         "res <- function_to_run()\n",
-        #         "times[[i]] <- Sys.time() - t0\n",
-        #         "if (! isTRUE(all.equal(res, retv)))\n",
-        #             "stop(\"Unexpected result\\n\", res, \"\\nexpected\\n\", retv)\n",
-        #     "}\n"
-        # )
-        
-
-
-        # footer <- paste0(
-        #     "if(length(argv) > 0) { \n",
-        #         "saveRDS(times, argv[[1]])\n",
-        #     "} else {\n",
-        #         "times\n",
-        #     "}\n"
-        # )
-
         code <- paste0(
             header, "\n",
             fun, "\n"
